@@ -89,7 +89,7 @@ async function generateBoardImage(joueurs, plateau, client) {
     if (plateau && plateau.position_etoile) {
         const etoileCase = getCase(plateau.position_etoile);
         if (etoileCase) {
-            drawStar(ctx, etoileCase.x, etoileCase.y - 60, 5, 25, 12, '#FFD700', '#000000');
+            drawStar(ctx, etoileCase.x + 45, etoileCase.y - 60, 5, 25, 12, '#FFD700', '#000000');
         }
     }
 
@@ -115,7 +115,7 @@ async function generateBoardImage(joueurs, plateau, client) {
             const joueur = joueursSurCase[i];
             
             const radius = 30; // 60x60 pixels
-            let px = c.x;
+            let px = c.x + 45; // Décalage vers la droite pour centrer sur la case (car x,y est le coin supérieur gauche de la case)
             let py = c.y - 45; // Décalage vers le haut pour être au-dessus de la case
 
             if (joueursSurCase.length === 2) {
