@@ -89,7 +89,7 @@ async function generateBoardImage(joueurs, plateau, client) {
     if (plateau && plateau.position_etoile) {
         const etoileCase = getCase(plateau.position_etoile);
         if (etoileCase) {
-            drawStar(ctx, etoileCase.x, etoileCase.y - 40, 5, 25, 12, '#FFD700', '#000000');
+            drawStar(ctx, etoileCase.x, etoileCase.y - 60, 5, 25, 12, '#FFD700', '#000000');
         }
     }
 
@@ -116,7 +116,7 @@ async function generateBoardImage(joueurs, plateau, client) {
             
             const radius = 30; // 60x60 pixels
             let px = c.x;
-            let py = c.y;
+            let py = c.y - 45; // Décalage vers le haut pour être au-dessus de la case
 
             if (joueursSurCase.length === 2) {
                 // 2 joueurs : côte à côte

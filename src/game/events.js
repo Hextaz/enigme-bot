@@ -183,9 +183,9 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
             if (poseur) {
                 poseur.pieces += montantVole;
                 await poseur.save();
-                messageAction += `\n💥 **PIÈGE !** **<@${interaction.user.id}>** tombe sur un piège à pièces et perd ${montantVole} pièces ! *(Reste: ${joueur.pieces} 🪙 | <@${poseur.discord_id}> a maintenant ${poseur.pieces} 🪙)*`;
+                messageAction += `\n💥 **PIÈGE !** **${interaction.user.username}** tombe sur un piège à pièces et perd ${montantVole} pièces ! *(Reste: ${joueur.pieces} 🪙 | <@${poseur.discord_id}> a maintenant ${poseur.pieces} 🪙)*`;
             } else {
-                messageAction += `\n💥 **PIÈGE !** **<@${interaction.user.id}>** tombe sur un piège à pièces et perd ${montantVole} pièces ! *(Reste: ${joueur.pieces} 🪙)*`;
+                messageAction += `\n💥 **PIÈGE !** **${interaction.user.username}** tombe sur un piège à pièces et perd ${montantVole} pièces ! *(Reste: ${joueur.pieces} 🪙)*`;
             }
         } else if (piegeDeclenche.type === 'etoile') {
             const poseur = await Joueur.findByPk(piegeDeclenche.poseur);
@@ -194,12 +194,12 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
                 if (poseur) {
                     poseur.etoiles += 1;
                     await poseur.save();
-                    messageAction += `\n💥 **PIÈGE !** **<@${interaction.user.id}>** tombe sur un piège à Étoile et perd 1 Étoile ! *(Reste: ${joueur.etoiles} ⭐ | <@${poseur.discord_id}> a maintenant ${poseur.etoiles} ⭐)*`;
+                    messageAction += `\n💥 **PIÈGE !** **${interaction.user.username}** tombe sur un piège à Étoile et perd 1 Étoile ! *(Reste: ${joueur.etoiles} ⭐ | <@${poseur.discord_id}> a maintenant ${poseur.etoiles} ⭐)*`;
                 } else {
-                    messageAction += `\n💥 **PIÈGE !** **<@${interaction.user.id}>** tombe sur un piège à Étoile et perd 1 Étoile ! *(Reste: ${joueur.etoiles} ⭐)*`;
+                    messageAction += `\n💥 **PIÈGE !** **${interaction.user.username}** tombe sur un piège à Étoile et perd 1 Étoile ! *(Reste: ${joueur.etoiles} ⭐)*`;
                 }
             } else {
-                messageAction += `\n💥 **PIÈGE !** **<@${interaction.user.id}>** tombe sur un piège à Étoile mais n'a pas d'Étoile à voler !`;
+                messageAction += `\n💥 **PIÈGE !** **${interaction.user.username}** tombe sur un piège à Étoile mais n'a pas d'Étoile à voler !`;
             }
         }
     }
@@ -207,10 +207,10 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
     if (!piegeDeclenche) {
         if (caseArrivee.type === 'Bleue') {
             joueur.pieces += 3;
-            messageAction += `\n**<@${interaction.user.id}>** gagne 3 pièces ! 💰 *(Total: ${joueur.pieces} 🪙)*`;
+            messageAction += `\n**${interaction.user.username}** gagne 3 pièces ! 💰 *(Total: ${joueur.pieces} 🪙)*`;
         } else if (caseArrivee.type === 'Rouge') {
             joueur.pieces = Math.max(0, joueur.pieces - 3);
-            messageAction += `\n**<@${interaction.user.id}>** perd 3 pièces ! 💸 *(Reste: ${joueur.pieces} 🪙)*`;
+            messageAction += `\n**${interaction.user.username}** perd 3 pièces ! 💸 *(Reste: ${joueur.pieces} 🪙)*`;
         } else if (caseArrivee.type === 'Chance') {
             const gains = [
                 { type: 'pieces', val: 5, msg: '+5 pièces' },
@@ -223,16 +223,16 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
             
             if (gain.type === 'pieces') {
                 joueur.pieces += gain.val;
-                messageAction += `\n🍀 **Chance !** **<@${interaction.user.id}>** gagne ${gain.msg} ! *(Total: ${joueur.pieces} 🪙)*`;
+                messageAction += `\n🍀 **Chance !** **${interaction.user.username}** gagne ${gain.msg} ! *(Total: ${joueur.pieces} 🪙)*`;
             } else if (gain.type === 'objet') {
                 const { ITEMS } = require('./items');
                 const standardItems = Object.values(ITEMS).filter(i => !i.sundayOnly);
                 const randomItem = standardItems[Math.floor(Math.random() * standardItems.length)];
                 if (joueur.inventaire.length < 3) {
                     joueur.inventaire = [...joueur.inventaire, randomItem.name];
-                    messageAction += `\n🍀 **Chance !** **<@${interaction.user.id}>** obtient : ${randomItem.name} !`;
+                    messageAction += `\n🍀 **Chance !** **${interaction.user.username}** obtient : ${randomItem.name} !`;
                 } else {
-                    messageAction += `\n🍀 **Chance !** **<@${interaction.user.id}>** devait obtenir un objet mais son inventaire est plein !`;
+                    messageAction += `\n🍀 **Chance !** **${interaction.user.username}** devait obtenir un objet mais son inventaire est plein !`;
                 }
             } else if (gain.type === 'vol') {
                 const tousLesJoueurs = await Joueur.findAll();
@@ -243,9 +243,9 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
                     cible.pieces -= montantVole;
                     joueur.pieces += montantVole;
                     await cible.save();
-                    messageAction += `\n🍀 **Chance !** **<@${interaction.user.id}>** vole ${montantVole} pièces à <@${cible.discord_id}> ! *(<@${interaction.user.id}> a ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
+                    messageAction += `\n🍀 **Chance !** **${interaction.user.username}** vole ${montantVole} pièces à <@${cible.discord_id}> ! *(${interaction.user.username} a ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
                 } else {
-                    messageAction += `\n🍀 **Chance !** **<@${interaction.user.id}>** voulait voler des pièces mais personne n'en a !`;
+                    messageAction += `\n🍀 **Chance !** **${interaction.user.username}** voulait voler des pièces mais personne n'en a !`;
                 }
             } else if (gain.type === 'sac') {
                 const { ITEMS } = require('./items');
@@ -270,16 +270,16 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
             
             if (perte.type === 'pieces') {
                 joueur.pieces = Math.max(0, joueur.pieces + perte.val);
-                messageAction += `\n🌩️ **Malchance !** **<@${interaction.user.id}>** perd ${Math.abs(perte.val)} pièces ! *(Reste: ${joueur.pieces} 🪙)*`;
+                messageAction += `\n🌩️ **Malchance !** **${interaction.user.username}** perd ${Math.abs(perte.val)} pièces ! *(Reste: ${joueur.pieces} 🪙)*`;
             } else if (perte.type === 'objet') {
                 if (joueur.inventaire.length > 0) {
                     const inv = [...joueur.inventaire];
                     const indexToRemove = Math.floor(Math.random() * inv.length);
                     const removedItem = inv.splice(indexToRemove, 1)[0];
                     joueur.inventaire = inv;
-                    messageAction += `\n🌩️ **Malchance !** **<@${interaction.user.id}>** perd son objet : ${removedItem} !`;
+                    messageAction += `\n🌩️ **Malchance !** **${interaction.user.username}** perd son objet : ${removedItem} !`;
                 } else {
-                    messageAction += `\n🌩️ **Malchance !** **<@${interaction.user.id}>** devait perdre un objet mais son inventaire est vide !`;
+                    messageAction += `\n🌩️ **Malchance !** **${interaction.user.username}** devait perdre un objet mais son inventaire est vide !`;
                 }
             } else if (perte.type === 'de_limite') {
                 joueur.de_limite = true;
@@ -299,7 +299,7 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
                 joueur.position = bowserPos;
                 joueur.pieces = Math.floor(joueur.pieces / 2);
                 joueur.etoiles = Math.max(0, joueur.etoiles - 1);
-                messageAction += `\n🌩️ **Malchance !** **<@${interaction.user.id}>** est téléporté sur la case Bowser (${bowserPos}) ! 🔥 <@${interaction.user.id}> perd la moitié de ses pièces *(Reste: ${joueur.pieces} 🪙)* et 1 étoile *(Reste: ${joueur.etoiles} ⭐)* !`;
+                messageAction += `\n🌩️ **Malchance !** **${interaction.user.username}** est téléporté sur la case Bowser (${bowserPos}) ! 🔥 ${interaction.user.username} perd la moitié de ses pièces *(Reste: ${joueur.pieces} 🪙)* et 1 étoile *(Reste: ${joueur.etoiles} ⭐)* !`;
             }
         } else if (caseArrivee.type === 'Coup du Sort') {
             const events = [
@@ -323,9 +323,9 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
                     joueur.position = cible.position;
                     cible.position = tempPos;
                     await cible.save();
-                    messageAction += `\n🎭 **Coup du Sort !** **<@${interaction.user.id}>** échange sa position avec <@${cible.discord_id}> !`;
+                    messageAction += `\n🎭 **Coup du Sort !** **${interaction.user.username}** échange sa position avec <@${cible.discord_id}> !`;
                 } else {
-                    messageAction += `\n🎭 **Coup du Sort !** **<@${interaction.user.id}>** devait échanger sa position mais personne d'autre n'est sur le plateau !`;
+                    messageAction += `\n🎭 **Coup du Sort !** **${interaction.user.username}** devait échanger sa position mais personne d'autre n'est sur le plateau !`;
                 }
             } else if (evt.type === 'loterie') {
                 const tousLesJoueurs = await Joueur.findAll();
@@ -365,19 +365,19 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
                     const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
                     const deJoueur = Math.floor(Math.random() * 6) + 1;
                     const deCible = Math.floor(Math.random() * 6) + 1;
-                    messageAction += `\n🎭 **Coup du Sort !** Duel de dés contre <@${cible.discord_id}> ! (<@${joueur.discord_id}>: ${deJoueur} 🎲 vs <@${cible.discord_id}>: ${deCible} 🎲)`;
+                    messageAction += `\n🎭 **Coup du Sort !** Duel de dés contre <@${cible.discord_id}> ! (**${interaction.user.username}**: ${deJoueur} 🎲 vs <@${cible.discord_id}>: ${deCible} 🎲)`;
                     if (deJoueur > deCible) {
                         const gain = Math.min(10, cible.pieces);
                         cible.pieces -= gain;
                         joueur.pieces += gain;
                         await cible.save();
-                        messageAction += `\n🏆 <@${joueur.discord_id}> gagne le duel et vole ${gain} pièces ! *(<@${joueur.discord_id}>: ${joueur.pieces} 🪙 | <@${cible.discord_id}>: ${cible.pieces} 🪙)*`;
+                        messageAction += `\n🏆 **${interaction.user.username}** gagne le duel et vole ${gain} pièces ! *(${interaction.user.username}: ${joueur.pieces} 🪙 | <@${cible.discord_id}>: ${cible.pieces} 🪙)*`;
                     } else if (deCible > deJoueur) {
                         const gain = Math.min(10, joueur.pieces);
                         joueur.pieces -= gain;
                         cible.pieces += gain;
                         await cible.save();
-                        messageAction += `\n🏆 <@${cible.discord_id}> gagne le duel et vole ${gain} pièces ! *(<@${cible.discord_id}>: ${cible.pieces} 🪙 | <@${joueur.discord_id}>: ${joueur.pieces} 🪙)*`;
+                        messageAction += `\n🏆 <@${cible.discord_id}> gagne le duel et vole ${gain} pièces ! *(<@${cible.discord_id}>: ${cible.pieces} 🪙 | ${interaction.user.username}: ${joueur.pieces} 🪙)*`;
                     } else {
                         messageAction += `\n🤝 Égalité ! Rien ne se passe.`;
                     }
@@ -393,7 +393,7 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
                     joueur.pieces -= don;
                     cible.pieces += don;
                     await cible.save();
-                    messageAction += `\n🎭 **Coup du Sort !** **<@${interaction.user.id}>** doit donner ${don} pièces à <@${cible.discord_id}> ! *(Reste: ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
+                    messageAction += `\n🎭 **Coup du Sort !** **${interaction.user.username}** doit donner ${don} pièces à <@${cible.discord_id}> ! *(Reste: ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
                 } else {
                     messageAction += `\n🎭 **Coup du Sort !** Don annulé, personne à qui donner.`;
                 }
@@ -406,7 +406,7 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
                     joueur.pieces = cible.pieces;
                     cible.pieces = tempPieces;
                     await cible.save();
-                    messageAction += `\n🎭 **Coup du Sort !** **<@${interaction.user.id}>** échange ses pièces avec <@${cible.discord_id}> ! *(<@${interaction.user.id}> a maintenant ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
+                    messageAction += `\n🎭 **Coup du Sort !** **${interaction.user.username}** échange ses pièces avec <@${cible.discord_id}> ! *(${interaction.user.username} a maintenant ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
                 } else {
                     messageAction += `\n🎭 **Coup du Sort !** Échange annulé, pas d'adversaire.`;
                 }
@@ -419,13 +419,13 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
                     joueur.etoiles = cible.etoiles;
                     cible.etoiles = tempEtoiles;
                     await cible.save();
-                    messageAction += `\n🎭 **Coup du Sort !** **<@${interaction.user.id}>** échange ses étoiles avec <@${cible.discord_id}> ! *(<@${interaction.user.id}> a maintenant ${joueur.etoiles} ⭐ | <@${cible.discord_id}> a ${cible.etoiles} ⭐)*`;
+                    messageAction += `\n🎭 **Coup du Sort !** **${interaction.user.username}** échange ses étoiles avec <@${cible.discord_id}> ! *(${interaction.user.username} a maintenant ${joueur.etoiles} ⭐ | <@${cible.discord_id}> a ${cible.etoiles} ⭐)*`;
                 } else {
                     messageAction += `\n🎭 **Coup du Sort !** Échange annulé, pas d'adversaire.`;
                 }
             }
         } else if (caseArrivee.type === 'Boo') {
-            messageAction += `\n👻 **Boo !** **<@${interaction.user.id}>** est tombé sur Boo ! Regarde tes messages privés pour choisir ta cible.`;
+            messageAction += `\n👻 **Boo !** **${interaction.user.username}** est tombé sur Boo ! Regarde tes messages privés pour choisir ta cible.`;
         } else if (caseArrivee.type === 'Bowser') {
             const bowserEvents = [
                 { type: 'moitie_pieces', msg: 'Perte de la moitié des pièces' },
@@ -438,10 +438,10 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
             
             if (bEvt.type === 'moitie_pieces') {
                 joueur.pieces = Math.floor(joueur.pieces / 2);
-                messageAction += `\n🔥 **BOWSER !** **<@${interaction.user.id}>** perd la moitié de ses pièces ! *(Reste: ${joueur.pieces} 🪙)* 🔥`;
+                messageAction += `\n🔥 **BOWSER !** **${interaction.user.username}** perd la moitié de ses pièces ! *(Reste: ${joueur.pieces} 🪙)* 🔥`;
             } else if (bEvt.type === 'moins_etoile') {
                 joueur.etoiles = Math.max(0, joueur.etoiles - 1);
-                messageAction += `\n🔥 **BOWSER !** **<@${interaction.user.id}>** perd 1 étoile ! *(Reste: ${joueur.etoiles} ⭐)* 🔥`;
+                messageAction += `\n🔥 **BOWSER !** **${interaction.user.username}** perd 1 étoile ! *(Reste: ${joueur.etoiles} ⭐)* 🔥`;
             } else if (bEvt.type === 'revolution') {
                 const tousLesJoueurs = await Joueur.findAll();
                 let totalPieces = 0;
@@ -463,9 +463,9 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
                     joueur.pieces -= don;
                     dernier.pieces += don;
                     await dernier.save();
-                    messageAction += `\n🔥 **BOWSER !** Don forcé ! **<@${interaction.user.id}>** donne la moitié de ses pièces (${don}) au dernier du classement (<@${dernier.discord_id}>) ! *(Reste: ${joueur.pieces} 🪙 | <@${dernier.discord_id}> a ${dernier.pieces} 🪙)* 🔥`;
+                    messageAction += `\n🔥 **BOWSER !** Don forcé ! **${interaction.user.username}** donne la moitié de ses pièces (${don}) au dernier du classement (<@${dernier.discord_id}>) ! *(Reste: ${joueur.pieces} 🪙 | <@${dernier.discord_id}> a ${dernier.pieces} 🪙)* 🔥`;
                 } else {
-                    messageAction += `\n🔥 **BOWSER !** **<@${interaction.user.id}>** est déjà le dernier, Bowser a pitié de lui ! 🔥`;
+                    messageAction += `\n🔥 **BOWSER !** **${interaction.user.username}** est déjà le dernier, Bowser a pitié de lui ! 🔥`;
                 }
             }
         }
@@ -749,7 +749,7 @@ async function handleBooTarget(interaction) {
         const volReel = Math.min(montantVole, cible.pieces);
         cible.pieces -= volReel;
         joueur.pieces += volReel;
-        messageAction = `👻 **Boo !** <@${joueur.discord_id}> a volé ${volReel} pièces à <@${cible.discord_id}> ! *(<@${joueur.discord_id}>: ${joueur.pieces} 🪙 | <@${cible.discord_id}>: ${cible.pieces} 🪙)*`;
+        messageAction = `👻 **Boo !** <@${joueur.discord_id}> a volé ${volReel} pièces à <@${cible.discord_id}> ! *(${interaction.user.username}: ${joueur.pieces} 🪙 | <@${cible.discord_id}>: ${cible.pieces} 🪙)*`;
     } else if (type === 'etoile') {
         if (joueur.pieces < 50) return interaction.reply({ content: 'Tu n\'as plus assez de pièces.', ephemeral: true });
         if (cible.etoiles < 1) return interaction.reply({ content: 'La cible n\'a plus d\'étoile.', ephemeral: true });
@@ -757,7 +757,7 @@ async function handleBooTarget(interaction) {
         joueur.pieces -= 50;
         cible.etoiles -= 1;
         joueur.etoiles += 1;
-        messageAction = `👻 **Boo !** <@${joueur.discord_id}> a payé 50 pièces pour voler une Étoile à <@${cible.discord_id}> ! *(<@${joueur.discord_id}>: ${joueur.etoiles} ⭐ | <@${cible.discord_id}>: ${cible.etoiles} ⭐)*`;
+        messageAction = `👻 **Boo !** <@${joueur.discord_id}> a payé 50 pièces pour voler une Étoile à <@${cible.discord_id}> ! *(${interaction.user.username}: ${joueur.etoiles} ⭐ | <@${cible.discord_id}>: ${cible.etoiles} ⭐)*`;
     }
 
     await joueur.save();
