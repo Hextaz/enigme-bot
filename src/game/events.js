@@ -36,17 +36,126 @@ async function handleLancerDe(interaction) {
         joueur.bonus_prochain_lancer = 0;
     }
 
+    joueur.a_le_droit_de_jouer = false; // Il a joué pour aujourd'hui
+    await joueur.save();
+
+    await processMovement(interaction, joueur, de, false);
+}
+
+async function handleContinuerDeplacement(interaction) {
+    if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply({ ephemeral: true });
+    }
+    const joueur = await Joueur.findByPk(interaction.user.id);
+    if (!joueur || joueur.cases_restantes <= 0) {
+        return interaction.editReply({ content: 'Tu n\'as pas de déplacement en cours.' });
+    }
+
+    const de = joueur.cases_restantes;
+    await processMovement(interaction, joueur, de, true);
+}
+
+async function processMovement(interaction, joueur, de, isContinuation = false) {
     const anciennePosition = joueur.position;
+    const plateau = await Plateau.findByPk(1);
     
-    // Calculer la nouvelle position
     let nouvellePosition = anciennePosition + de;
     if (nouvellePosition > 42) nouvellePosition -= 42;
 
-    // Vérifier si le joueur passe par l'étoile
-    const plateau = await Plateau.findByPk(1);
     const casesParcourues = getCasesInRange(anciennePosition, nouvellePosition);
     
-    // Vérifier les pièges sur la case d'arrivée (il faut s'arrêter pile dessus)
+    let interruption = null;
+    let stepsTaken = 0;
+    
+    for (let i = 0; i < casesParcourues.length; i++) {
+        const c = casesParcourues[i];
+        if (c.id === anciennePosition) continue; // On ignore la case de départ
+        
+        stepsTaken++;
+        
+        if (c.id === plateau.position_etoile) {
+            interruption = { type: 'etoile', case: c, steps: stepsTaken };
+            break;
+        } else if (c.type === 'Boutique') {
+            interruption = { type: 'boutique', case: c, steps: stepsTaken };
+            break;
+        }
+    }
+
+    if (interruption) {
+        joueur.position = interruption.case.id;
+        joueur.cases_restantes = de - interruption.steps;
+        await joueur.save();
+
+        let messageAction = `🚶 **<@${interaction.user.id}>** avance et s'arrête sur la case **${interruption.case.id} (${interruption.type === 'etoile' ? 'Étoile' : 'Boutique'})** !`;
+        
+        const channel = interaction.client.channels.cache.get(config.boardChannelId);
+        if (channel) {
+            let tousLesJoueurs = await Joueur.findAll();
+            tousLesJoueurs = tousLesJoueurs.sort((a, b) => {
+                if (a.discord_id === interaction.user.id) return 1;
+                if (b.discord_id === interaction.user.id) return -1;
+                return 0;
+            });
+            const buffer = await generateBoardImage(tousLesJoueurs, plateau, interaction.client);
+            const attachment = new AttachmentBuilder(buffer, { name: 'board.png' });
+            await channel.send({ content: messageAction, files: [attachment] });
+        }
+
+        if (interruption.type === 'etoile') {
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('acheter_etoile')
+                        .setLabel('Acheter l\'Étoile (20 pièces)')
+                        .setStyle(ButtonStyle.Success)
+                        .setDisabled(joueur.pieces < 20),
+                    new ButtonBuilder()
+                        .setCustomId('passer_etoile')
+                        .setLabel('Passer')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+            
+            const replyContent = { content: `⭐ Tu passes devant l'Étoile ! Veux-tu l'acheter pour 20 pièces ? (Tu as ${joueur.pieces} pièces)`, components: [row] };
+            if (isContinuation) await interaction.followUp({ ...replyContent, ephemeral: true });
+            else await interaction.editReply(replyContent);
+        } else if (interruption.type === 'boutique') {
+            const { generateShop } = require('./shop');
+            const shopItems = await generateShop(joueur.discord_id);
+            
+            const row = new ActionRowBuilder();
+            let shopMsg = '🛒 **Tu passes devant une Boutique !** Voici ce que je te propose :\n\n';
+            
+            shopItems.forEach((item, index) => {
+                shopMsg += `${index + 1}. **${item.name}** - ${item.price} pièces\n*${item.description}*\n\n`;
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`buy_${item.id}`)
+                        .setLabel(`Acheter ${item.name} (${item.price}p)`)
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(joueur.pieces < item.price)
+                );
+            });
+
+            row.addComponents(
+                new ButtonBuilder()
+                    .setCustomId('buy_cancel')
+                    .setLabel('Quitter la boutique')
+                    .setStyle(ButtonStyle.Danger)
+            );
+
+            const replyContent = { content: shopMsg, components: [row] };
+            if (isContinuation) await interaction.followUp({ ...replyContent, ephemeral: true });
+            else await interaction.editReply(replyContent);
+        }
+        return;
+    }
+
+    // Pas d'interruption, on arrive à la fin
+    joueur.position = nouvellePosition;
+    joueur.cases_restantes = 0;
+    
+    // Vérifier les pièges sur la case d'arrivée
     let piegeDeclenche = null;
     let piegesRestants = [...plateau.pieges_actifs];
     
@@ -61,20 +170,10 @@ async function handleLancerDe(interaction) {
         await plateau.save();
     }
 
-    let aPasseEtoile = false;
-    for (const c of casesParcourues) {
-        if (c.id === plateau.position_etoile && c.id !== anciennePosition) {
-            aPasseEtoile = true;
-            break;
-        }
-    }
-
-    joueur.position = nouvellePosition;
-    joueur.a_le_droit_de_jouer = false; // Il a joué pour aujourd'hui
     await joueur.save();
 
     const caseArrivee = getCase(nouvellePosition);
-    let messageAction = `<@${interaction.user.id}> a lancé un **${de}** et atterrit sur la case **${caseArrivee.id} (${caseArrivee.type})** !`;
+    let messageAction = `🎲 **<@${interaction.user.id}>** a fait un **${de}** et atterrit sur la case **${caseArrivee.id} (${caseArrivee.type})** !`;
 
     if (piegeDeclenche) {
         if (piegeDeclenche.type === 'pieces') {
@@ -84,9 +183,9 @@ async function handleLancerDe(interaction) {
             if (poseur) {
                 poseur.pieces += montantVole;
                 await poseur.save();
-                messageAction += `\n💥 **PIÈGE !** Il tombe sur un piège à pièces et perd ${montantVole} pièces ! *(Il lui reste ${joueur.pieces} 🪙 | <@${poseur.discord_id}> a maintenant ${poseur.pieces} 🪙)*`;
+                messageAction += `\n💥 **PIÈGE !** **<@${interaction.user.id}>** tombe sur un piège à pièces et perd ${montantVole} pièces ! *(Reste: ${joueur.pieces} 🪙 | <@${poseur.discord_id}> a maintenant ${poseur.pieces} 🪙)*`;
             } else {
-                messageAction += `\n💥 **PIÈGE !** Il tombe sur un piège à pièces et perd ${montantVole} pièces ! *(Il lui reste ${joueur.pieces} 🪙)*`;
+                messageAction += `\n💥 **PIÈGE !** **<@${interaction.user.id}>** tombe sur un piège à pièces et perd ${montantVole} pièces ! *(Reste: ${joueur.pieces} 🪙)*`;
             }
         } else if (piegeDeclenche.type === 'etoile') {
             const poseur = await Joueur.findByPk(piegeDeclenche.poseur);
@@ -95,363 +194,299 @@ async function handleLancerDe(interaction) {
                 if (poseur) {
                     poseur.etoiles += 1;
                     await poseur.save();
-                    messageAction += `\n💥 **PIÈGE !** Il tombe sur un piège à Étoile et perd 1 Étoile ! *(Il lui reste ${joueur.etoiles} ⭐ | <@${poseur.discord_id}> a maintenant ${poseur.etoiles} ⭐)*`;
+                    messageAction += `\n💥 **PIÈGE !** **<@${interaction.user.id}>** tombe sur un piège à Étoile et perd 1 Étoile ! *(Reste: ${joueur.etoiles} ⭐ | <@${poseur.discord_id}> a maintenant ${poseur.etoiles} ⭐)*`;
                 } else {
-                    messageAction += `\n💥 **PIÈGE !** Il tombe sur un piège à Étoile et perd 1 Étoile ! *(Il lui reste ${joueur.etoiles} ⭐)*`;
+                    messageAction += `\n💥 **PIÈGE !** **<@${interaction.user.id}>** tombe sur un piège à Étoile et perd 1 Étoile ! *(Reste: ${joueur.etoiles} ⭐)*`;
                 }
             } else {
-                messageAction += `\n💥 **PIÈGE !** Il tombe sur un piège à Étoile mais n'a pas d'Étoile à voler !`;
+                messageAction += `\n💥 **PIÈGE !** **<@${interaction.user.id}>** tombe sur un piège à Étoile mais n'a pas d'Étoile à voler !`;
             }
         }
     }
 
-    // Appliquer l'effet de la case (seulement si on n'est pas tombé sur un piège, ou on peut cumuler)
     if (!piegeDeclenche) {
         if (caseArrivee.type === 'Bleue') {
-        joueur.pieces += 3;
-        messageAction += `\nIl gagne 3 pièces ! 💰 *(Total: ${joueur.pieces} 🪙)*`;
-    } else if (caseArrivee.type === 'Rouge') {
-        joueur.pieces = Math.max(0, joueur.pieces - 3);
-        messageAction += `\nIl perd 3 pièces ! 💸 *(Reste: ${joueur.pieces} 🪙)*`;
-    } else if (caseArrivee.type === 'Chance') {
-        // Roulette chance
-        const gains = [
-            { type: 'pieces', val: 5, msg: '+5 pièces' },
-            { type: 'pieces', val: 15, msg: '+15 pièces' },
-            { type: 'objet', msg: '1 objet standard aléatoire' },
-            { type: 'vol', val: 5, msg: 'Vol de 5 pièces à un joueur au hasard' },
-            { type: 'sac', msg: 'Sac à objets (remplit l\'inventaire)' }
-        ];
-        const gain = gains[Math.floor(Math.random() * gains.length)];
-        
-        if (gain.type === 'pieces') {
-            joueur.pieces += gain.val;
-            messageAction += `\n🍀 **Chance !** Il gagne ${gain.msg} ! *(Total: ${joueur.pieces} 🪙)*`;
-        } else if (gain.type === 'objet') {
-            const { ITEMS } = require('./items');
-            const standardItems = Object.values(ITEMS).filter(i => !i.sundayOnly);
-            const randomItem = standardItems[Math.floor(Math.random() * standardItems.length)];
-            if (joueur.inventaire.length < 3) {
-                joueur.inventaire = [...joueur.inventaire, randomItem.name];
-                messageAction += `\n🍀 **Chance !** Il obtient : ${randomItem.name} !`;
-            } else {
-                messageAction += `\n🍀 **Chance !** Il devait obtenir un objet mais son inventaire est plein !`;
-            }
-        } else if (gain.type === 'vol') {
-            const tousLesJoueurs = await Joueur.findAll();
-            const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && j.pieces > 0);
-            if (autresJoueurs.length > 0) {
-                const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
-                const montantVole = Math.min(gain.val, cible.pieces);
-                cible.pieces -= montantVole;
-                joueur.pieces += montantVole;
-                await cible.save();
-                messageAction += `\n🍀 **Chance !** Il vole ${montantVole} pièces à <@${cible.discord_id}> ! *(Il a ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
-            } else {
-                messageAction += `\n🍀 **Chance !** Il voulait voler des pièces mais personne n'en a !`;
-            }
-        } else if (gain.type === 'sac') {
-            const { ITEMS } = require('./items');
-            const standardItems = Object.values(ITEMS).filter(i => !i.sundayOnly);
-            let newInv = [...joueur.inventaire];
-            while (newInv.length < 3) {
+            joueur.pieces += 3;
+            messageAction += `\n**<@${interaction.user.id}>** gagne 3 pièces ! 💰 *(Total: ${joueur.pieces} 🪙)*`;
+        } else if (caseArrivee.type === 'Rouge') {
+            joueur.pieces = Math.max(0, joueur.pieces - 3);
+            messageAction += `\n**<@${interaction.user.id}>** perd 3 pièces ! 💸 *(Reste: ${joueur.pieces} 🪙)*`;
+        } else if (caseArrivee.type === 'Chance') {
+            const gains = [
+                { type: 'pieces', val: 5, msg: '+5 pièces' },
+                { type: 'pieces', val: 15, msg: '+15 pièces' },
+                { type: 'objet', msg: '1 objet standard aléatoire' },
+                { type: 'vol', val: 5, msg: 'Vol de 5 pièces à un joueur au hasard' },
+                { type: 'sac', msg: 'Sac à objets (remplit l\'inventaire)' }
+            ];
+            const gain = gains[Math.floor(Math.random() * gains.length)];
+            
+            if (gain.type === 'pieces') {
+                joueur.pieces += gain.val;
+                messageAction += `\n🍀 **Chance !** **<@${interaction.user.id}>** gagne ${gain.msg} ! *(Total: ${joueur.pieces} 🪙)*`;
+            } else if (gain.type === 'objet') {
+                const { ITEMS } = require('./items');
+                const standardItems = Object.values(ITEMS).filter(i => !i.sundayOnly);
                 const randomItem = standardItems[Math.floor(Math.random() * standardItems.length)];
-                newInv.push(randomItem.name);
-            }
-            joueur.inventaire = newInv;
-            messageAction += `\n🍀 **Chance !** Son inventaire a été rempli au maximum !`;
-        }
-    } else if (caseArrivee.type === 'Malchance') {
-        // Roulette malchance
-        const pertes = [
-            { type: 'pieces', val: -5, msg: '-5 pièces' },
-            { type: 'pieces', val: -10, msg: '-10 pièces' },
-            { type: 'objet', msg: 'Perte d\'un objet au hasard' },
-            { type: 'de_limite', msg: 'Dé limité à 3 au prochain tour' },
-            { type: 'tp_bowser', msg: 'Téléportation sur Bowser' }
-        ];
-        const perte = pertes[Math.floor(Math.random() * pertes.length)];
-        
-        if (perte.type === 'pieces') {
-            joueur.pieces = Math.max(0, joueur.pieces + perte.val);
-            messageAction += `\n🌩️ **Malchance !** Il perd ${Math.abs(perte.val)} pièces ! *(Reste: ${joueur.pieces} 🪙)*`;
-        } else if (perte.type === 'objet') {
-            if (joueur.inventaire.length > 0) {
-                const inv = [...joueur.inventaire];
-                const indexToRemove = Math.floor(Math.random() * inv.length);
-                const removedItem = inv.splice(indexToRemove, 1)[0];
-                joueur.inventaire = inv;
-                messageAction += `\n🌩️ **Malchance !** Il perd son objet : ${removedItem} !`;
-            } else {
-                messageAction += `\n🌩️ **Malchance !** Il devait perdre un objet mais son inventaire est vide !`;
-            }
-        } else if (perte.type === 'de_limite') {
-            joueur.de_limite = true;
-            messageAction += `\n🌩️ **Malchance !** Son dé sera limité à 3 au prochain tour !`;
-        } else if (perte.type === 'tp_bowser') {
-            // Trouver la case Bowser la plus proche (en avançant)
-            let currentPos = joueur.position;
-            let bowserPos = currentPos;
-            for (let i = 1; i <= 42; i++) {
-                let checkPos = currentPos + i;
-                if (checkPos > 42) checkPos -= 42;
-                const c = getCase(checkPos);
-                if (c.type === 'Bowser') {
-                    bowserPos = checkPos;
-                    break;
-                }
-            }
-            joueur.position = bowserPos;
-            joueur.pieces = Math.floor(joueur.pieces / 2);
-            joueur.etoiles = Math.max(0, joueur.etoiles - 1);
-            messageAction += `\n🌩️ **Malchance !** Il est téléporté sur la case Bowser (${bowserPos}) ! 🔥 Il perd la moitié de ses pièces *(Reste: ${joueur.pieces} 🪙)* et 1 étoile *(Reste: ${joueur.etoiles} ⭐)* !`;
-        }
-    } else if (caseArrivee.type === 'Coup du Sort') {
-        const events = [
-            { type: 'echange_pos', msg: 'Échange de position avec un joueur aléatoire' },
-            { type: 'loterie', msg: 'Un joueur tiré au sort gagne 20 pièces' },
-            { type: 'etoile_filante', msg: 'L\'Étoile change immédiatement de case' },
-            { type: 'roulette_vol', msg: 'Roulette de vol entre 2 joueurs' },
-            { type: 'duel_des', msg: 'Duel de dés' },
-            { type: 'don_pieces', msg: 'Don de 20 pièces à un joueur aléatoire' },
-            { type: 'echange_pieces', msg: 'Échange de pièces avec un joueur aléatoire' },
-            { type: 'echange_etoiles', msg: 'Échange d\'étoiles avec un joueur aléatoire' }
-        ];
-        const evt = events[Math.floor(Math.random() * events.length)];
-        
-        if (evt.type === 'echange_pos') {
-            const tousLesJoueurs = await Joueur.findAll();
-            const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
-            if (autresJoueurs.length > 0) {
-                const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
-                const tempPos = joueur.position;
-                joueur.position = cible.position;
-                cible.position = tempPos;
-                await cible.save();
-                messageAction += `\n🎭 **Coup du Sort !** Il échange sa position avec <@${cible.discord_id}> !`;
-            } else {
-                messageAction += `\n🎭 **Coup du Sort !** Il devait échanger sa position mais il est seul sur le plateau !`;
-            }
-        } else if (evt.type === 'loterie') {
-            const tousLesJoueurs = await Joueur.findAll();
-            const cible = tousLesJoueurs[Math.floor(Math.random() * tousLesJoueurs.length)];
-            cible.pieces += 20;
-            await cible.save();
-            messageAction += `\n🎭 **Coup du Sort !** Grande Loterie : <@${cible.discord_id}> gagne 20 pièces ! *(Total: ${cible.pieces} 🪙)*`;
-        } else if (evt.type === 'etoile_filante') {
-            let nouvellePositionEtoile;
-            do {
-                nouvellePositionEtoile = Math.floor(Math.random() * 42) + 1;
-            } while (nouvellePositionEtoile === plateau.position_etoile);
-            plateau.position_etoile = nouvellePositionEtoile;
-            await plateau.save();
-            messageAction += `\n🎭 **Coup du Sort !** Étoile Filante : L'Étoile se déplace sur la case ${nouvellePositionEtoile} !`;
-        } else if (evt.type === 'roulette_vol') {
-            const tousLesJoueurs = await Joueur.findAll();
-            const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
-            if (autresJoueurs.length > 0) {
-                const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
-                const montant = Math.floor(Math.random() * 15) + 5; // 5 à 20 pièces
-                const voleur = Math.random() > 0.5 ? joueur : cible;
-                const victime = voleur === joueur ? cible : joueur;
-                const volReel = Math.min(montant, victime.pieces);
-                victime.pieces -= volReel;
-                voleur.pieces += volReel;
-                await victime.save();
-                if (voleur.discord_id !== joueur.discord_id) await voleur.save();
-                messageAction += `\n🎭 **Coup du Sort !** Roulette de vol : <@${voleur.discord_id}> vole ${volReel} pièces à <@${victime.discord_id}> ! *(<@${voleur.discord_id}>: ${voleur.pieces} 🪙 | <@${victime.discord_id}>: ${victime.pieces} 🪙)*`;
-            } else {
-                messageAction += `\n🎭 **Coup du Sort !** Roulette de vol annulée, pas assez de joueurs.`;
-            }
-        } else if (evt.type === 'duel_des') {
-            const tousLesJoueurs = await Joueur.findAll();
-            const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
-            if (autresJoueurs.length > 0) {
-                const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
-                const deJoueur = Math.floor(Math.random() * 6) + 1;
-                const deCible = Math.floor(Math.random() * 6) + 1;
-                messageAction += `\n🎭 **Coup du Sort !** Duel de dés contre <@${cible.discord_id}> ! (<@${joueur.discord_id}>: ${deJoueur} 🎲 vs <@${cible.discord_id}>: ${deCible} 🎲)`;
-                if (deJoueur > deCible) {
-                    const gain = Math.min(10, cible.pieces);
-                    cible.pieces -= gain;
-                    joueur.pieces += gain;
-                    await cible.save();
-                    messageAction += `\n🏆 <@${joueur.discord_id}> gagne le duel et vole ${gain} pièces ! *(<@${joueur.discord_id}>: ${joueur.pieces} 🪙 | <@${cible.discord_id}>: ${cible.pieces} 🪙)*`;
-                } else if (deCible > deJoueur) {
-                    const gain = Math.min(10, joueur.pieces);
-                    joueur.pieces -= gain;
-                    cible.pieces += gain;
-                    await cible.save();
-                    messageAction += `\n🏆 <@${cible.discord_id}> gagne le duel et vole ${gain} pièces ! *(<@${cible.discord_id}>: ${cible.pieces} 🪙 | <@${joueur.discord_id}>: ${joueur.pieces} 🪙)*`;
+                if (joueur.inventaire.length < 3) {
+                    joueur.inventaire = [...joueur.inventaire, randomItem.name];
+                    messageAction += `\n🍀 **Chance !** **<@${interaction.user.id}>** obtient : ${randomItem.name} !`;
                 } else {
-                    messageAction += `\n🤝 Égalité ! Rien ne se passe.`;
+                    messageAction += `\n🍀 **Chance !** **<@${interaction.user.id}>** devait obtenir un objet mais son inventaire est plein !`;
                 }
-            } else {
-                messageAction += `\n🎭 **Coup du Sort !** Duel annulé, pas d'adversaire.`;
+            } else if (gain.type === 'vol') {
+                const tousLesJoueurs = await Joueur.findAll();
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && j.pieces > 0);
+                if (autresJoueurs.length > 0) {
+                    const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
+                    const montantVole = Math.min(gain.val, cible.pieces);
+                    cible.pieces -= montantVole;
+                    joueur.pieces += montantVole;
+                    await cible.save();
+                    messageAction += `\n🍀 **Chance !** **<@${interaction.user.id}>** vole ${montantVole} pièces à <@${cible.discord_id}> ! *(<@${interaction.user.id}> a ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
+                } else {
+                    messageAction += `\n🍀 **Chance !** **<@${interaction.user.id}>** voulait voler des pièces mais personne n'en a !`;
+                }
+            } else if (gain.type === 'sac') {
+                const { ITEMS } = require('./items');
+                const standardItems = Object.values(ITEMS).filter(i => !i.sundayOnly);
+                let newInv = [...joueur.inventaire];
+                while (newInv.length < 3) {
+                    const randomItem = standardItems[Math.floor(Math.random() * standardItems.length)];
+                    newInv.push(randomItem.name);
+                }
+                joueur.inventaire = newInv;
+                messageAction += `\n🍀 **Chance !** Son inventaire a été rempli au maximum !`;
             }
-        } else if (evt.type === 'don_pieces') {
-            const tousLesJoueurs = await Joueur.findAll();
-            const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
-            if (autresJoueurs.length > 0) {
-                const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
-                const don = Math.min(20, joueur.pieces);
-                joueur.pieces -= don;
-                cible.pieces += don;
-                await cible.save();
-                messageAction += `\n🎭 **Coup du Sort !** Il doit donner ${don} pièces à <@${cible.discord_id}> ! *(Il lui reste ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
-            } else {
-                messageAction += `\n🎭 **Coup du Sort !** Don annulé, personne à qui donner.`;
+        } else if (caseArrivee.type === 'Malchance') {
+            const pertes = [
+                { type: 'pieces', val: -5, msg: '-5 pièces' },
+                { type: 'pieces', val: -10, msg: '-10 pièces' },
+                { type: 'objet', msg: 'Perte d\'un objet au hasard' },
+                { type: 'de_limite', msg: 'Dé limité à 3 au prochain tour' },
+                { type: 'tp_bowser', msg: 'Téléportation sur Bowser' }
+            ];
+            const perte = pertes[Math.floor(Math.random() * pertes.length)];
+            
+            if (perte.type === 'pieces') {
+                joueur.pieces = Math.max(0, joueur.pieces + perte.val);
+                messageAction += `\n🌩️ **Malchance !** **<@${interaction.user.id}>** perd ${Math.abs(perte.val)} pièces ! *(Reste: ${joueur.pieces} 🪙)*`;
+            } else if (perte.type === 'objet') {
+                if (joueur.inventaire.length > 0) {
+                    const inv = [...joueur.inventaire];
+                    const indexToRemove = Math.floor(Math.random() * inv.length);
+                    const removedItem = inv.splice(indexToRemove, 1)[0];
+                    joueur.inventaire = inv;
+                    messageAction += `\n🌩️ **Malchance !** **<@${interaction.user.id}>** perd son objet : ${removedItem} !`;
+                } else {
+                    messageAction += `\n🌩️ **Malchance !** **<@${interaction.user.id}>** devait perdre un objet mais son inventaire est vide !`;
+                }
+            } else if (perte.type === 'de_limite') {
+                joueur.de_limite = true;
+                messageAction += `\n🌩️ **Malchance !** Son dé sera limité à 3 au prochain tour !`;
+            } else if (perte.type === 'tp_bowser') {
+                let currentPos = joueur.position;
+                let bowserPos = currentPos;
+                for (let i = 1; i <= 42; i++) {
+                    let checkPos = currentPos + i;
+                    if (checkPos > 42) checkPos -= 42;
+                    const c = getCase(checkPos);
+                    if (c.type === 'Bowser') {
+                        bowserPos = checkPos;
+                        break;
+                    }
+                }
+                joueur.position = bowserPos;
+                joueur.pieces = Math.floor(joueur.pieces / 2);
+                joueur.etoiles = Math.max(0, joueur.etoiles - 1);
+                messageAction += `\n🌩️ **Malchance !** **<@${interaction.user.id}>** est téléporté sur la case Bowser (${bowserPos}) ! 🔥 <@${interaction.user.id}> perd la moitié de ses pièces *(Reste: ${joueur.pieces} 🪙)* et 1 étoile *(Reste: ${joueur.etoiles} ⭐)* !`;
             }
-        } else if (evt.type === 'echange_pieces') {
-            const tousLesJoueurs = await Joueur.findAll();
-            const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
-            if (autresJoueurs.length > 0) {
-                const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
-                const tempPieces = joueur.pieces;
-                joueur.pieces = cible.pieces;
-                cible.pieces = tempPieces;
+        } else if (caseArrivee.type === 'Coup du Sort') {
+            const events = [
+                { type: 'echange_pos', msg: 'Échange de position avec un joueur aléatoire' },
+                { type: 'loterie', msg: 'Un joueur tiré au sort gagne 20 pièces' },
+                { type: 'etoile_filante', msg: 'L\'Étoile change immédiatement de case' },
+                { type: 'roulette_vol', msg: 'Roulette de vol entre 2 joueurs' },
+                { type: 'duel_des', msg: 'Duel de dés' },
+                { type: 'don_pieces', msg: 'Don de 20 pièces à un joueur aléatoire' },
+                { type: 'echange_pieces', msg: 'Échange de pièces avec un joueur aléatoire' },
+                { type: 'echange_etoiles', msg: 'Échange d\'étoiles avec un joueur aléatoire' }
+            ];
+            const evt = events[Math.floor(Math.random() * events.length)];
+            
+            if (evt.type === 'echange_pos') {
+                const tousLesJoueurs = await Joueur.findAll();
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                if (autresJoueurs.length > 0) {
+                    const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
+                    const tempPos = joueur.position;
+                    joueur.position = cible.position;
+                    cible.position = tempPos;
+                    await cible.save();
+                    messageAction += `\n🎭 **Coup du Sort !** **<@${interaction.user.id}>** échange sa position avec <@${cible.discord_id}> !`;
+                } else {
+                    messageAction += `\n🎭 **Coup du Sort !** **<@${interaction.user.id}>** devait échanger sa position mais personne d'autre n'est sur le plateau !`;
+                }
+            } else if (evt.type === 'loterie') {
+                const tousLesJoueurs = await Joueur.findAll();
+                const cible = tousLesJoueurs[Math.floor(Math.random() * tousLesJoueurs.length)];
+                cible.pieces += 20;
                 await cible.save();
-                messageAction += `\n🎭 **Coup du Sort !** Il échange ses pièces avec <@${cible.discord_id}> ! *(Il a maintenant ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
-            } else {
-                messageAction += `\n🎭 **Coup du Sort !** Échange annulé, pas d'adversaire.`;
+                messageAction += `\n🎭 **Coup du Sort !** Grande Loterie : <@${cible.discord_id}> gagne 20 pièces ! *(Total: ${cible.pieces} 🪙)*`;
+            } else if (evt.type === 'etoile_filante') {
+                let nouvellePositionEtoile;
+                do {
+                    nouvellePositionEtoile = Math.floor(Math.random() * 42) + 1;
+                } while (nouvellePositionEtoile === plateau.position_etoile);
+                plateau.position_etoile = nouvellePositionEtoile;
+                await plateau.save();
+                messageAction += `\n🎭 **Coup du Sort !** Étoile Filante : L'Étoile se déplace sur la case ${nouvellePositionEtoile} !`;
+            } else if (evt.type === 'roulette_vol') {
+                const tousLesJoueurs = await Joueur.findAll();
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                if (autresJoueurs.length > 0) {
+                    const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
+                    const montant = Math.floor(Math.random() * 15) + 5;
+                    const voleur = Math.random() > 0.5 ? joueur : cible;
+                    const victime = voleur === joueur ? cible : joueur;
+                    const volReel = Math.min(montant, victime.pieces);
+                    victime.pieces -= volReel;
+                    voleur.pieces += volReel;
+                    await victime.save();
+                    if (voleur.discord_id !== joueur.discord_id) await voleur.save();
+                    messageAction += `\n🎭 **Coup du Sort !** Roulette de vol : <@${voleur.discord_id}> vole ${volReel} pièces à <@${victime.discord_id}> ! *(<@${voleur.discord_id}>: ${voleur.pieces} 🪙 | <@${victime.discord_id}>: ${victime.pieces} 🪙)*`;
+                } else {
+                    messageAction += `\n🎭 **Coup du Sort !** Roulette de vol annulée, pas assez de joueurs.`;
+                }
+            } else if (evt.type === 'duel_des') {
+                const tousLesJoueurs = await Joueur.findAll();
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                if (autresJoueurs.length > 0) {
+                    const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
+                    const deJoueur = Math.floor(Math.random() * 6) + 1;
+                    const deCible = Math.floor(Math.random() * 6) + 1;
+                    messageAction += `\n🎭 **Coup du Sort !** Duel de dés contre <@${cible.discord_id}> ! (<@${joueur.discord_id}>: ${deJoueur} 🎲 vs <@${cible.discord_id}>: ${deCible} 🎲)`;
+                    if (deJoueur > deCible) {
+                        const gain = Math.min(10, cible.pieces);
+                        cible.pieces -= gain;
+                        joueur.pieces += gain;
+                        await cible.save();
+                        messageAction += `\n🏆 <@${joueur.discord_id}> gagne le duel et vole ${gain} pièces ! *(<@${joueur.discord_id}>: ${joueur.pieces} 🪙 | <@${cible.discord_id}>: ${cible.pieces} 🪙)*`;
+                    } else if (deCible > deJoueur) {
+                        const gain = Math.min(10, joueur.pieces);
+                        joueur.pieces -= gain;
+                        cible.pieces += gain;
+                        await cible.save();
+                        messageAction += `\n🏆 <@${cible.discord_id}> gagne le duel et vole ${gain} pièces ! *(<@${cible.discord_id}>: ${cible.pieces} 🪙 | <@${joueur.discord_id}>: ${joueur.pieces} 🪙)*`;
+                    } else {
+                        messageAction += `\n🤝 Égalité ! Rien ne se passe.`;
+                    }
+                } else {
+                    messageAction += `\n🎭 **Coup du Sort !** Duel annulé, pas d'adversaire.`;
+                }
+            } else if (evt.type === 'don_pieces') {
+                const tousLesJoueurs = await Joueur.findAll();
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                if (autresJoueurs.length > 0) {
+                    const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
+                    const don = Math.min(20, joueur.pieces);
+                    joueur.pieces -= don;
+                    cible.pieces += don;
+                    await cible.save();
+                    messageAction += `\n🎭 **Coup du Sort !** **<@${interaction.user.id}>** doit donner ${don} pièces à <@${cible.discord_id}> ! *(Reste: ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
+                } else {
+                    messageAction += `\n🎭 **Coup du Sort !** Don annulé, personne à qui donner.`;
+                }
+            } else if (evt.type === 'echange_pieces') {
+                const tousLesJoueurs = await Joueur.findAll();
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                if (autresJoueurs.length > 0) {
+                    const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
+                    const tempPieces = joueur.pieces;
+                    joueur.pieces = cible.pieces;
+                    cible.pieces = tempPieces;
+                    await cible.save();
+                    messageAction += `\n🎭 **Coup du Sort !** **<@${interaction.user.id}>** échange ses pièces avec <@${cible.discord_id}> ! *(<@${interaction.user.id}> a maintenant ${joueur.pieces} 🪙 | <@${cible.discord_id}> a ${cible.pieces} 🪙)*`;
+                } else {
+                    messageAction += `\n🎭 **Coup du Sort !** Échange annulé, pas d'adversaire.`;
+                }
+            } else if (evt.type === 'echange_etoiles') {
+                const tousLesJoueurs = await Joueur.findAll();
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                if (autresJoueurs.length > 0) {
+                    const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
+                    const tempEtoiles = joueur.etoiles;
+                    joueur.etoiles = cible.etoiles;
+                    cible.etoiles = tempEtoiles;
+                    await cible.save();
+                    messageAction += `\n🎭 **Coup du Sort !** **<@${interaction.user.id}>** échange ses étoiles avec <@${cible.discord_id}> ! *(<@${interaction.user.id}> a maintenant ${joueur.etoiles} ⭐ | <@${cible.discord_id}> a ${cible.etoiles} ⭐)*`;
+                } else {
+                    messageAction += `\n🎭 **Coup du Sort !** Échange annulé, pas d'adversaire.`;
+                }
             }
-        } else if (evt.type === 'echange_etoiles') {
-            const tousLesJoueurs = await Joueur.findAll();
-            const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
-            if (autresJoueurs.length > 0) {
-                const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
-                const tempEtoiles = joueur.etoiles;
-                joueur.etoiles = cible.etoiles;
-                cible.etoiles = tempEtoiles;
-                await cible.save();
-                messageAction += `\n🎭 **Coup du Sort !** Il échange ses étoiles avec <@${cible.discord_id}> ! *(Il a maintenant ${joueur.etoiles} ⭐ | <@${cible.discord_id}> a ${cible.etoiles} ⭐)*`;
-            } else {
-                messageAction += `\n🎭 **Coup du Sort !** Échange annulé, pas d'adversaire.`;
+        } else if (caseArrivee.type === 'Boo') {
+            messageAction += `\n👻 **Boo !** **<@${interaction.user.id}>** est tombé sur Boo ! Regarde tes messages privés pour choisir ta cible.`;
+        } else if (caseArrivee.type === 'Bowser') {
+            const bowserEvents = [
+                { type: 'moitie_pieces', msg: 'Perte de la moitié des pièces' },
+                { type: 'moins_etoile', msg: 'Perte d\'une étoile' },
+                { type: 'revolution', msg: 'Révolution communiste des pièces du serveur' },
+                { type: 'destruction_inv', msg: 'Destruction de l\'inventaire' },
+                { type: 'don_dernier', msg: 'Don forcé au dernier' }
+            ];
+            const bEvt = bowserEvents[Math.floor(Math.random() * bowserEvents.length)];
+            
+            if (bEvt.type === 'moitie_pieces') {
+                joueur.pieces = Math.floor(joueur.pieces / 2);
+                messageAction += `\n🔥 **BOWSER !** **<@${interaction.user.id}>** perd la moitié de ses pièces ! *(Reste: ${joueur.pieces} 🪙)* 🔥`;
+            } else if (bEvt.type === 'moins_etoile') {
+                joueur.etoiles = Math.max(0, joueur.etoiles - 1);
+                messageAction += `\n🔥 **BOWSER !** **<@${interaction.user.id}>** perd 1 étoile ! *(Reste: ${joueur.etoiles} ⭐)* 🔥`;
+            } else if (bEvt.type === 'revolution') {
+                const tousLesJoueurs = await Joueur.findAll();
+                let totalPieces = 0;
+                tousLesJoueurs.forEach(j => totalPieces += j.pieces);
+                const part = Math.floor(totalPieces / tousLesJoueurs.length);
+                for (const j of tousLesJoueurs) {
+                    j.pieces = part;
+                    await j.save();
+                }
+                messageAction += `\n🔥 **BOWSER !** Révolution communiste ! Toutes les pièces du serveur sont redistribuées équitablement (${part} pièces chacun) ! 🔥`;
+            } else if (bEvt.type === 'destruction_inv') {
+                joueur.inventaire = [];
+                messageAction += `\n🔥 **BOWSER !** Destruction totale de son inventaire ! 🔥`;
+            } else if (bEvt.type === 'don_dernier') {
+                const tousLesJoueurs = await Joueur.findAll({ order: [['etoiles', 'ASC'], ['pieces', 'ASC']] });
+                const dernier = tousLesJoueurs[0];
+                if (dernier && dernier.discord_id !== joueur.discord_id) {
+                    const don = Math.floor(joueur.pieces / 2);
+                    joueur.pieces -= don;
+                    dernier.pieces += don;
+                    await dernier.save();
+                    messageAction += `\n🔥 **BOWSER !** Don forcé ! **<@${interaction.user.id}>** donne la moitié de ses pièces (${don}) au dernier du classement (<@${dernier.discord_id}>) ! *(Reste: ${joueur.pieces} 🪙 | <@${dernier.discord_id}> a ${dernier.pieces} 🪙)* 🔥`;
+                } else {
+                    messageAction += `\n🔥 **BOWSER !** **<@${interaction.user.id}>** est déjà le dernier, Bowser a pitié de lui ! 🔥`;
+                }
             }
         }
-    } else if (caseArrivee.type === 'Boo') {
-        messageAction += `\n👻 **Boo !** Il est tombé sur Boo ! Regarde tes messages privés pour choisir ta cible.`;
-    } else if (caseArrivee.type === 'Bowser') {
-        const bowserEvents = [
-            { type: 'moitie_pieces', msg: 'Perte de la moitié des pièces' },
-            { type: 'moins_etoile', msg: 'Perte d\'une étoile' },
-            { type: 'revolution', msg: 'Révolution communiste des pièces du serveur' },
-            { type: 'destruction_inv', msg: 'Destruction de l\'inventaire' },
-            { type: 'don_dernier', msg: 'Don forcé au dernier' }
-        ];
-        const bEvt = bowserEvents[Math.floor(Math.random() * bowserEvents.length)];
-        
-        if (bEvt.type === 'moitie_pieces') {
-            joueur.pieces = Math.floor(joueur.pieces / 2);
-            messageAction += `\n🔥 **BOWSER !** Il perd la moitié de ses pièces ! *(Reste: ${joueur.pieces} 🪙)* 🔥`;
-        } else if (bEvt.type === 'moins_etoile') {
-            joueur.etoiles = Math.max(0, joueur.etoiles - 1);
-            messageAction += `\n🔥 **BOWSER !** Il perd 1 étoile ! *(Reste: ${joueur.etoiles} ⭐)* 🔥`;
-        } else if (bEvt.type === 'revolution') {
-            const tousLesJoueurs = await Joueur.findAll();
-            let totalPieces = 0;
-            tousLesJoueurs.forEach(j => totalPieces += j.pieces);
-            const part = Math.floor(totalPieces / tousLesJoueurs.length);
-            for (const j of tousLesJoueurs) {
-                j.pieces = part;
-                await j.save();
-            }
-            messageAction += `\n🔥 **BOWSER !** Révolution communiste ! Toutes les pièces du serveur sont redistribuées équitablement (${part} pièces chacun) ! 🔥`;
-        } else if (bEvt.type === 'destruction_inv') {
-            joueur.inventaire = [];
-            messageAction += `\n🔥 **BOWSER !** Destruction totale de son inventaire ! 🔥`;
-        } else if (bEvt.type === 'don_dernier') {
-            const tousLesJoueurs = await Joueur.findAll({ order: [['etoiles', 'ASC'], ['pieces', 'ASC']] });
-            const dernier = tousLesJoueurs[0];
-            if (dernier && dernier.discord_id !== joueur.discord_id) {
-                const don = Math.floor(joueur.pieces / 2);
-                joueur.pieces -= don;
-                dernier.pieces += don;
-                await dernier.save();
-                messageAction += `\n🔥 **BOWSER !** Don forcé ! Il donne la moitié de ses pièces (${don}) au dernier du classement (<@${dernier.discord_id}>) ! *(Il lui reste ${joueur.pieces} 🪙 | <@${dernier.discord_id}> a ${dernier.pieces} 🪙)* 🔥`;
-            } else {
-                messageAction += `\n🔥 **BOWSER !** Il est déjà le dernier, Bowser a pitié de lui ! 🔥`;
-            }
-        }
-    } else if (caseArrivee.type === 'Boutique') {
-        messageAction += `\n🛒 Il est arrivé à la Boutique ! Regarde tes messages privés.`;
-        // On gère la boutique après l'envoi du message public
     }
-    } // Fin du if (!piegeDeclenche)
 
     await joueur.save();
 
-    // Si le joueur est passé devant l'étoile
-    if (aPasseEtoile) {
-        if (joueur.pieces >= 20) {
-            // Proposer d'acheter l'étoile
-            const row = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('acheter_etoile')
-                        .setLabel('Acheter l\'Étoile (20 pièces)')
-                        .setStyle(ButtonStyle.Success),
-                    new ButtonBuilder()
-                        .setCustomId('passer_etoile')
-                        .setLabel('Passer')
-                        .setStyle(ButtonStyle.Secondary)
-                );
-            
-            await interaction.editReply({
-                content: `Tu passes devant l'Étoile ! Veux-tu l'acheter pour 20 pièces ? (Tu as ${joueur.pieces} pièces)`,
-                components: [row]
-            });
-            
-            // On envoie quand même le message public
-            const channel = interaction.client.channels.cache.get(config.boardChannelId);
-            if (channel) {
-                const tousLesJoueurs = await Joueur.findAll();
-                const buffer = await generateBoardImage(tousLesJoueurs, plateau, interaction.client);
-                const attachment = new AttachmentBuilder(buffer, { name: 'board.png' });
-                await channel.send({ content: messageAction, files: [attachment] });
-            }
-            return;
-        } else {
-            messageAction += `\nIl est passé devant l'Étoile mais n'avait pas assez de pièces (20 requises).`;
-        }
-    }
-
-    // Envoyer le message public dans #plateau
     const channel = interaction.client.channels.cache.get(config.boardChannelId);
     if (channel) {
-        const tousLesJoueurs = await Joueur.findAll();
+        let tousLesJoueurs = await Joueur.findAll();
+        tousLesJoueurs = tousLesJoueurs.sort((a, b) => {
+            if (a.discord_id === interaction.user.id) return 1;
+            if (b.discord_id === interaction.user.id) return -1;
+            return 0;
+        });
         const buffer = await generateBoardImage(tousLesJoueurs, plateau, interaction.client);
         const attachment = new AttachmentBuilder(buffer, { name: 'board.png' });
         await channel.send({ content: messageAction, files: [attachment] });
     }
 
-    if (caseArrivee.type === 'Boutique') {
-        const { generateShop } = require('./shop');
-        const shopItems = await generateShop(joueur.discord_id);
-        
-        const row = new ActionRowBuilder();
-        let shopMsg = '🛒 **Bienvenue à la Boutique !** Voici ce que je te propose :\n\n';
-        
-        shopItems.forEach((item, index) => {
-            shopMsg += `${index + 1}. **${item.name}** - ${item.price} pièces\n*${item.description}*\n\n`;
-            row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`buy_${item.id}`)
-                    .setLabel(`Acheter ${item.name} (${item.price}p)`)
-                    .setStyle(ButtonStyle.Primary)
-                    .setDisabled(joueur.pieces < item.price)
-            );
-        });
-
-        row.addComponents(
-            new ButtonBuilder()
-                .setCustomId('buy_cancel')
-                .setLabel('Quitter la boutique')
-                .setStyle(ButtonStyle.Danger)
-        );
-
-        await interaction.editReply({ content: shopMsg, components: [row] });
-    } else if (caseArrivee.type === 'Boo') {
+    if (caseArrivee.type === 'Boo') {
         const row = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
@@ -465,15 +500,15 @@ async function handleLancerDe(interaction) {
                     .setDisabled(joueur.pieces < 50)
             );
             
-        await interaction.editReply({
-            content: `👻 **Boo !** Que veux-tu faire ?\n- Voler des pièces (3 à 12) gratuitement\n- Voler une Étoile pour 50 pièces`,
-            components: [row]
-        });
+        const replyContent = { content: `👻 **Boo !** Que veux-tu faire ?\n- Voler des pièces (3 à 12) gratuitement\n- Voler une Étoile pour 50 pièces`, components: [row] };
+            if (isContinuation) await interaction.followUp({ ...replyContent, ephemeral: true });
+            else await interaction.editReply(replyContent);
     } else {
-        await interaction.editReply({ content: `Tu as lancé un ${de} ! Regarde le salon <#${config.boardChannelId}> pour voir le résultat.` });
+        const replyContent = { content: `Tu as atterri sur la case ${caseArrivee.id} ! Regarde le salon <#${config.boardChannelId}> pour voir le résultat.` };
+            if (isContinuation) await interaction.followUp({ ...replyContent, ephemeral: true });
+            else await interaction.editReply(replyContent);
     }
 }
-
 async function handleAcheterEtoile(interaction) {
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (!joueur || joueur.pieces < 20) {
@@ -494,16 +529,27 @@ async function handleAcheterEtoile(interaction) {
     plateau.position_etoile = nouvellePositionEtoile;
     await plateau.save();
 
-    await interaction.reply({ content: `Tu as acheté une Étoile ! ⭐ (Il te reste ${joueur.pieces} 🪙)`, ephemeral: true });
-
     const channel = interaction.client.channels.cache.get(config.boardChannelId);
     if (channel) {
         await channel.send(`⭐ **<@${interaction.user.id}> a acheté une Étoile !** *(Total: ${joueur.etoiles} ⭐ | Reste: ${joueur.pieces} 🪙)*\nL'Étoile s'est déplacée sur la case ${nouvellePositionEtoile}.`);
     }
+
+    if (joueur.cases_restantes > 0) {
+        await interaction.update({ content: `Tu as acheté une Étoile ! ⭐ (Reste: ${joueur.pieces} 🪙)`, components: [] });
+        await handleContinuerDeplacement(interaction);
+    } else {
+        await interaction.update({ content: `Tu as acheté une Étoile ! ⭐ (Reste: ${joueur.pieces} 🪙)`, components: [] });
+    }
 }
 
 async function handlePasserEtoile(interaction) {
-    await interaction.reply({ content: 'Tu as passé ton tour pour l\'Étoile.', ephemeral: true });
+    const joueur = await Joueur.findByPk(interaction.user.id);
+    if (joueur && joueur.cases_restantes > 0) {
+        await interaction.update({ content: "Tu as passé ton tour pour l'Étoile.", components: [] });
+        await handleContinuerDeplacement(interaction);
+    } else {
+        await interaction.update({ content: "Tu as passé ton tour pour l'Étoile.", components: [] });
+    }
 }
 
 async function handleUtiliserObjet(interaction) {
@@ -669,13 +715,20 @@ async function handleBooChoice(interaction) {
     }
 
     const { StringSelectMenuBuilder } = require('discord.js');
+    
+    const options = await Promise.all(ciblesPotentielles.map(async j => {
+        const user = await interaction.client.users.fetch(j.discord_id).catch(() => null);
+        const username = user ? user.username : `Joueur ${j.discord_id.substring(0, 5)}`;
+        return {
+            label: `${username} (${type === 'pieces' ? j.pieces + ' pièces' : j.etoiles + ' étoiles'})`,
+            value: j.discord_id
+        };
+    }));
+
     const select = new StringSelectMenuBuilder()
         .setCustomId(`boo_target_${type}`)
         .setPlaceholder('Choisis ta cible')
-        .addOptions(ciblesPotentielles.map(j => ({
-            label: `Joueur ${j.discord_id.substring(0, 5)}... (${type === 'pieces' ? j.pieces + ' pièces' : j.etoiles + ' étoiles'})`,
-            value: j.discord_id
-        })));
+        .addOptions(options);
 
     const row = new ActionRowBuilder().addComponents(select);
     await interaction.reply({ content: `Qui veux-tu voler ?`, components: [row], ephemeral: true });
@@ -753,7 +806,12 @@ async function handleBuyItem(interaction) {
         }
         
         await joueur.save();
-        return interaction.reply({ content: `Tu as acheté le **${item.name}** ! Il te reste **${joueur.pieces} pièces**.`, ephemeral: true });
+        
+        if (joueur.cases_restantes > 0) {
+            await handleContinuerDeplacement(interaction);
+        } else {
+            return interaction.reply({ content: `Tu as acheté le **${item.name}** ! Il te reste **${joueur.pieces} pièces**.`, ephemeral: true });
+        }
     } else {
         if (joueur.inventaire.length >= 3) {
             return interaction.reply({ content: 'Ton inventaire est plein (Max 3 objets).', ephemeral: true });
@@ -768,12 +826,27 @@ async function handleBuyItem(interaction) {
         }
 
         await joueur.save();
-        return interaction.reply({ content: `Tu as acheté **${item.name}** ! Il te reste **${joueur.pieces} pièces**.`, ephemeral: true });
+        
+        if (joueur.cases_restantes > 0) {
+            await handleContinuerDeplacement(interaction);
+        } else {
+            return interaction.reply({ content: `Tu as acheté **${item.name}** ! Il te reste **${joueur.pieces} pièces**.`, ephemeral: true });
+        }
+    }
+}
+
+async function handleBuyCancel(interaction) {
+    const joueur = await Joueur.findByPk(interaction.user.id);
+    if (joueur && joueur.cases_restantes > 0) {
+        await handleContinuerDeplacement(interaction);
+    } else {
+        await interaction.reply({ content: 'Tu as quitté la boutique.', ephemeral: true });
     }
 }
 
 module.exports = {
     handleLancerDe,
+    handleContinuerDeplacement,
     handleAcheterEtoile,
     handlePasserEtoile,
     handleUtiliserObjet,
@@ -781,5 +854,6 @@ module.exports = {
     handleDePipeChoix,
     handleBooChoice,
     handleBooTarget,
-    handleBuyItem
+    handleBuyItem,
+    handleBuyCancel
 };

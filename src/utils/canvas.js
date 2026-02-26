@@ -93,20 +93,6 @@ async function generateBoardImage(joueurs, plateau, client) {
         }
     }
 
-    // Dessiner les numéros des cases pour plus de clarté
-    for (const c of BOARD_CASES) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.beginPath();
-        ctx.arc(c.x, c.y + 25, 10, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 10px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(c.id.toString(), c.x, c.y + 25);
-    }
-
     // Regrouper les joueurs par case
     const joueursParCase = {};
     for (const joueur of joueurs) {
@@ -120,24 +106,39 @@ async function generateBoardImage(joueurs, plateau, client) {
         const c = getCase(parseInt(position));
         if (!c) continue;
 
+        // Trier pour que le joueur actif (s'il y en a un) soit dessiné en dernier
+        // On suppose que le joueur actif a été passé en dernier dans le tableau 'joueurs'
+        // ou on peut juste garder l'ordre d'arrivée si on trie avant l'appel.
+        // Pour l'instant, on garde l'ordre du tableau 'joueurs' qui devrait être géré en amont.
+
         for (let i = 0; i < joueursSurCase.length; i++) {
             const joueur = joueursSurCase[i];
             
+            const radius = 30; // 60x60 pixels
             let px = c.x;
             let py = c.y;
-            const radius = 30; // 60x60 pixels
 
-            if (joueursSurCase.length > 1) {
-                const angle = (i / joueursSurCase.length) * Math.PI * 2;
-                const offset = 20; // Décalage du centre
-                px += Math.cos(angle) * offset;
-                py += Math.sin(angle) * offset;
+            if (joueursSurCase.length === 2) {
+                // 2 joueurs : côte à côte
+                px += (i === 0) ? -15 : 15;
+            } else if (joueursSurCase.length >= 3) {
+                // 3 joueurs ou plus : petite pyramide
+                if (i === 0) { px -= 15; py += 10; }
+                else if (i === 1) { px += 15; py += 10; }
+                else if (i === 2) { py -= 15; }
+                else {
+                    // S'il y en a plus de 3, on les décale un peu aléatoirement ou en cercle
+                    const angle = (i / joueursSurCase.length) * Math.PI * 2;
+                    px += Math.cos(angle) * 15;
+                    py += Math.sin(angle) * 15;
+                }
             }
 
             try {
                 let avatarUrl = null;
+                let user = null;
                 if (client) {
-                    const user = await client.users.fetch(joueur.discord_id).catch(() => null);
+                    user = await client.users.fetch(joueur.discord_id).catch(() => null);
                     if (user) {
                         avatarUrl = user.displayAvatarURL({ extension: 'png', size: 128 });
                     }
@@ -160,7 +161,8 @@ async function generateBoardImage(joueurs, plateau, client) {
                     ctx.font = '20px Arial';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(joueur.discord_id.substring(0, 2), px, py);
+                    const fallbackText = user ? user.username.substring(0, 2).toUpperCase() : '?';
+                    ctx.fillText(fallbackText, px, py);
                 }
             } catch (e) {
                 console.error(`Erreur lors du chargement de l'avatar pour ${joueur.discord_id}`, e);

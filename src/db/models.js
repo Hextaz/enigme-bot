@@ -49,6 +49,10 @@ const Joueur = sequelize.define('Joueur', {
     boutique_du_jour: {
         type: DataTypes.JSON,
         defaultValue: [],
+    },
+    cases_restantes: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
     }
 }, {
     tableName: 'joueurs',

@@ -9,6 +9,18 @@ let coureurs = [];
 let parisJoueurs = {}; // { discord_id: { coureurId, montant } }
 
 function initCronJobs(client) {
+    // Reset quotidien à 11h00 : Tout le monde a le droit de jouer
+    cron.schedule('0 11 * * *', async () => {
+        const tousLesJoueurs = await Joueur.findAll();
+        for (const j of tousLesJoueurs) {
+            j.a_le_droit_de_jouer = true;
+            j.guess_du_jour = 0;
+            j.boutique_du_jour = [];
+            await j.save();
+        }
+        console.log('Reset quotidien effectué : tous les joueurs peuvent jouer.');
+    });
+
     // Samedi 10h00 : Lancement des paris
     // '0 10 * * 6' = À 10:00 le samedi
     cron.schedule('0 10 * * 6', async () => {

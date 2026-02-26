@@ -71,11 +71,13 @@ client.on(Events.InteractionCreate, async interaction => {
             }
         }
     } else if (interaction.isButton()) {
-        const { handleLancerDe, handleAcheterEtoile, handlePasserEtoile } = require('./game/events');
+        const { handleLancerDe, handleContinuerDeplacement, handleAcheterEtoile, handlePasserEtoile } = require('./game/events');
         
         try {
             if (interaction.customId === 'lancer_de') {
                 await handleLancerDe(interaction);
+            } else if (interaction.customId === 'continuer_deplacement') {
+                await handleContinuerDeplacement(interaction);
             } else if (interaction.customId === 'acheter_etoile') {
                 await handleAcheterEtoile(interaction);
             } else if (interaction.customId === 'passer_etoile') {
@@ -105,7 +107,8 @@ client.on(Events.InteractionCreate, async interaction => {
             } else if (interaction.customId.startsWith('buy_')) {
                 const itemId = interaction.customId.split('_')[1];
                 if (itemId === 'cancel') {
-                    await interaction.reply({ content: 'Tu as quitté la boutique.', ephemeral: true });
+                    const { handleBuyCancel } = require('./game/events');
+                    await handleBuyCancel(interaction);
                     return;
                 }
                 const { handleBuyItem } = require('./game/events');
@@ -158,15 +161,7 @@ client.on(Events.MessageCreate, async message => {
         plateau.enigme_resolue = false;
         await plateau.save();
 
-        // Réinitialiser les variables des joueurs
-        const tousLesJoueurs = await Joueur.findAll();
-        for (const j of tousLesJoueurs) {
-            j.guess_du_jour = 0;
-            j.a_le_droit_de_jouer = false;
-            j.boutique_du_jour = []; // Reset de la boutique
-            await j.save();
-        }
-        await message.channel.send(`📢 **Tour ${plateau.tour}/30** : L'énigme du jour a commencé ! Proposez vos réponses pour gagner des pièces et le droit de jouer sur le plateau.`);
+        await message.channel.send(`📢 **Tour ${plateau.tour}/30** : L'énigme du jour a commencé ! Proposez vos réponses pour gagner des pièces bonus. Tout le monde a 1 jet de dé par jour via \`/jouer\` !`);
         return;
     }
 
@@ -188,7 +183,10 @@ client.on(Events.MessageCreate, async message => {
         
         let joueur = await Joueur.findByPk(message.author.id);
         if (!joueur) {
-            joueur = await Joueur.create({ discord_id: message.author.id });
+            joueur = await Joueur.create({ 
+                discord_id: message.author.id,
+                a_le_droit_de_jouer: true // Nouveau joueur, il a le droit de jouer
+            });
         }
 
         if (joueur.guess_du_jour < 5) {
@@ -196,7 +194,6 @@ client.on(Events.MessageCreate, async message => {
             joueur.guess_du_jour += 1;
             await message.react('🪙'); // Réaction pour confirmer le gain
         }
-        joueur.a_le_droit_de_jouer = true;
         await joueur.save();
     }
 });

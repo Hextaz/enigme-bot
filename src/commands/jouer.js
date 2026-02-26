@@ -9,14 +9,18 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
 
-        const joueur = await Joueur.findByPk(interaction.user.id);
+        let joueur = await Joueur.findByPk(interaction.user.id);
         
         if (!joueur) {
-            return interaction.editReply({ content: 'Tu n\'as pas encore participé à l\'énigme du jour !' });
+            // Création du profil si c'est la première fois
+            joueur = await Joueur.create({ 
+                discord_id: interaction.user.id,
+                a_le_droit_de_jouer: true 
+            });
         }
 
-        if (!joueur.a_le_droit_de_jouer) {
-            return interaction.editReply({ content: 'Tu n\'as pas le droit de jouer aujourd\'hui. Participe à l\'énigme du jour !' });
+        if (!joueur.a_le_droit_de_jouer && joueur.cases_restantes <= 0) {
+            return interaction.editReply({ content: "Tu as déjà joué aujourd'hui ! Reviens demain après la nouvelle énigme." });
         }
 
         const tousLesJoueurs = await Joueur.findAll();
@@ -32,18 +36,31 @@ module.exports = {
         const buffer = await generateZoomedBoardImage(joueur, tousLesJoueurs, plateau, interaction.client);
         const attachment = new AttachmentBuilder(buffer, { name: 'zoomed_board.png' });
 
-        const row = new ActionRowBuilder()
-            .addComponents(
+        const row = new ActionRowBuilder();
+        
+        if (joueur.cases_restantes > 0) {
+            row.addComponents(
+                new ButtonBuilder()
+                    .setCustomId('continuer_deplacement')
+                    .setLabel(`🚶 Continuer (${joueur.cases_restantes} cases)`)
+                    .setStyle(ButtonStyle.Success)
+            );
+        } else {
+            row.addComponents(
                 new ButtonBuilder()
                     .setCustomId('lancer_de')
                     .setLabel('🎲 Lancer le dé')
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                    .setCustomId('inventaire')
-                    .setLabel('🎒 Inventaire')
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setCustomId('voir_plateau')
+                    .setStyle(ButtonStyle.Primary)
+            );
+        }
+
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId('inventaire')
+                .setLabel('🎒 Inventaire')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId('voir_plateau')
                     .setLabel('🗺️ Voir le plateau')
                     .setStyle(ButtonStyle.Success)
             );
