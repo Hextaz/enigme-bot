@@ -19,10 +19,6 @@ module.exports = {
             });
         }
 
-        if (!joueur.a_le_droit_de_jouer && joueur.cases_restantes <= 0) {
-            return interaction.editReply({ content: "Tu as déjà joué aujourd'hui ! Reviens demain après la nouvelle énigme." });
-        }
-
         const tousLesJoueurs = await Joueur.findAll();
         const plateau = await Plateau.findByPk(1);
 
@@ -51,6 +47,7 @@ module.exports = {
                     .setCustomId('lancer_de')
                     .setLabel('🎲 Lancer le dé')
                     .setStyle(ButtonStyle.Primary)
+                    .setDisabled(!joueur.a_le_droit_de_jouer)
             );
         }
 
@@ -72,13 +69,20 @@ module.exports = {
                     .setCustomId('utiliser_objet')
                     .setLabel('🪄 Utiliser un objet')
                     .setStyle(ButtonStyle.Danger)
+                    .setDisabled(!joueur.a_le_droit_de_jouer)
             );
         }
 
         const tourActuel = plateau ? plateau.tour : 1;
+        
+        let contentMsg = `**Tour ${tourActuel}/30**\n**Tes statistiques :**\n⭐ Étoiles : **${joueur.etoiles}** | 🪙 Pièces : **${joueur.pieces}** | 🏆 Classement : **${rank}/${tousLesJoueurs.length}**\n\nTu es sur la case **${joueur.position}**. Que veux-tu faire ?`;
+        
+        if (!joueur.a_le_droit_de_jouer && joueur.cases_restantes <= 0) {
+            contentMsg += `\n\n⏳ *Tu as déjà joué aujourd'hui ! Reviens demain après la nouvelle énigme.*`;
+        }
 
         await interaction.editReply({
-            content: `**Tour ${tourActuel}/30**\n**Tes statistiques :**\n⭐ Étoiles : **${joueur.etoiles}** | 🪙 Pièces : **${joueur.pieces}** | 🏆 Classement : **${rank}/${tousLesJoueurs.length}**\n\nTu es sur la case **${joueur.position}**. Que veux-tu faire ?`,
+            content: contentMsg,
             files: [attachment],
             components: [row]
         });
