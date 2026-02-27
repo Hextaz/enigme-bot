@@ -41,26 +41,20 @@ function initCronJobs(client) {
         parisActifs = true;
         parisJoueurs = {};
         
-        // Générer 4 coureurs avec des cotes
-        const noms = ['Yoshi', 'Toad', 'Koopa', 'Maskass'];
-        const cotes = [1.5, 2.5, 4.0, 10.0];
+        // Générer 5 Yoshis
+        const noms = ['Yoshi Vert', 'Yoshi Rouge', 'Yoshi Bleu', 'Yoshi Jaune', 'Yoshi Noir'];
         
-        // Mélanger les cotes
-        cotes.sort(() => Math.random() - 0.5);
-
         coureurs = noms.map((nom, index) => ({
             id: index,
-            nom: nom,
-            cote: cotes[index]
+            nom: nom
         }));
 
         let msg = '🏇 **LES PARIS DU SAMEDI SONT OUVERTS !** 🏇\n\n';
-        msg += 'Voici les coureurs du jour :\n';
+        msg += 'Misez sur votre Yoshi favori ! Le système fonctionne comme les prédictions Twitch : le pot total sera partagé entre les gagnants proportionnellement à leur mise.\n\n';
         
         const row = new ActionRowBuilder();
 
         coureurs.forEach(c => {
-            msg += `**${c.nom}** - Cote : x${c.cote}\n`;
             row.addComponents(
                 new ButtonBuilder()
                     .setCustomId(`pari_${c.id}`)
@@ -69,7 +63,7 @@ function initCronJobs(client) {
             );
         });
 
-        msg += '\n*Vous avez jusqu\'à 21h00 pour parier (Max 30 pièces). Un ticket gratuit de 3 pièces est offert à tous !*';
+        msg += '*Vous avez jusqu\'à 21h00 pour parier (Max 30 pièces). Un ticket gratuit de 3 pièces est offert à tous !*';
 
         await channel.send({ content: msg, components: [row] });
     }, {
@@ -85,11 +79,11 @@ function initCronJobs(client) {
         const channel = client.channels.cache.get(config.boardChannelId);
         if (!channel) return;
 
-        await channel.send('🏁 **LA COURSE COMMENCE !** 🏁');
+        await channel.send('🏁 **LA COURSE DE YOSHIS COMMENCE !** 🏁');
         
         // Animation textuelle
         setTimeout(async () => {
-            await channel.send('Les coureurs sont dans le dernier virage...');
+            await channel.send('Les Yoshis sont dans le dernier virage...');
         }, 3000);
 
         setTimeout(async () => {
@@ -97,28 +91,46 @@ function initCronJobs(client) {
         }, 6000);
 
         setTimeout(async () => {
-            // Déterminer le gagnant (pondéré par les cotes pour plus de réalisme, ou totalement aléatoire)
-            // Pour simplifier, on fait un tirage aléatoire simple
+            // Déterminer le gagnant aléatoirement
             const gagnant = coureurs[Math.floor(Math.random() * coureurs.length)];
             
             let resultMsg = `🏆 **${gagnant.nom.toUpperCase()} REMPORTE LA COURSE !** 🏆\n\n`;
 
-            let gagnantsCount = 0;
-            for (const [discordId, pari] of Object.entries(parisJoueurs)) {
+            // Calculer le pot total et le total misé sur le gagnant
+            let potTotal = 0;
+            let totalMiseGagnant = 0;
+            
+            for (const pari of Object.values(parisJoueurs)) {
+                potTotal += pari.montant;
                 if (pari.coureurId === gagnant.id) {
-                    const gain = Math.floor(pari.montant * gagnant.cote);
-                    const joueur = await Joueur.findByPk(discordId);
-                    if (joueur) {
-                        joueur.pieces += gain;
-                        await joueur.save();
-                        resultMsg += `<@${discordId}> gagne **${gain} pièces** ! *(Total: ${joueur.pieces} 🪙)*\n`;
-                        gagnantsCount++;
+                    totalMiseGagnant += pari.montant;
+                }
+            }
+
+            let gagnantsCount = 0;
+            
+            if (totalMiseGagnant > 0) {
+                for (const [discordId, pari] of Object.entries(parisJoueurs)) {
+                    if (pari.coureurId === gagnant.id) {
+                        // Calcul du gain proportionnel : (Mise du joueur / Total misé sur le gagnant) * Pot Total
+                        const part = pari.montant / totalMiseGagnant;
+                        const gain = Math.floor(part * potTotal);
+                        
+                        const joueur = await Joueur.findByPk(discordId);
+                        if (joueur) {
+                            joueur.pieces += gain;
+                            await joueur.save();
+                            resultMsg += `<@${discordId}> gagne **${gain} pièces** (Mise: ${pari.montant}) ! *(Total: ${joueur.pieces} 🪙)*\n`;
+                            gagnantsCount++;
+                        }
                     }
                 }
             }
 
             if (gagnantsCount === 0) {
-                resultMsg += '*Personne n\'a parié sur le bon coureur... Le bot s\'enrichit ! 🤖💰*';
+                resultMsg += `*Personne n'a parié sur ${gagnant.nom}... Le pot de ${potTotal} pièces est perdu ! 🤖💰*`;
+            } else {
+                resultMsg += `\n*Pot total de ${potTotal} pièces partagé entre les gagnants !*`;
             }
 
             await channel.send(resultMsg);

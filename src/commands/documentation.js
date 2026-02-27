@@ -50,7 +50,7 @@ module.exports = {
             .setColor('#9b59b6')
             .setDescription(
             `🎰 **Samedi (Les Paris)**\n` +
-            `Le samedi, il n'y a pas de lancer de dé. À la place, tu peux parier tes pièces sur le joueur qui trouvera l'énigme du dimanche. Si tu gagnes, tu remportes ta mise multipliée par la moitié du nombre de joueurs !\n\n` +
+            `Le samedi, il n'y a pas de lancer de dé. À la place, tu peux parier tes pièces sur une course de Yoshis ! Le système fonctionne comme les prédictions Twitch : tu mises sur un Yoshi, et si ton Yoshi gagne, tu remportes une part du pot total proportionnelle à ta mise.\n\n` +
             `🏴‍☠️ **Dimanche (Marché Noir)**\n` +
             `Le dimanche, la boutique classique est remplacée par le Marché Noir. Tu y trouveras des objets exclusifs et surpuissants (Tuyau Doré, Dé Pipé, Piège à Étoile, Pack de 3 objets).`);
 
