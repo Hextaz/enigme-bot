@@ -116,6 +116,131 @@ client.on(Events.InteractionCreate, async interaction => {
             } else if (interaction.customId.startsWith('pari_')) {
                 const { handlePari } = require('./game/cron');
                 await handlePari(interaction);
+            } else if (interaction.customId.startsWith('rappel_deviner_')) {
+                const userId = interaction.customId.split('_')[2];
+                if (interaction.user.id !== userId) {
+                    return interaction.reply({ content: "Ce bouton n'est pas pour toi.", ephemeral: true });
+                }
+                
+                const joueur = await Joueur.findByPk(userId);
+                if (!joueur || !joueur.last_deviner_time) return interaction.reply({ content: "Erreur lors de la récupération du cooldown.", ephemeral: true });
+                
+                const COOLDOWN_MINUTES = 15;
+                const now = new Date();
+                const diffMs = now - new Date(joueur.last_deviner_time);
+                const diffMins = Math.floor(diffMs / 60000);
+                const remainingMins = COOLDOWN_MINUTES - diffMins;
+                
+                if (remainingMins > 0) {
+                    await interaction.reply({ content: `D'accord ! Je t'enverrai un MP dans environ ${remainingMins} minute(s).`, ephemeral: true });
+                    
+                    setTimeout(async () => {
+                        try {
+                            await interaction.user.send("🔔 **Ding Dong !** Ton cooldown est terminé, tu peux à nouveau utiliser `/deviner` !");
+                        } catch (e) {
+                            console.error(`Impossible d'envoyer le MP de rappel à ${interaction.user.tag} (MP bloqués).`);
+                        }
+                    }, remainingMins * 60000);
+                } else {
+                    await interaction.reply({ content: "Ton cooldown est déjà terminé, tu peux jouer !", ephemeral: true });
+                }
+            } else if (interaction.customId.startsWith('reponse_')) {
+                // Format: reponse_good_userId_mot ou reponse_bad_userId_mot
+                const parts = interaction.customId.split('_');
+                const action = parts[1]; // 'good' ou 'bad'
+                const userId = parts[2];
+                const mot = parts.slice(3).join('_'); // Reconstruct word if it had underscores
+                
+                const plateau = await Plateau.findByPk(1);
+                const channelId = plateau.enigme_channel_id || config.enigmaChannelId;
+                const channel = await interaction.client.channels.fetch(channelId).catch(() => null);
+                
+                if (!channel) {
+                    return interaction.reply({ content: "Erreur : Salon d'énigme introuvable.", ephemeral: true });
+                }
+
+                if (action === 'bad') {
+                    await channel.send(`❌ <@${userId}> a proposé "**${mot}**", mais ce n'est pas ça !`);
+                    await interaction.reply({ content: `Tu as refusé la proposition de <@${userId}>.`, ephemeral: true });
+                    
+                    // Update the original message to show it was processed
+                    const embed = interaction.message.embeds[0];
+                    const newEmbed = { ...embed.data, color: 0xe74c3c, title: 'Proposition refusée' };
+                    await interaction.message.edit({ embeds: [newEmbed], components: [] });
+                    
+                } else if (action === 'good') {
+                    if (plateau.enigme_status === 'active') {
+                        // Premier gagnant
+                        plateau.enigme_status = 'countdown';
+                        plateau.enigme_reponse = mot;
+                        plateau.premier_gagnant = userId;
+                        await plateau.save();
+                        
+                        await channel.send(`🚨 **QUELQU'UN A TROUVÉ LA BONNE RÉPONSE !**\nLe compte à rebours est lancé. Il vous reste **30 minutes** pour faire un dernier \`/deviner\` et tenter de gagner des pièces !`);
+                        await interaction.reply({ content: `Tu as validé la proposition de <@${userId}>. Le compte à rebours de 30 minutes est lancé !`, ephemeral: true });
+                        
+                        // Update the original message
+                        const embed = interaction.message.embeds[0];
+                        const newEmbed = { ...embed.data, color: 0x2ecc71, title: 'Proposition validée (Premier)' };
+                        await interaction.message.edit({ embeds: [newEmbed], components: [] });
+
+                        // Lancer le timer de 30 minutes
+                        setTimeout(async () => {
+                            const p = await Plateau.findByPk(1);
+                            if (p.enigme_status === 'countdown') {
+                                p.enigme_status = 'finished';
+                                await p.save();
+                                
+                                let finalMsg = `⏰ **FIN DU TEMPS !** La bonne réponse était : **${p.enigme_reponse}**\n\n`;
+                                finalMsg += `🏆 <@${p.premier_gagnant}> a été le plus rapide et remporte **10 pièces** !\n`;
+                                
+                                // Récompenser le premier gagnant
+                                const premierJoueur = await Joueur.findByPk(p.premier_gagnant);
+                                if (premierJoueur) {
+                                    premierJoueur.pieces += 10;
+                                    premierJoueur.a_le_droit_de_jouer = true;
+                                    await premierJoueur.save();
+                                }
+
+                                // Récompenser les autres gagnants
+                                if (p.autres_gagnants && p.autres_gagnants.length > 0) {
+                                    const autresMentions = p.autres_gagnants.map(id => `<@${id}>`).join(', ');
+                                    finalMsg += `👏 ${autresMentions} ont également trouvé la réponse à temps et remportent **5 pièces** !\n`;
+                                    
+                                    for (const id of p.autres_gagnants) {
+                                        const j = await Joueur.findByPk(id);
+                                        if (j) {
+                                            j.pieces += 5;
+                                            j.a_le_droit_de_jouer = true;
+                                            await j.save();
+                                        }
+                                    }
+                                }
+                                
+                                finalMsg += `\n🎲 **Le plateau est maintenant ouvert !** Vous pouvez utiliser \`/jouer\`.`;
+                                await channel.send(finalMsg);
+                                
+                                // Donner le droit de jouer à tout le monde
+                                await Joueur.update({ a_le_droit_de_jouer: true }, { where: {} });
+                            }
+                        }, 30 * 60000); // 30 minutes
+
+                    } else if (plateau.enigme_status === 'countdown') {
+                        // Autres gagnants pendant le compte à rebours
+                        if (userId !== plateau.premier_gagnant && !plateau.autres_gagnants.includes(userId)) {
+                            const autres = [...plateau.autres_gagnants, userId];
+                            plateau.autres_gagnants = autres;
+                            await plateau.save();
+                        }
+                        await interaction.reply({ content: `Tu as validé la proposition de <@${userId}>. Il a été ajouté à la liste des gagnants.`, ephemeral: true });
+                        
+                        const embed = interaction.message.embeds[0];
+                        const newEmbed = { ...embed.data, color: 0x2ecc71, title: 'Proposition validée (Retardataire)' };
+                        await interaction.message.edit({ embeds: [newEmbed], components: [] });
+                    } else {
+                        await interaction.reply({ content: "L'énigme est déjà terminée.", ephemeral: true });
+                    }
+                }
             }
         } catch (error) {
             console.error(error);

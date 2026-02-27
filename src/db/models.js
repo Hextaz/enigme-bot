@@ -53,6 +53,10 @@ const Joueur = sequelize.define('Joueur', {
     cases_restantes: {
         type: DataTypes.INTEGER,
         defaultValue: 0,
+    },
+    last_deviner_time: {
+        type: DataTypes.DATE,
+        allowNull: true,
     }
 }, {
     tableName: 'joueurs',
@@ -80,6 +84,26 @@ const Plateau = sequelize.define('Plateau', {
     enigme_resolue: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
+    },
+    enigme_status: {
+        type: DataTypes.STRING,
+        defaultValue: 'active', // 'active', 'countdown', 'finished'
+    },
+    enigme_reponse: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    premier_gagnant: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    autres_gagnants: {
+        type: DataTypes.JSON,
+        defaultValue: [],
+    },
+    enigme_channel_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
     }
 }, {
     tableName: 'plateau',

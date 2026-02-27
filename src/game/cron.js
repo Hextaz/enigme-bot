@@ -13,12 +13,23 @@ function initCronJobs(client) {
     cron.schedule('0 11 * * *', async () => {
         const tousLesJoueurs = await Joueur.findAll();
         for (const j of tousLesJoueurs) {
-            j.a_le_droit_de_jouer = true;
+            j.a_le_droit_de_jouer = false; // On bloque le plateau jusqu'à la résolution de l'énigme
             j.guess_du_jour = 0;
             j.boutique_du_jour = [];
+            j.last_deviner_time = null; // Reset du cooldown
             await j.save();
         }
-        console.log('Reset quotidien effectué : tous les joueurs peuvent jouer.');
+        
+        const plateau = await Plateau.findByPk(1);
+        if (plateau) {
+            plateau.enigme_status = 'active';
+            plateau.enigme_reponse = null;
+            plateau.premier_gagnant = null;
+            plateau.autres_gagnants = [];
+            await plateau.save();
+        }
+        
+        console.log('Reset quotidien effectué : énigme réinitialisée, plateau bloqué.');
     });
 
     // Samedi 10h00 : Lancement des paris
