@@ -1,0 +1,15 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Base de données locale
+database.sqlite
+database.sqlite-journal
+
+# Variables d'environnement
+.env
+
+# Fichiers OS
+.DS_Store
+Thumbs.db
