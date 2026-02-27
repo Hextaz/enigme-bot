@@ -36,14 +36,17 @@ module.exports = {
             .setDescription(
             `Tu peux avoir maximum **3 objets** dans ton inventaire. Tu peux en utiliser un avant de lancer ton dé.\n\n` +
             `🍄 **Champignon** (5p) : +3 au prochain lancer.\n` +
-            `🎲 **Double Dé** (10p) : Lance 2 dés (2 à 12).\n` +
-            `🎲 **Dé Triple** (15p) : Lance 3 dés (3 à 18).\n` +
-            `🎯 **Dé Pipé** (15p) : Choisis le résultat de ton dé (1 à 6).\n` +
+            `💰 **Piège à pièces** (5p) : Vole 10 pièces au prochain marcheur.\n` +
+            `🧪 **Tuyau** (8p) : Téléportation aléatoire.\n` +
+            `🎯 **Dé Pipé** (10p) : Choisis le résultat de ton dé (1 à 6).\n` +
+            `🎲 **Double Dé** (12p) : Lance 2 dés (2 à 12).\n` +
             `🪞 **Miroir** (15p) : Échange ta position avec un joueur aléatoire.\n` +
-            `🧪 **Tuyau** (10p) : Téléportation aléatoire.\n` +
+            `🎺 **Sifflet** (15p) : Déplace l'Étoile sur une autre case.\n\n` +
+            `*Objets exclusifs du Marché Noir (Dimanche) :*\n` +
+            `🎲 **Dé Triple** (20p) : Lance 3 dés (3 à 18).\n` +
             `🏆 **Tuyau Doré** (25p) : Téléportation juste devant l'Étoile.\n` +
-            `🎺 **Sifflet** (15p) : Déplace l'Étoile sur une autre case.\n` +
-            `🪤 **Piège à pièces** (10p) / **Piège à Étoile** (20p) : Pose un piège sur ta case actuelle. Le premier qui s'y arrête subit le piège et te donne son butin.`);
+            `🌟 **Piège à Étoile** (30p) : Vole 1 Étoile au prochain marcheur.\n` +
+            `🎁 **Packs Promo** (15p/25p) : Contient 2 objets.`);
 
         const embedEvents = new EmbedBuilder()
             .setTitle('📅 Événements Spéciaux')
