@@ -241,6 +241,12 @@ client.on(Events.InteractionCreate, async interaction => {
                         await interaction.reply({ content: "L'énigme est déjà terminée.", ephemeral: true });
                     }
                 }
+            } else if (interaction.customId.startsWith('admin_kick_confirm_')) {
+                const userId = interaction.customId.split('_')[3];
+                await Joueur.destroy({ where: { discord_id: userId } });
+                await interaction.update({ content: `✅ Le joueur <@${userId}> a été définitivement supprimé de la base de données.`, components: [] });
+            } else if (interaction.customId === 'admin_kick_cancel') {
+                await interaction.update({ content: `❌ L'exclusion a été annulée.`, components: [] });
             }
         } catch (error) {
             console.error(error);

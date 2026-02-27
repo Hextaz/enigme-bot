@@ -34,12 +34,16 @@ module.exports = {
 
         const row = new ActionRowBuilder();
         
+        const isSaturday = new Date().getDay() === 6;
+        const canPlay = joueur.a_le_droit_de_jouer && !isSaturday;
+
         if (joueur.cases_restantes > 0) {
             row.addComponents(
                 new ButtonBuilder()
                     .setCustomId('continuer_deplacement')
                     .setLabel(`🚶 Continuer (${joueur.cases_restantes} cases)`)
                     .setStyle(ButtonStyle.Success)
+                    .setDisabled(isSaturday)
             );
         } else {
             row.addComponents(
@@ -47,7 +51,7 @@ module.exports = {
                     .setCustomId('lancer_de')
                     .setLabel('🎲 Lancer le dé')
                     .setStyle(ButtonStyle.Primary)
-                    .setDisabled(!joueur.a_le_droit_de_jouer)
+                    .setDisabled(!canPlay)
             );
         }
 
@@ -69,7 +73,7 @@ module.exports = {
                     .setCustomId('utiliser_objet')
                     .setLabel('🪄 Utiliser un objet')
                     .setStyle(ButtonStyle.Danger)
-                    .setDisabled(!joueur.a_le_droit_de_jouer)
+                    .setDisabled(!canPlay)
             );
         }
 
@@ -77,7 +81,9 @@ module.exports = {
         
         let contentMsg = `**Tour ${tourActuel}/30**\n**Tes statistiques :**\n⭐ Étoiles : **${joueur.etoiles}** | 🪙 Pièces : **${joueur.pieces}** | 🏆 Classement : **${rank}/${tousLesJoueurs.length}**\n\nTu es sur la case **${joueur.position}**. Que veux-tu faire ?`;
         
-        if (!joueur.a_le_droit_de_jouer && joueur.cases_restantes <= 0) {
+        if (isSaturday) {
+            contentMsg += `\n\n🎰 *C'est samedi ! Il n'y a pas de lancer de dé aujourd'hui. Place aux paris sur la course de Yoshis !*`;
+        } else if (!joueur.a_le_droit_de_jouer && joueur.cases_restantes <= 0) {
             contentMsg += `\n\n⏳ *Tu as déjà joué aujourd'hui ! Reviens demain après la nouvelle énigme.*`;
         }
 

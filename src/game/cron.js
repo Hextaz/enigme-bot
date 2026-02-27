@@ -151,8 +151,9 @@ function initCronJobs(client) {
         timezone: "Europe/Paris"
     });
 
-    // Reset quotidien à 11h00
-    cron.schedule('0 11 * * 1-5', async () => {
+    // Annonce de fin de tour à 11h00 (du lundi au samedi, pour annoncer la fin du jour précédent)
+    // Le dimanche à 11h00 on n'annonce rien car il n'y a pas eu de jeu le samedi
+    cron.schedule('0 11 * * 1-6', async () => {
         const channel = client.channels.cache.get(config.boardChannelId);
         if (channel) {
             const tousLesJoueurs = await Joueur.findAll();
@@ -218,8 +219,8 @@ async function handleModalPari(interaction) {
     const montantStr = interaction.fields.getTextInputValue('montant');
     let montant = parseInt(montantStr);
 
-    if (isNaN(montant) || montant < 0 || montant > 30) {
-        return interaction.reply({ content: 'Montant invalide. Doit être entre 0 et 30.', ephemeral: true });
+    if (isNaN(montant) || montant < 3 || montant > 30) {
+        return interaction.reply({ content: 'Montant invalide. Doit être entre 3 et 30 (3 pièces sont offertes).', ephemeral: true });
     }
 
     const joueur = await Joueur.findByPk(interaction.user.id);

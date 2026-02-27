@@ -57,7 +57,8 @@ async function generateShop(joueurId) {
     // Vérifier si on est dimanche (0 = Dimanche)
     const isSunday = new Date().getDay() === 0;
 
-    // Générer 3 objets
+    // Générer 3 objets (ou 2 si c'est dimanche et qu'on veut des packs)
+    // Le dimanche, on propose 3 objets spéciaux
     for (let i = 0; i < 3; i++) {
         let item;
         let attempts = 0;

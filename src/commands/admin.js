@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { Joueur, Plateau } = require('../db/models');
 
 module.exports = {
@@ -19,11 +19,55 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('give')
-                .setDescription('Outil de correction manuelle.')
+                .setDescription('Donner une ressource à un joueur.')
                 .addUserOption(option => option.setName('joueur').setDescription('Le joueur cible').setRequired(true))
-                .addIntegerOption(option => option.setName('pieces').setDescription('Nombre de pièces à donner').setRequired(false))
-                .addIntegerOption(option => option.setName('etoiles').setDescription('Nombre d\'étoiles à donner').setRequired(false))
-                .addStringOption(option => option.setName('item').setDescription('ID de l\'item à donner').setRequired(false))
+                .addStringOption(option => 
+                    option.setName('ressource')
+                        .setDescription('Type de ressource')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: 'Pièces', value: 'pieces' },
+                            { name: 'Étoiles', value: 'etoiles' },
+                            { name: 'Objet', value: 'objet' }
+                        )
+                )
+                .addStringOption(option => option.setName('valeur').setDescription('Quantité (nombre) ou Nom de l\'objet').setRequired(true))
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('remove')
+                .setDescription('Retirer une ressource à un joueur.')
+                .addUserOption(option => option.setName('joueur').setDescription('Le joueur cible').setRequired(true))
+                .addStringOption(option => 
+                    option.setName('ressource')
+                        .setDescription('Type de ressource')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: 'Pièces', value: 'pieces' },
+                            { name: 'Étoiles', value: 'etoiles' },
+                            { name: 'Objet', value: 'objet' }
+                        )
+                )
+                .addStringOption(option => option.setName('valeur').setDescription('Quantité (nombre) ou Nom de l\'objet').setRequired(true))
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('set_position')
+                .setDescription('Téléporter manuellement un joueur.')
+                .addUserOption(option => option.setName('joueur').setDescription('Le joueur cible').setRequired(true))
+                .addIntegerOption(option => option.setName('case').setDescription('Numéro de la case (1-42)').setRequired(true).setMinValue(1).setMaxValue(42))
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('kick')
+                .setDescription('Exclure un joueur et supprimer ses données.')
+                .addUserOption(option => option.setName('joueur').setDescription('Le joueur cible').setRequired(true))
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('reset_cooldown')
+                .setDescription('Remet à zéro le temps d\'attente d\'un joueur.')
+                .addUserOption(option => option.setName('joueur').setDescription('Le joueur cible').setRequired(true))
         )
         .addSubcommand(subcommand =>
             subcommand
@@ -59,32 +103,98 @@ module.exports = {
             });
 
             await interaction.reply(podiumMsg);
-        } else if (subcommand === 'give') {
+        } else if (subcommand === 'give' || subcommand === 'remove') {
             const targetUser = interaction.options.getUser('joueur');
-            const pieces = interaction.options.getInteger('pieces') || 0;
-            const etoiles = interaction.options.getInteger('etoiles') || 0;
-            const item = interaction.options.getString('item');
+            const ressource = interaction.options.getString('ressource');
+            const valeur = interaction.options.getString('valeur');
 
             let joueur = await Joueur.findByPk(targetUser.id);
             if (!joueur) {
+                if (subcommand === 'remove') return interaction.reply({ content: "Ce joueur n'existe pas dans la base de données.", ephemeral: true });
                 joueur = await Joueur.create({ discord_id: targetUser.id });
             }
 
-            joueur.pieces += pieces;
-            joueur.etoiles += etoiles;
-            
-            if (item) {
-                const inventaire = [...joueur.inventaire];
-                if (inventaire.length < 3) {
-                    inventaire.push(item);
-                    joueur.inventaire = inventaire;
+            if (ressource === 'pieces' || ressource === 'etoiles') {
+                const quantite = parseInt(valeur);
+                if (isNaN(quantite) || quantite <= 0) return interaction.reply({ content: "Veuillez entrer un nombre valide et positif.", ephemeral: true });
+                
+                if (subcommand === 'give') {
+                    joueur[ressource] += quantite;
+                    await joueur.save();
+                    await interaction.reply(`✅ Ajout de ${quantite} ${ressource} à <@${targetUser.id}>.`);
                 } else {
-                    return interaction.reply({ content: 'L\'inventaire du joueur est plein (max 3).', ephemeral: true });
+                    joueur[ressource] = Math.max(0, joueur[ressource] - quantite);
+                    await joueur.save();
+                    await interaction.reply(`✅ Retrait de ${quantite} ${ressource} à <@${targetUser.id}>.`);
+                }
+            } else if (ressource === 'objet') {
+                if (subcommand === 'give') {
+                    const inventaire = [...joueur.inventaire];
+                    if (inventaire.length < 3) {
+                        inventaire.push(valeur);
+                        joueur.inventaire = inventaire;
+                        await joueur.save();
+                        await interaction.reply(`✅ L'objet "${valeur}" a été donné à <@${targetUser.id}>.`);
+                    } else {
+                        return interaction.reply({ content: 'L\'inventaire du joueur est plein (max 3).', ephemeral: true });
+                    }
+                } else {
+                    const inventaire = [...joueur.inventaire];
+                    const index = inventaire.indexOf(valeur);
+                    if (index !== -1) {
+                        inventaire.splice(index, 1);
+                        joueur.inventaire = inventaire;
+                        await joueur.save();
+                        await interaction.reply(`✅ L'objet "${valeur}" a été retiré à <@${targetUser.id}>.`);
+                    } else {
+                        return interaction.reply({ content: `Le joueur ne possède pas l'objet "${valeur}".`, ephemeral: true });
+                    }
                 }
             }
-
+        } else if (subcommand === 'set_position') {
+            const targetUser = interaction.options.getUser('joueur');
+            const caseNum = interaction.options.getInteger('case');
+            
+            let joueur = await Joueur.findByPk(targetUser.id);
+            if (!joueur) return interaction.reply({ content: "Ce joueur n'existe pas dans la base de données.", ephemeral: true });
+            
+            joueur.position = caseNum;
             await joueur.save();
-            await interaction.reply(`Données mises à jour pour <@${targetUser.id}>.`);
+            await interaction.reply(`📍 <@${targetUser.id}> a été téléporté sur la case ${caseNum}.`);
+            
+        } else if (subcommand === 'kick') {
+            const targetUser = interaction.options.getUser('joueur');
+            
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`admin_kick_confirm_${targetUser.id}`)
+                        .setLabel('Oui, exclure définitivement')
+                        .setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder()
+                        .setCustomId('admin_kick_cancel')
+                        .setLabel('Annuler')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+
+            await interaction.reply({ 
+                content: `⚠️ **Êtes-vous sûr de vouloir supprimer définitivement <@${targetUser.id}> de cette saison ?** Toutes ses données seront perdues.`, 
+                components: [row],
+                ephemeral: true 
+            });
+            
+        } else if (subcommand === 'reset_cooldown') {
+            const targetUser = interaction.options.getUser('joueur');
+            
+            let joueur = await Joueur.findByPk(targetUser.id);
+            if (!joueur) return interaction.reply({ content: "Ce joueur n'existe pas dans la base de données.", ephemeral: true });
+            
+            joueur.a_le_droit_de_jouer = true;
+            joueur.last_deviner_time = null;
+            await joueur.save();
+            
+            await interaction.reply(`⏳ Le cooldown de <@${targetUser.id}> a été réinitialisé. Il peut rejouer immédiatement.`);
+            
         } else if (subcommand === 'tour') {
             const numero = interaction.options.getInteger('numero');
             await Plateau.update({ tour: numero }, { where: { id: 1 } });

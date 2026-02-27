@@ -50,9 +50,9 @@ module.exports = {
             .setColor('#9b59b6')
             .setDescription(
             `🎰 **Samedi (Les Paris)**\n` +
-            `Le samedi, il n'y a pas de lancer de dé. À la place, tu peux parier tes pièces sur une course de Yoshis ! Le système fonctionne comme les prédictions Twitch : tu mises sur un Yoshi, et si ton Yoshi gagne, tu remportes une part du pot total proportionnelle à ta mise.\n\n` +
+            `Le samedi, il n'y a pas de lancer de dé. À la place, tu peux parier tes pièces sur une course de Yoshis ! Le système fonctionne comme les prédictions Twitch : tu mises sur un Yoshi, et si ton Yoshi gagne, tu remportes une part du pot total proportionnelle à ta mise. (Mise max : 30 pièces. Un ticket gratuit de 3 pièces est offert à tous !)\n\n` +
             `🏴‍☠️ **Dimanche (Marché Noir)**\n` +
-            `Le dimanche, la boutique classique est remplacée par le Marché Noir. Tu y trouveras des objets exclusifs et surpuissants (Tuyau Doré, Dé Pipé, Piège à Étoile, Pack de 3 objets).`);
+            `Le dimanche, la boutique classique est remplacée par le Marché Noir. Tu y trouveras des objets exclusifs et surpuissants (Tuyau Doré, Dé Pipé, Piège à Étoile, Pack de 2 objets).`);
 
         await interaction.reply({
             embeds: [embedRegles, embedCases, embedObjets, embedEvents],
