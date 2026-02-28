@@ -9,8 +9,8 @@ let coureurs = [];
 let parisJoueurs = {}; // { discord_id: { coureurId, montant } }
 
 function initCronJobs(client) {
-    // Reset quotidien à 11h00 : Tout le monde a le droit de jouer
-    cron.schedule('0 11 * * *', async () => {
+    // Lundi à Vendredi 11h00 : Reset normal (bloque en attendant l'énigme)
+    cron.schedule('0 11 * * 1-5', async () => {
         const tousLesJoueurs = await Joueur.findAll();
         for (const j of tousLesJoueurs) {
             j.a_le_droit_de_jouer = false; // On bloque le plateau jusqu'à la résolution de l'énigme
@@ -32,9 +32,41 @@ function initCronJobs(client) {
         console.log('Reset quotidien effectué : énigme réinitialisée, plateau bloqué.');
     });
 
-    // Samedi 10h00 : Lancement des paris
+    // Dimanche 11h00 : Ouverture automatique pour le Marché Noir (Pas d'énigme)
+    cron.schedule('0 11 * * 0', async () => {
+        const tousLesJoueurs = await Joueur.findAll();
+        for (const j of tousLesJoueurs) {
+            j.a_le_droit_de_jouer = true; // Plateau ouvert d'office !
+            j.guess_du_jour = 0;
+            j.boutique_du_jour = []; // Reset pour forcer la génération du marché noir
+            j.last_deviner_time = null;
+            await j.save();
+        }
+
+        const plateau = await Plateau.findByPk(1);
+        if (plateau) {
+            plateau.tour += 1; // On passe au tour suivant automatiquement
+            plateau.enigme_resolue = true; // Pas d'énigme à résoudre aujourd'hui
+            await plateau.save();
+        }
+
+        const channel = client.channels.cache.get(config.boardChannelId);
+        if (channel) {
+            await channel.send('🛍️ **LE MARCHÉ NOIR EST OUVERT !** 🛍️\nLe plateau est déverrouillé, aucune énigme aujourd\'hui. Les boutiques proposent des objets dévastateurs exclusifs ! Utilisez `/jouer` pour en profiter !');
+        }
+    }, {
+        timezone: "Europe/Paris"
+    });
+
+    // Samedi 10h00 : Lancement des paris (Le plateau est fermé)
     // '0 10 * * 6' = À 10:00 le samedi
     cron.schedule('0 10 * * 6', async () => {
+        // Sécurité : On s'assure que tout le monde est bloqué pour le plateau
+        const tousLesJoueurs = await Joueur.findAll();
+        for (const j of tousLesJoueurs) {
+            j.a_le_droit_de_jouer = false;
+            await j.save();
+        }
         const channel = client.channels.cache.get(config.boardChannelId);
         if (!channel) return;
 
@@ -140,16 +172,8 @@ function initCronJobs(client) {
         timezone: "Europe/Paris"
     });
 
-    // Dimanche : Le Marché Noir (Géré dans la logique de la boutique)
-    // On peut juste envoyer une annonce le dimanche matin
-    cron.schedule('0 10 * * 0', async () => {
-        const channel = client.channels.cache.get(config.boardChannelId);
-        if (channel) {
-            await channel.send('🛍️ **LE MARCHÉ NOIR EST OUVERT !** 🛍️\nLes boutiques proposent aujourd\'hui des objets dévastateurs exclusifs !');
-        }
-    }, {
-        timezone: "Europe/Paris"
-    });
+    // On a déjà géré l'annonce du Marché Noir à 11h00, donc on retire le cron de 10h00 le dimanche
+    // (Lignes supprimées)
 
     // Annonce de fin de tour à 11h00 (du lundi au samedi, pour annoncer la fin du jour précédent)
     // Le dimanche à 11h00 on n'annonce rien car il n'y a pas eu de jeu le samedi
