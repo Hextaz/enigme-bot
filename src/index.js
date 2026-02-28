@@ -218,6 +218,11 @@ client.on(Events.InteractionCreate, async interaction => {
                                 }
                                 
                                 finalMsg += `\n🎲 **Le plateau est maintenant ouvert !** Vous pouvez utiliser \`/jouer\`.`;
+                                
+                                if (config.roleEnigmeId) {
+                                    finalMsg = `<@&${config.roleEnigmeId}>\n` + finalMsg;
+                                }
+
                                 await channel.send(finalMsg);
                                 
                                 // Donner le droit de jouer à tout le monde

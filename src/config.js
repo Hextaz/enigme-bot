@@ -6,4 +6,5 @@ module.exports = {
     enigmaChannelId: process.env.ENIGMA_CHANNEL_ID,
     boardChannelId: process.env.BOARD_CHANNEL_ID,
     mjUserId: process.env.MJ_USER_ID,
+    roleEnigmeId: process.env.ROLE_ENIGME_ID,
 };

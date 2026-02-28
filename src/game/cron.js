@@ -52,7 +52,8 @@ function initCronJobs(client) {
 
         const channel = client.channels.cache.get(config.boardChannelId);
         if (channel) {
-            await channel.send('🛍️ **LE MARCHÉ NOIR EST OUVERT !** 🛍️\nLe plateau est déverrouillé, aucune énigme aujourd\'hui. Les boutiques proposent des objets dévastateurs exclusifs ! Utilisez `/jouer` pour en profiter !');
+            let mentionRole = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
+            await channel.send(`${mentionRole}🛍️ **LE MARCHÉ NOIR EST OUVERT !** 🛍️\nLe plateau est déverrouillé, aucune énigme aujourd'hui. Les boutiques proposent des objets dévastateurs exclusifs ! Utilisez \`/jouer\` pour en profiter !`);
         }
     }, {
         timezone: "Europe/Paris"
@@ -82,6 +83,9 @@ function initCronJobs(client) {
         }));
 
         let msg = '🏇 **LES PARIS DU SAMEDI SONT OUVERTS !** 🏇\n\n';
+        if (config.roleEnigmeId) {
+            msg = `<@&${config.roleEnigmeId}> ` + msg;
+        }
         msg += 'Misez sur votre Yoshi favori ! Le système fonctionne comme les prédictions Twitch : le pot total sera partagé entre les gagnants proportionnellement à leur mise.\n\n';
         
         const row = new ActionRowBuilder();
