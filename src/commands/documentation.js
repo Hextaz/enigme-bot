@@ -57,8 +57,22 @@ module.exports = {
             `🏴‍☠️ **Dimanche (Marché Noir)**\n` +
             `Le dimanche, la boutique classique est remplacée par le Marché Noir. Tu y trouveras des objets exclusifs et surpuissants (Tuyau Doré, Dé Pipé, Piège à Étoile, Pack de 2 objets).`);
 
+        const embedCommands = new EmbedBuilder()
+            .setTitle('💻 Commandes Utilisateurs')
+            .setColor('#f1c40f')
+            .setDescription(
+            `Voici la liste des commandes que tu peux utiliser pour jouer !\n\n` +
+            `**\`/jouer\`**\n` +
+            `Ouvre ton menu privé (éphémère). C'est depuis ce menu que tu peux lancer ton dé, voir ton inventaire, utiliser un objet, voir le plateau de près et ton classement ! C'est la commande principale du jeu.\n\n` +
+            `**\`/deviner [réponse]\`**\n` +
+            `Sers-toi de cette commande pour répondre à l'énigme du jour posée par le MJ et gagner 10 pièces ! Attention, après le premier essai (gratuit), chaque tentative coûte 1 pièce.\n\n` +
+            `**\`/stats [joueur]\`**\n` +
+            `Affiche un récapitulatif de tes statistiques (ou celles d'un autre joueur optionnel). Tu verras les pièces, les étoiles, la position sur le plateau, le classement général, et l'inventaire.\n\n` +
+            `**\`/documentation\`**\n` +
+            `Affiche ce message avec toutes les règles du jeu !`);
+
         await interaction.reply({
-            embeds: [embedRegles, embedCases, embedObjets, embedEvents],
+            embeds: [embedRegles, embedCases, embedObjets, embedEvents, embedCommands],
             ephemeral: true
         });
     },
