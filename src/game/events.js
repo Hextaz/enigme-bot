@@ -425,7 +425,7 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
                 }
             }
         } else if (caseArrivee.type === 'Boo') {
-            messageAction += `\n👻 **Boo !** **${interaction.user.username}** est tombé sur Boo ! Regarde tes messages privés pour choisir ta cible.`;
+            messageAction += `\n👻 **Boo !** **${interaction.user.username}** est tombé sur Boo ! Un choix de vol se présente à lui.`;
         } else if (caseArrivee.type === 'Bowser') {
             const bowserEvents = [
                 { type: 'moitie_pieces', msg: 'Perte de la moitié des pièces' },
