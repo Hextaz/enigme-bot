@@ -74,6 +74,11 @@ module.exports = {
                 .setName('tour')
                 .setDescription('Définit le numéro du tour actuel.')
                 .addIntegerOption(option => option.setName('numero').setDescription('Le numéro du tour').setRequired(true))
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('open_black_market')
+                .setDescription('Force l\'ouverture du Marché Noir (utile si le cron a planté le dimanche).')
         ),
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
@@ -199,6 +204,39 @@ module.exports = {
             const numero = interaction.options.getInteger('numero');
             await Plateau.update({ tour: numero }, { where: { id: 1 } });
             await interaction.reply(`Le tour a été défini sur **${numero}**.`);
+        } else if (subcommand === 'open_black_market') {
+            // Vérification si on est dimanche
+            const today = new Date();
+            if (today.getDay() !== 0) {
+                return interaction.reply({ content: 'Cette commande ne peut être utilisée que le dimanche !', ephemeral: true });
+            }
+
+            // Ouverture manuelle
+            const tousLesJoueurs = await Joueur.findAll();
+            for (const j of tousLesJoueurs) {
+                j.a_le_droit_de_jouer = true; // Plateau ouvert d'office !
+                j.guess_du_jour = 0;
+                j.boutique_du_jour = []; // Reset pour forcer la génération du marché noir
+                j.last_deviner_time = null;
+                await j.save();
+            }
+
+            const plateau = await Plateau.findByPk(1);
+            if (plateau) {
+                plateau.tour += 1;
+                plateau.enigme_resolue = true;
+                await plateau.save();
+            }
+
+            const config = require('../config');
+            const channel = interaction.client.channels.cache.get(config.boardChannelId);
+            
+            if (channel) {
+                let mentionRole = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
+                await channel.send(`${mentionRole}🛍️ **LE MARCHÉ NOIR EST OUVERT ! (Action manuelle du MJ)** 🛍️\nLe plateau est déverrouillé, aucune énigme aujourd'hui. Les boutiques proposent des objets dévastateurs exclusifs ! Utilisez \`/jouer\` pour en profiter !`);
+            }
+
+            await interaction.reply({ content: '✅ Le Marché Noir a été ouvert manuellement avec succès et tous les joueurs ont été débloqués.', ephemeral: true });
         }
     },
 };
