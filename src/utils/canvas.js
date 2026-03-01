@@ -113,24 +113,62 @@ async function generateBoardImage(joueurs, plateau, client) {
 
         for (let i = 0; i < joueursSurCase.length; i++) {
             const joueur = joueursSurCase[i];
-            
+
             const radius = 30; // 60x60 pixels
-            let px = c.x + 45; // Décalage vers la droite pour centrer sur la case (car x,y est le coin supérieur gauche de la case)
-            let py = c.y - 45; // Décalage vers le haut pour être au-dessus de la case
+            
+            // X et Y du centre de la case (chaque case fait 90x90)
+            const caseCenterX = c.x + 45;
+            const caseCenterY = c.y + 45;
+            
+            // Centre visuel du plateau (l'herbe au milieu)
+            const boardCenterX = BOARD_WIDTH / 2; // = 960
+            const boardCenterY = BOARD_HEIGHT / 2; // = 540
+            
+            // Vecteur partant du centre du plateau vers la case
+            let vectorX = caseCenterX - boardCenterX;
+            let vectorY = caseCenterY - boardCenterY;
+            
+            // Normalisation du vecteur (longueur = 1)
+            const length = Math.sqrt(vectorX * vectorX + vectorY * vectorY);
+            if (length > 0) {
+                vectorX /= length;
+                vectorY /= length;
+            } else {
+                vectorY = -1; // Fallback
+            }
+
+            // Pour pousser l'avatar vers l'extérieur du circuit
+            // Rayon avatar = 30, moitié case = 45 => on le pousse de 65-70px vers l'extérieur
+            let px = caseCenterX + (vectorX * 70); 
+            let py = caseCenterY + (vectorY * 70);
 
             if (joueursSurCase.length === 2) {
-                // 2 joueurs : côte à côte
-                px += (i === 0) ? -15 : 15;
+                // 2 joueurs : on les écarte sur l'axe perpendiculaire au vecteur (tangente)
+                // Vecteur tangent: (-vectorY, vectorX)
+                if (i === 0) {
+                    px -= vectorY * 20;
+                    py += vectorX * 20;
+                } else {
+                    px += vectorY * 20;
+                    py -= vectorX * 20;
+                }
             } else if (joueursSurCase.length >= 3) {
-                // 3 joueurs ou plus : petite pyramide
-                if (i === 0) { px -= 15; py += 10; }
-                else if (i === 1) { px += 15; py += 10; }
-                else if (i === 2) { py -= 15; }
-                else {
-                    // S'il y en a plus de 3, on les décale un peu aléatoirement ou en cercle
+                // 3 joueurs ou plus : on les répartit autour du vecteur extérieur
+                if (i === 0) {
+                    px -= vectorY * 15;
+                    py += vectorX * 15;
+                } else if (i === 1) {
+                    px += vectorY * 15;
+                    py -= vectorX * 15;
+                } else if (i === 2) {
+                    // Le 3ème joueur est poussé encore plus vers l'extérieur pour faire un triangle
+                    px += vectorX * 25; 
+                    py += vectorY * 25;
+                } else {
+                    // S'il y en a plus de 3, on fait un arc de cercle autour du point de base
                     const angle = (i / joueursSurCase.length) * Math.PI * 2;
-                    px += Math.cos(angle) * 15;
-                    py += Math.sin(angle) * 15;
+                    px += Math.cos(angle) * 25;
+                    py += Math.sin(angle) * 25;
                 }
             }
 
