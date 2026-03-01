@@ -64,10 +64,14 @@ client.on(Events.InteractionCreate, async interaction => {
             await command.execute(interaction);
         } catch (error) {
             console.error(error);
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', ephemeral: true });
-            } else {
-                await interaction.reply({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', ephemeral: true });
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', ephemeral: true });
+                } else {
+                    await interaction.reply({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', ephemeral: true });
+                }
+            } catch (e) {
+                console.error("Impossible de répondre à l'interaction qui a échoué (déjà expirée).", e);
             }
         }
     } else if (interaction.isButton()) {
@@ -403,6 +407,15 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
             }
         }
     }
+});
+
+// Capture globale des promesses rejetées pour éviter un crash total de l'application
+process.on('unhandledRejection', error => {
+    console.error('Unhandled promise rejection:', error);
+});
+
+process.on('uncaughtException', error => {
+    console.error('Uncaught Exception:', error);
 });
 
 client.login(config.token);
