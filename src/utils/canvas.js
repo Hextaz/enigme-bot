@@ -115,32 +115,37 @@ async function generateBoardImage(joueurs, plateau, client) {
             const joueur = joueursSurCase[i];
 
             const radius = 30; // 60x60 pixels
-            
+
             // X et Y du centre de la case (chaque case fait 90x90)
             const caseCenterX = c.x + 45;
             const caseCenterY = c.y + 45;
+
+            // Calculer l'angle parfait vers l'extérieur en utilisant les cases adjacentes
+            const posId = parseInt(position);
+            const prevId = posId - 1 <= 0 ? 42 : posId - 1;
+            const nextId = posId + 1 > 42 ? 1 : posId + 1;
             
-            // Centre visuel du plateau (l'herbe au milieu)
-            const boardCenterX = BOARD_WIDTH / 2; // = 960
-            const boardCenterY = BOARD_HEIGHT / 2; // = 540
+            const prevCase = getCase(prevId);
+            const nextCase = getCase(nextId);
             
-            // Vecteur partant du centre du plateau vers la case
-            let vectorX = caseCenterX - boardCenterX;
-            let vectorY = caseCenterY - boardCenterY;
+            // Vecteur tangent (direction du chemin)
+            let tangentX = nextCase.x - prevCase.x;
+            let tangentY = nextCase.y - prevCase.y;
             
-            // Normalisation du vecteur (longueur = 1)
-            const length = Math.sqrt(vectorX * vectorX + vectorY * vectorY);
+            const length = Math.sqrt(tangentX * tangentX + tangentY * tangentY);
+            
+            // Vecteur normal vers l'extérieur (rotation de 90° dans le sens horaire des coordonnées écran)
+            let vectorX = 0;
+            let vectorY = -1; // Fallback par défaut vers le haut
+            
             if (length > 0) {
-                vectorX /= length;
-                vectorY /= length;
-            } else {
-                vectorY = -1; // Fallback
+                vectorX = tangentY / length;
+                vectorY = -tangentX / length;
             }
 
-            // Pour pousser l'avatar vers l'extérieur du circuit
-            // Rayon avatar = 30, moitié case = 45 => on le pousse de 65-70px vers l'extérieur
-            let px = caseCenterX + (vectorX * 70); 
-            let py = caseCenterY + (vectorY * 70);
+            // Pour pousser l'avatar vers l'extérieur du circuit (65px)
+            let px = caseCenterX + (vectorX * 65);
+            let py = caseCenterY + (vectorY * 65);
 
             if (joueursSurCase.length === 2) {
                 // 2 joueurs : on les écarte sur l'axe perpendiculaire au vecteur (tangente)
