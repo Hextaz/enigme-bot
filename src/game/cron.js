@@ -1,7 +1,7 @@
 const cron = require('node-cron');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
-const { Joueur } = require('../db/models');
+const { Joueur, Plateau } = require('../db/models');
 
 // Variables globales pour les paris
 let parisActifs = false;
