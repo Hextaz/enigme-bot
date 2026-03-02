@@ -25,8 +25,8 @@ module.exports = {
             return interaction.reply({ content: "L'énigme du jour est déjà terminée !", ephemeral: true });
         }
 
-        // Cooldown check (15 minutes)
-        const COOLDOWN_MINUTES = 15;
+        // Cooldown check (30 minutes)
+        const COOLDOWN_MINUTES = 30;
         const now = new Date();
         if (joueur.last_deviner_time) {
             const diffMs = now - new Date(joueur.last_deviner_time);
@@ -50,7 +50,13 @@ module.exports = {
             }
         }
 
-        // Update cooldown
+        // Update cooldown & Add coins if guess_du_jour < 5
+        let coinMessage = "";
+        if (joueur.guess_du_jour < 5) {
+            joueur.pieces += 1;
+            joueur.guess_du_jour += 1;
+            coinMessage = "\n🪙 *+1 pièce de participation !*";
+        }
         joueur.last_deviner_time = now;
         await joueur.save();
 
@@ -96,6 +102,6 @@ module.exports = {
             await plateau.save();
         }
 
-        await interaction.reply({ content: `Ta proposition "**${mot}**" a bien été envoyée au Maître du Jeu !`, ephemeral: true });
+        await interaction.reply({ content: `Ta proposition "**${mot}**" a bien été envoyée au Maître du Jeu !${coinMessage}`, ephemeral: true });
     },
 };

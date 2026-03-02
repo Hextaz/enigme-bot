@@ -18,6 +18,11 @@ module.exports = {
         )
         .addSubcommand(subcommand =>
             subcommand
+                .setName('lancer_enigme')
+                .setDescription('Lance l\'énigme du jour (incrémente le tour).')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
                 .setName('give')
                 .setDescription('Donner une ressource à un joueur.')
                 .addUserOption(option => option.setName('joueur').setDescription('Le joueur cible').setRequired(true))
@@ -88,7 +93,23 @@ module.exports = {
             // L'étoile spawn entre la case 10 et 42 pour ne pas être trop proche du départ
             const randomStarPos = Math.floor(Math.random() * 33) + 10; 
             await Plateau.update({ position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true }, { where: { id: 1 } });
-            await interaction.reply(`La saison a été réinitialisée et lancée ! L'Étoile est apparue sur la case ${randomStarPos}. Le prochain \`# Enigme du jour\` lancera le **Tour 1**.`);
+            await interaction.reply(`La saison a été réinitialisée et lancée ! L'Étoile est apparue sur la case ${randomStarPos}. Le prochain \`/admin lancer_enigme\` lancera le **Tour 1**.`);
+        } else if (subcommand === 'lancer_enigme') {
+            let plateau = await Plateau.findByPk(1);
+            if (!plateau) {
+                plateau = await Plateau.create({ id: 1 });
+            }
+            plateau.tour += 1;
+            plateau.enigme_resolue = false;
+            plateau.enigme_status = 'active';
+            await plateau.save();
+            
+            let message = `📢 **Tour ${plateau.tour}/30** : L'énigme du jour a commencé !\n\n`;
+            message += `💡 Utilisez la commande \`/deviner [votre mot]\` pour proposer une réponse secrètement au Maître du Jeu.\n`;
+            message += `🪙 Chaque proposition vous rapporte **1 pièce** de participation (maximum 5 pièces par jour) !\n`;
+            message += `🎲 **Rappel :** Le plateau \`/jouer\` est verrouillé tant que l'énigme n'a pas été trouvée !`;
+            
+            return interaction.reply({ content: message });
         } else if (subcommand === 'stop') {
             // Bloquer le jeu (on pourrait ajouter une variable globale dans Plateau)
             // Annoncer le podium

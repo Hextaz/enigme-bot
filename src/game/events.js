@@ -51,6 +51,19 @@ async function handleContinuerDeplacement(interaction) {
         return interaction.editReply({ content: 'Tu n\'as pas de déplacement en cours.' });
     }
 
+    if (!joueur.a_le_droit_de_jouer && joueur.cases_restantes === 0) {
+        // Just a safety, but actually if a player was interrupted in the middle of a move yesterday,
+        // should they be allowed to finish it today? Usually yes, but to be strict:
+        // "jouer qu'une fois par tour" 
+    }
+
+    // Sécurité supplémentaire : On vérifie si l'énigme du jour n'est pas "active" 
+    // Si c'est bloqué, alors on empêche tout déplacement (optionnel, mais efficace)
+    const plateau = await Plateau.findByPk(1);
+    if (plateau && plateau.enigme_status === 'active') {
+        return interaction.editReply({ content: 'Le plateau est verrouillé ! Il faut d\'abord résoudre l\'énigme du jour.' });
+    }
+
     const de = joueur.cases_restantes;
     await processMovement(interaction, joueur, de, true);
 }
@@ -87,7 +100,15 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
         joueur.cases_restantes = de - interruption.steps;
         await joueur.save();
 
-        let messageAction = `🚶 **<@${interaction.user.id}>** avance et s'arrête sur la case **${interruption.case.id} (${interruption.type === 'etoile' ? 'Étoile' : 'Boutique'})** !`;
+        let messageAction;
+        const cheminStr = joueur.cases_restantes > 0 ? "en chemin " : "";
+        
+        if (isContinuation) {
+            messageAction = `🚶 **<@${interaction.user.id}>** continue et s'arrête ${cheminStr}sur la case **${interruption.case.id} (${interruption.type === 'etoile' ? 'Étoile' : 'Boutique'})** !`;
+        } else {
+            messageAction = `🎲 **<@${interaction.user.id}>** a fait un **${de}** et s'arrête ${cheminStr}sur la case **${interruption.case.id} (${interruption.type === 'etoile' ? 'Étoile' : 'Boutique'})** !`;
+        }
+        messageAction += `\n*(🤫 Un menu secret s'est ouvert en dessous de sa commande pour interagir avec la case !)*`;
         
         const channel = interaction.client.channels.cache.get(config.boardChannelId);
         if (channel) {
@@ -116,15 +137,21 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
                         .setStyle(ButtonStyle.Secondary)
                 );
             
-            const replyContent = { content: `⭐ Tu passes devant l'Étoile ! Veux-tu l'acheter pour 20 pièces ? (Tu as ${joueur.pieces} pièces)`, components: [row] };
+const contentText = joueur.cases_restantes > 0 
+                ? `⭐ Tu passes devant l'Étoile ! Veux-tu l'acheter pour 20 pièces ? (Tu as ${joueur.pieces} pièces)`
+                : `⭐ Tu atterris sur l'Étoile ! Veux-tu l'acheter pour 20 pièces ? (Tu as ${joueur.pieces} pièces)`;
+            
+            const replyContent = { content: contentText, components: [row] };
             if (isContinuation) await interaction.followUp({ ...replyContent, ephemeral: true });
             else await interaction.editReply(replyContent);
         } else if (interruption.type === 'boutique') {
             const { generateShop } = require('./shop');
             const shopItems = await generateShop(joueur.discord_id);
-            
+
             const row = new ActionRowBuilder();
-            let shopMsg = '🛒 **Tu passes devant une Boutique !** Voici ce que je te propose :\n\n';
+            let shopMsg = joueur.cases_restantes > 0 
+                ? '🛒 **Tu passes devant une Boutique !** Voici ce que je te propose :\n\n'
+                : '🛒 **Tu atterris sur une Boutique !** Voici ce que je te propose :\n\n';
             
             shopItems.forEach((item, index) => {
                 shopMsg += `${index + 1}. **${item.name}** - ${item.price} pièces\n*${item.description}*\n\n`;
@@ -173,7 +200,12 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
     await joueur.save();
 
     const caseArrivee = getCase(nouvellePosition);
-    let messageAction = `🎲 **<@${interaction.user.id}>** a fait un **${de}** et atterrit sur la case **${caseArrivee.id} (${caseArrivee.type})** !`;
+    let messageAction;
+    if (isContinuation) {
+        messageAction = `🚶 **<@${interaction.user.id}>** avance de **${de} case(s)** et atterrit sur la case **${caseArrivee.id} (${caseArrivee.type})** !`;
+    } else {
+        messageAction = `🎲 **<@${interaction.user.id}>** a fait un **${de}** et atterrit sur la case **${caseArrivee.id} (${caseArrivee.type})** !`;
+    }
 
     if (piegeDeclenche) {
         if (piegeDeclenche.type === 'pieces') {
@@ -558,6 +590,17 @@ async function handleUtiliserObjet(interaction) {
         return interaction.reply({ content: 'Ton inventaire est vide.', ephemeral: true });
     }
 
+    const plateau = await Plateau.findByPk(1);
+    if (plateau && plateau.enigme_status === 'active') {
+        return interaction.reply({ content: "Le plateau est verrouillé ! Il faut d'abord résoudre l'énigme du jour.", ephemeral: true });
+    }
+    
+    // Si c'est pas son tour ou s'il a déjà joué
+    const isSaturday = new Date().getDay() === 6;
+    if (!joueur.a_le_droit_de_jouer || isSaturday) {
+        return interaction.reply({ content: "Tu ne peux pas utiliser d'objet pour le moment (tu as déjà joué ou c'est bloqué).", ephemeral: true });
+    }
+
     const { ITEMS } = require('./items');
     const row = new ActionRowBuilder();
     
@@ -575,8 +618,6 @@ async function handleUtiliserObjet(interaction) {
         }
     });
 
-    const plateau = await Plateau.findByPk(1);
-    
     await interaction.reply({ 
         content: `**Ton inventaire :**\nTu es sur la case **${joueur.position}**. L'Étoile est sur la case **${plateau.position_etoile}**.\nQuel objet veux-tu utiliser ?`, 
         components: [row], 

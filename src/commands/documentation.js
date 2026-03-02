@@ -10,7 +10,7 @@ module.exports = {
             .setColor('#3498db')
             .setDescription(`Le but du jeu est de récolter le plus d'**Étoiles ⭐** (les pièces 🪙 servent à départager en cas d'égalité).\n\n` +
             `**1. L'Énigme du jour**\n` +
-            `Chaque jour, le MJ poste une énigme. Proposer des réponses te rapporte **1 pièce par message** (max 5/jour). Trouver la bonne réponse rapporte **10 pièces**.\n\n` +
+            `Chaque jour, le MJ poste l'énigme du jour. Utilise la commande \`/deviner [mot]\` pour faire une proposition. Chaque participation te rapporte **1 pièce** (max 5/jour) et tu peux tenter ta chance toutes les 30 minutes. Le premier à trouver rapporte **10 pièces** (et 5 pièces pour les retardataires dans les 30 minutes suivantes).\n\n` +
             `**2. Jouer sur le plateau**\n` +
             `Tu as le droit à **1 lancer de dé par jour**. Le droit de jouer est réinitialisé tous les jours à **11h00**. Tu pourras lancer un dé (1 à 6) et avancer sur le plateau.\n\n` +
             `**3. L'Étoile et la Boutique (Passer devant)**\n` +
@@ -65,7 +65,7 @@ module.exports = {
             `**\`/jouer\`**\n` +
             `Ouvre ton menu privé (éphémère). C'est depuis ce menu que tu peux lancer ton dé, voir ton inventaire, utiliser un objet, voir le plateau de près et ton classement ! C'est la commande principale du jeu.\n\n` +
             `**\`/deviner [réponse]\`**\n` +
-            `Sers-toi de cette commande pour répondre à l'énigme du jour posée par le MJ et gagner 10 pièces ! Attention, après le premier essai (gratuit), chaque tentative coûte 1 pièce.\n\n` +
+            `Sers-toi de cette commande pour répondre à l'énigme du jour posée par le MJ ! Chaque tentative te rapporte 1 pièce de participation (max 5 / jour). Tu peux proposer un mot toutes les 30 minutes.\n\n` +
             `**\`/stats [joueur]\`**\n` +
             `Affiche un récapitulatif de tes statistiques (ou celles d'un autre joueur optionnel). Tu verras les pièces, les étoiles, la position sur le plateau, le classement général, et l'inventaire.\n\n` +
             `**\`/documentation\`**\n` +

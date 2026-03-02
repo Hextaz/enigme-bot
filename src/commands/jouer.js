@@ -35,7 +35,8 @@ module.exports = {
         const row = new ActionRowBuilder();
         
         const isSaturday = new Date().getDay() === 6;
-        const canPlay = joueur.a_le_droit_de_jouer && !isSaturday;
+        const isLockedByEnigma = plateau && plateau.enigme_status === 'active';
+        const canPlay = joueur.a_le_droit_de_jouer && !isSaturday && !isLockedByEnigma;
 
         if (joueur.cases_restantes > 0) {
             row.addComponents(
@@ -43,7 +44,7 @@ module.exports = {
                     .setCustomId('continuer_deplacement')
                     .setLabel(`🚶 Continuer (${joueur.cases_restantes} cases)`)
                     .setStyle(ButtonStyle.Success)
-                    .setDisabled(isSaturday)
+                    .setDisabled(isSaturday || isLockedByEnigma)
             );
         } else {
             row.addComponents(
