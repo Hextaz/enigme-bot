@@ -202,6 +202,7 @@ const contentText = joueur.cases_restantes > 0
 
     const caseArrivee = getCase(nouvellePosition);
     let messageAction;
+    let pendingItemToReplace = null;
     if (isContinuation) {
         messageAction = `🚶 **<@${interaction.user.id}>** avance de **${de} case(s)** et atterrit sur la case **${caseArrivee.id} (${caseArrivee.type})** !`;
     } else {
@@ -848,7 +849,33 @@ async function handleBuyItem(interaction) {
         }
     } else {
         if (joueur.inventaire.length >= 3) {
-            return interaction.reply({ content: 'Ton inventaire est plein (Max 3 objets).', ephemeral: true });
+            const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+            const row = new ActionRowBuilder();
+            const options = joueur.inventaire.map((itemName, index) => {
+                return {
+                    label: `Jeter l'objet ${index + 1}: ${itemName}`,
+                    value: index.toString(),
+                };
+            });
+            const selectOptions = new StringSelectMenuBuilder()
+                .setCustomId(`replace_buy_${item.id}`)
+                .setPlaceholder('Choisir un objet à jeter')
+                .addOptions(options);
+
+            row.addComponents(selectOptions);
+
+            const row2 = new ActionRowBuilder();
+            row2.addComponents(
+                new ButtonBuilder()
+                    .setCustomId('buy_cancel')
+                    .setLabel('Annuler l\'achat')
+                    .setStyle(ButtonStyle.Danger)
+            );
+
+            return interaction.update({ 
+                content: `Ton inventaire est plein ! Quel objet veux-tu jeter pour acheter **${item.name}** (${item.price} pièces) ?`, 
+                components: [row, row2]
+            }).catch(()=>{});
         }
         joueur.pieces -= item.price;
         joueur.inventaire = [...joueur.inventaire, item.name];
@@ -875,6 +902,69 @@ async function handleBuyCancel(interaction) {
     }
 }
 
+
+async function handleReplaceBuy(interaction) {
+    const itemId = interaction.customId.replace('replace_buy_', '');
+    const indexToDrop = parseInt(interaction.values[0]);
+    const joueur = await Joueur.findByPk(interaction.user.id);
+    
+    if (!joueur) return interaction.reply({ content: 'Erreur', ephemeral: true });
+
+    const { ITEMS } = require('./items');
+    const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
+    const item = ITEMS[itemKey];
+
+    if (!item) return interaction.reply({ content: 'Objet inconnu.', ephemeral: true });
+
+    if (joueur.pieces < item.price) {
+        return interaction.update({ content: 'Tu n\'as plus assez de pièces.', components: [] }).catch(()=>{});
+    }
+
+    joueur.pieces -= item.price;
+    const droppedItem = joueur.inventaire[indexToDrop];
+    
+    const newInv = [...joueur.inventaire];
+    newInv[indexToDrop] = item.name;
+    joueur.inventaire = newInv;
+
+    if (joueur.boutique_du_jour) {
+        joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
+    }
+
+    await joueur.save();
+
+    if (joueur.cases_restantes > 0) {
+        await interaction.update({ content: `🛒 Tu as jeté **${droppedItem}** et acheté **${item.name}** !`, components: [] }).catch(()=>{});
+        await handleContinuerDeplacement(interaction);
+    } else {
+        await interaction.update({ content: `🛒 Tu as jeté **${droppedItem}** et acheté **${item.name}** ! Il te reste **${joueur.pieces} pièces**.`, components: [] }).catch(()=>{});
+    }
+}
+
+async function handleReplaceChance(interaction) {
+    const itemId = interaction.customId.replace('replace_chance_', '');
+    const indexToDrop = parseInt(interaction.values[0]);
+    const joueur = await Joueur.findByPk(interaction.user.id);
+    
+    if (!joueur) return interaction.reply({ content: 'Erreur', ephemeral: true });
+
+    const { ITEMS } = require('./items');
+    const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
+    const item = ITEMS[itemKey];
+
+    if (!item) return interaction.reply({ content: 'Objet inconnu.', ephemeral: true });
+
+    const droppedItem = joueur.inventaire[indexToDrop];
+    
+    const newInv = [...joueur.inventaire];
+    newInv[indexToDrop] = item.name;
+    joueur.inventaire = newInv;
+
+    await joueur.save();
+    
+    await interaction.update({ content: `🗑️ Tu as jeté **${droppedItem}** et gardé **${item.name}** !`, components: [] }).catch(()=>{});
+}
+
 module.exports = {
     handleLancerDe,
     handleContinuerDeplacement,
@@ -886,5 +976,7 @@ module.exports = {
     handleBooChoice,
     handleBooTarget,
     handleBuyItem,
-    handleBuyCancel
+    handleBuyCancel,
+    handleReplaceBuy,
+    handleReplaceChance
 };

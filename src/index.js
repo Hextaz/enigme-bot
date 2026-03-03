@@ -108,6 +108,8 @@ client.on(Events.InteractionCreate, async interaction => {
             } else if (interaction.customId.startsWith('boo_pieces') || interaction.customId.startsWith('boo_etoile')) {
                 const { handleBooChoice } = require('./game/events');
                 await handleBooChoice(interaction);
+            } else if (interaction.customId === 'discard_new_item') {
+                await interaction.update({ content: 'Tu as choisi de garder ton inventaire tel quel. Le nouvel objet est jeté.', components: [] }).catch(()=>{});
             } else if (interaction.customId.startsWith('buy_')) {
                 // e.g. buy_cancel or buy_sifflet or buy_piege_pieces
                 if (interaction.customId === 'buy_cancel') {
@@ -269,7 +271,12 @@ client.on(Events.InteractionCreate, async interaction => {
             } else if (interaction.customId === 'de_pipe_choix') {
                 const { handleDePipeChoix } = require('./game/events');
                 await handleDePipeChoix(interaction);
-            }
+            } else if (interaction.customId.startsWith('replace_buy_')) {
+                const { handleReplaceBuy } = require('./game/events');
+                await handleReplaceBuy(interaction);
+            } else if (interaction.customId.startsWith('replace_chance_')) {
+                const { handleReplaceChance } = require('./game/events');
+                await handleReplaceChance(interaction);}
         } catch (error) {
             console.error(error);
             await interaction.reply({ content: 'Erreur lors de la sélection.', ephemeral: true });
