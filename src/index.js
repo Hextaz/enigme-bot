@@ -253,8 +253,24 @@ client.on(Events.InteractionCreate, async interaction => {
                         const embed = interaction.message.embeds[0];
                         const newEmbed = { ...embed.data, color: 0x2ecc71, title: 'Proposition validée (Retardataire)' };
                         await interaction.message.edit({ embeds: [newEmbed], components: [] });
+                    } else if (plateau.enigme_status === 'finished') {
+                        // Si le MJ valide en retard (après la fin du chrono) mais que le joueur a posté à temps
+                        const j = await Joueur.findByPk(userId);
+                        if (j) {
+                            j.pieces += 5;
+                            // S'assurer qu'il a le droit de jouer car le plateau a sûrement déjà ouvert
+                            j.a_le_droit_de_jouer = true; 
+                            await j.save();
+                        }
+                        
+                        await channel.send(`🎉 **<@${userId}> avait également trouvé la bonne réponse juste à temps !** *(+5 pièces)*`);
+                        await interaction.reply({ content: `Tu as validé la proposition de <@${userId}> en retard, il a reçu ses 5 pièces.`, ephemeral: true });
+                        
+                        const embed = interaction.message.embeds[0];
+                        const newEmbed = { ...embed.data, color: 0x2ecc71, title: 'Proposition validée (Retardataire)' };
+                        await interaction.message.edit({ embeds: [newEmbed], components: [] });
                     } else {
-                        await interaction.reply({ content: "L'énigme est déjà terminée.", ephemeral: true });
+                        await interaction.reply({ content: "L'énigme n'est pas active.", ephemeral: true });
                     }
                 }
             } else if (interaction.customId.startsWith('admin_kick_confirm_')) {
