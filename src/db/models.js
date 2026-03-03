@@ -46,6 +46,14 @@ const Joueur = sequelize.define('Joueur', {
         type: DataTypes.INTEGER,
         defaultValue: 0,
     },
+    auto_remind_guess: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    },
+    auto_remind_turn: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    },
     boutique_du_jour: {
         type: DataTypes.JSON,
         defaultValue: [],

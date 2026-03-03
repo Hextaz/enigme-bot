@@ -9,6 +9,28 @@ let coureurs = [];
 let parisJoueurs = {}; // { discord_id: { coureurId, montant } }
 
 function initCronJobs(client) {
+    // Rappel 2h avant la fin du tour (9h00 du matin) pour ceux qui n'ont pas joué
+    cron.schedule('0 9 * * *', async () => {
+        const joueursARappeler = await Joueur.findAll({
+            where: {
+                a_le_droit_de_jouer: true,
+                auto_remind_turn: true
+            }
+        });
+
+        for (const j of joueursARappeler) {
+            try {
+                const user = await client.users.fetch(j.discord_id);
+                if (user) {
+                    await user.send("⏰ **Rappel automatique** : Le tour en cours sur le plateau se termine dans 2 heures ! N'oublie pas de faire `/jouer` !");
+                }
+            } catch (e) {
+                console.error(`Impossible d'envoyer le rappel au joueur ${j.discord_id}`, e);
+            }
+        }
+        console.log(`Rappel de fin de tour envoyé à ${joueursARappeler.length} joueur(s).`);
+    });
+
     // Lundi à Vendredi 11h00 : Reset normal (bloque en attendant l'énigme)
     cron.schedule('0 11 * * 1-5', async () => {
         const tousLesJoueurs = await Joueur.findAll();

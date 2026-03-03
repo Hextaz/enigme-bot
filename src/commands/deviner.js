@@ -34,19 +34,26 @@ module.exports = {
             if (diffMins < COOLDOWN_MINUTES) {
                 const remainingMins = COOLDOWN_MINUTES - diffMins;
                 
-                const row = new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`rappel_deviner_${userId}`)
-                            .setLabel('Oui, rappelle-moi')
-                            .setStyle(ButtonStyle.Primary)
-                    );
+                if (joueur.auto_remind_guess) {
+                    return interaction.reply({ 
+                        content: `⏳ Vous devez attendre encore ${remainingMins} minute(s). Vous avez le rappel automatique activé, je vous enverrai un MP quand ce sera bon !`, 
+                        ephemeral: true 
+                    });
+                } else {
+                    const row = new ActionRowBuilder()
+                        .addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`rappel_deviner_${userId}`)
+                                .setLabel('Oui, rappelle-moi')
+                                .setStyle(ButtonStyle.Primary)
+                        );
 
-                return interaction.reply({ 
-                    content: `⏳ Vous devez attendre encore ${remainingMins} minute(s). Voulez-vous que je vous envoie un rappel en MP quand vous pourrez rejouer ?`, 
-                    components: [row],
-                    ephemeral: true 
-                });
+                    return interaction.reply({ 
+                        content: `⏳ Vous devez attendre encore ${remainingMins} minute(s). Voulez-vous que je vous envoie un rappel en MP quand vous pourrez rejouer ?`, 
+                        components: [row],
+                        ephemeral: true 
+                    });
+                }
             }
         }
 
@@ -59,6 +66,22 @@ module.exports = {
         }
         joueur.last_deviner_time = now;
         await joueur.save();
+
+        if (joueur.auto_remind_guess) {
+            setTimeout(async () => {
+                const p = await Plateau.findByPk(1);
+                if (p && p.enigme_status !== 'finished') {
+                    try {
+                        const notifyUser = await interaction.client.users.fetch(userId);
+                        if (notifyUser) {
+                            await notifyUser.send("⏰ Coucou ! Ton délai de 30 minutes est écoulé, tu peux de nouveau utiliser `/deviner` pour tenter une réponse !");
+                        }
+                    } catch (e) {
+                        console.error("Impossible d'envoyer le rappel:", e);
+                    }
+                }
+            }, COOLDOWN_MINUTES * 60000);
+        }
 
         // Send to MJ
         try {
