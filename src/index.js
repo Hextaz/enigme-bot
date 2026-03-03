@@ -109,8 +109,8 @@ client.on(Events.InteractionCreate, async interaction => {
                 const { handleBooChoice } = require('./game/events');
                 await handleBooChoice(interaction);
             } else if (interaction.customId.startsWith('buy_')) {
-                const itemId = interaction.customId.split('_')[1];
-                if (itemId === 'cancel') {
+                // e.g. buy_cancel or buy_sifflet or buy_piege_pieces
+                if (interaction.customId === 'buy_cancel') {
                     const { handleBuyCancel } = require('./game/events');
                     await handleBuyCancel(interaction);
                     return;
