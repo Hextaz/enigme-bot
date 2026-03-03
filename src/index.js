@@ -151,6 +151,7 @@ client.on(Events.InteractionCreate, async interaction => {
                     await interaction.reply({ content: "Ton cooldown est déjà terminé, tu peux jouer !", ephemeral: true });
                 }
             } else if (interaction.customId.startsWith('reponse_')) {
+                await interaction.deferReply({ ephemeral: true });
                 // Format: reponse_good_userId_mot ou reponse_bad_userId_mot
                 const parts = interaction.customId.split('_');
                 const action = parts[1]; // 'good' ou 'bad'
@@ -162,7 +163,7 @@ client.on(Events.InteractionCreate, async interaction => {
                 const channel = await interaction.client.channels.fetch(channelId).catch(() => null);
                 
                 if (!channel) {
-                    return interaction.reply({ content: "Erreur : Salon d'énigme introuvable.", ephemeral: true });
+                    return interaction.editReply({ content: "Erreur : Salon d'énigme introuvable." });
                 }
 
                 if (action === 'bad') {
@@ -173,7 +174,7 @@ client.on(Events.InteractionCreate, async interaction => {
                     // Send the embed to the enigma channel
                     await channel.send({ embeds: [newEmbed] });
 
-                    await interaction.reply({ content: `Tu as refusé la proposition de <@${userId}>.`, ephemeral: true });
+                    await interaction.editReply({ content: `Tu as refusé la proposition de <@${userId}>.` });
                     
                     // Update the original PM message to show it was processed
                     await interaction.message.edit({ embeds: [newEmbed], components: [] });
@@ -187,7 +188,7 @@ client.on(Events.InteractionCreate, async interaction => {
                         await plateau.save();
                         
                         await channel.send(`🚨 **<@${userId}> A TROUVÉ L'ÉNIGME !**\nLe compte à rebours est lancé. Il vous reste **30 minutes** pour faire un dernier \`/deviner\` et tenter de gagner des pièces !`);
-                        await interaction.reply({ content: `Tu as validé la proposition de <@${userId}>. Le compte à rebours de 30 minutes est lancé !`, ephemeral: true });
+                        await interaction.editReply({ content: `Tu as validé la proposition de <@${userId}>. Le compte à rebours de 30 minutes est lancé !` });
                         
                         // Update the original message
                         const embed = interaction.message.embeds[0];
@@ -248,7 +249,7 @@ client.on(Events.InteractionCreate, async interaction => {
                             await plateau.save();
                             await channel.send(`🎉 **<@${userId}> a également trouvé la réponse !**`);
                         }
-                        await interaction.reply({ content: `Tu as validé la proposition de <@${userId}>. Il a été ajouté à la liste des gagnants.`, ephemeral: true });
+                        await interaction.editReply({ content: `Tu as validé la proposition de <@${userId}>. Il a été ajouté à la liste des gagnants.` });
                         
                         const embed = interaction.message.embeds[0];
                         const newEmbed = { ...embed.data, color: 0x2ecc71, title: 'Proposition validée (Retardataire)' };
@@ -264,25 +265,32 @@ client.on(Events.InteractionCreate, async interaction => {
                         }
                         
                         await channel.send(`🎉 **<@${userId}> avait également trouvé la bonne réponse juste à temps !** *(+5 pièces)*`);
-                        await interaction.reply({ content: `Tu as validé la proposition de <@${userId}> en retard, il a reçu ses 5 pièces.`, ephemeral: true });
+                        await interaction.editReply({ content: `Tu as validé la proposition de <@${userId}> en retard, il a reçu ses 5 pièces.` });
                         
                         const embed = interaction.message.embeds[0];
                         const newEmbed = { ...embed.data, color: 0x2ecc71, title: 'Proposition validée (Retardataire)' };
                         await interaction.message.edit({ embeds: [newEmbed], components: [] });
                     } else {
-                        await interaction.reply({ content: "L'énigme n'est pas active.", ephemeral: true });
+                        await interaction.editReply({ content: "L'énigme n'est pas active." });
                     }
                 }
             } else if (interaction.customId.startsWith('admin_kick_confirm_')) {
+                await interaction.deferUpdate();
                 const userId = interaction.customId.split('_')[3];
                 await Joueur.destroy({ where: { discord_id: userId } });
-                await interaction.update({ content: `✅ Le joueur <@${userId}> a été définitivement supprimé de la base de données.`, components: [] });
+                await interaction.editReply({ content: `✅ Le joueur <@${userId}> a été définitivement supprimé de la base de données.`, components: [] });
             } else if (interaction.customId === 'admin_kick_cancel') {
                 await interaction.update({ content: `❌ L'exclusion a été annulée.`, components: [] });
             }
         } catch (error) {
             console.error(error);
-            await interaction.reply({ content: 'Une erreur est survenue lors de l\'action.', ephemeral: true });
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ content: 'Une erreur est survenue lors de l\'action.', ephemeral: true });
+                } else {
+                    await interaction.reply({ content: 'Une erreur est survenue lors de l\'action.', ephemeral: true });
+                }
+            } catch (e) {}
         }    } else if (interaction.isStringSelectMenu()) {
         try {
             if (interaction.customId.startsWith('boo_target_')) {

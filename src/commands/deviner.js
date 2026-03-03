@@ -12,6 +12,7 @@ module.exports = {
                 .setRequired(true)
         ),
     async execute(interaction) {
+        await interaction.deferReply({ ephemeral: true });
         const mot = interaction.options.getString('mot');
         const userId = interaction.user.id;
 
@@ -22,7 +23,7 @@ module.exports = {
 
         const plateau = await Plateau.findByPk(1);
         if (plateau.enigme_status === 'finished') {
-            return interaction.reply({ content: "L'énigme du jour est déjà terminée !", ephemeral: true });
+            return interaction.editReply({ content: "L'énigme du jour est déjà terminée !", ephemeral: true });
         }
 
         // Cooldown check (30 minutes)
@@ -35,7 +36,7 @@ module.exports = {
                 const remainingMins = COOLDOWN_MINUTES - diffMins;
                 
                 if (joueur.auto_remind_guess) {
-                    return interaction.reply({ 
+                    return interaction.editReply({ 
                         content: `⏳ Vous devez attendre encore ${remainingMins} minute(s). Vous avez le rappel automatique activé, je vous enverrai un MP quand ce sera bon !`, 
                         ephemeral: true 
                     });
@@ -48,7 +49,7 @@ module.exports = {
                                 .setStyle(ButtonStyle.Primary)
                         );
 
-                    return interaction.reply({ 
+                    return interaction.editReply({ 
                         content: `⏳ Vous devez attendre encore ${remainingMins} minute(s). Voulez-vous que je vous envoie un rappel en MP quand vous pourrez rejouer ?`, 
                         components: [row],
                         ephemeral: true 
@@ -116,9 +117,9 @@ module.exports = {
             }
         } catch (error) {
             console.error("Erreur lors de l'envoi au MJ:", error);
-            return interaction.reply({ content: "Une erreur est survenue lors de l'envoi de ta réponse au MJ.", ephemeral: true });
+            return interaction.editReply({ content: "Une erreur est survenue lors de l'envoi de ta réponse au MJ.", ephemeral: true });
         }
 
-        await interaction.reply({ content: `Ta proposition "**${mot}**" a bien été envoyée au Maître du Jeu !${coinMessage}`, ephemeral: true });
+        await interaction.editReply({ content: `Ta proposition "**${mot}**" a bien été envoyée au Maître du Jeu !${coinMessage}`, ephemeral: true });
     },
 };
