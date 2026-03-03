@@ -158,7 +158,7 @@ client.on(Events.InteractionCreate, async interaction => {
                 const mot = parts.slice(3).join('_'); // Reconstruct word if it had underscores
                 
                 const plateau = await Plateau.findByPk(1);
-                const channelId = plateau.enigme_channel_id || config.enigmaChannelId;
+                const channelId = config.enigmaChannelId;
                 const channel = await interaction.client.channels.fetch(channelId).catch(() => null);
                 
                 if (!channel) {
@@ -166,12 +166,16 @@ client.on(Events.InteractionCreate, async interaction => {
                 }
 
                 if (action === 'bad') {
-                    await channel.send(`❌ <@${userId}> a fait une proposition, mais ce n'est pas ça !`);
-                    await interaction.reply({ content: `Tu as refusé la proposition de <@${userId}>.`, ephemeral: true });
-                    
-                    // Update the original message to show it was processed
+                    // Create the rejected embed
                     const embed = interaction.message.embeds[0];
                     const newEmbed = { ...embed.data, color: 0xe74c3c, title: 'Proposition refusée' };
+
+                    // Send the embed to the enigma channel
+                    await channel.send({ embeds: [newEmbed] });
+
+                    await interaction.reply({ content: `Tu as refusé la proposition de <@${userId}>.`, ephemeral: true });
+                    
+                    // Update the original PM message to show it was processed
                     await interaction.message.edit({ embeds: [newEmbed], components: [] });
                     
                 } else if (action === 'good') {

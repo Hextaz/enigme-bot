@@ -96,12 +96,6 @@ module.exports = {
             return interaction.reply({ content: "Une erreur est survenue lors de l'envoi de ta réponse au MJ.", ephemeral: true });
         }
 
-        // Save the channel ID where the command was used so we can post results there
-        if (plateau.enigme_channel_id !== interaction.channelId) {
-            plateau.enigme_channel_id = interaction.channelId;
-            await plateau.save();
-        }
-
         await interaction.reply({ content: `Ta proposition "**${mot}**" a bien été envoyée au Maître du Jeu !${coinMessage}`, ephemeral: true });
     },
 };
