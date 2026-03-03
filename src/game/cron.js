@@ -9,8 +9,8 @@ let coureurs = [];
 let parisJoueurs = {}; // { discord_id: { coureurId, montant } }
 
 function initCronJobs(client) {
-    // Rappel 2h avant la fin du tour (9h00 du matin) pour ceux qui n'ont pas joué
-    cron.schedule('0 9 * * *', async () => {
+    // Rappel 2h avant la fin du tour (9h00 du matin du lundi au vendredi, car le tour se termine à 11h00)
+    cron.schedule('0 9 * * 1-5', async () => {
         const joueursARappeler = await Joueur.findAll({
             where: {
                 a_le_droit_de_jouer: true,
@@ -28,8 +28,36 @@ function initCronJobs(client) {
                 console.error(`Impossible d'envoyer le rappel au joueur ${j.discord_id}`, e);
             }
         }
-        console.log(`Rappel de fin de tour envoyé à ${joueursARappeler.length} joueur(s).`);
+        console.log(`Rappel de fin de tour en semaine envoyé à ${joueursARappeler.length} joueur(s).`);
+    }, {
+        timezone: "Europe/Paris"
     });
+
+    // Rappel 2h avant la fin du tour pour le Samedi (8h00 du matin, car le tour se termine exceptionnellement à 10h00 pour les paris)
+    cron.schedule('0 8 * * 6', async () => {
+        const joueursARappeler = await Joueur.findAll({
+            where: {
+                a_le_droit_de_jouer: true,
+                auto_remind_turn: true
+            }
+        });
+
+        for (const j of joueursARappeler) {
+            try {
+                const user = await client.users.fetch(j.discord_id);
+                if (user) {
+                    await user.send("⏰ **Rappel automatique** : Le tour en cours sur le plateau se termine dans 2 heures ! N'oublie pas de faire `/jouer` ! (Les paris commencent à 10h00)");
+                }
+            } catch (e) {
+                console.error(`Impossible d'envoyer le rappel au joueur ${j.discord_id}`, e);
+            }
+        }
+        console.log(`Rappel de fin de tour du samedi envoyé à ${joueursARappeler.length} joueur(s).`);
+    }, {
+        timezone: "Europe/Paris"
+    });
+
+    // Le Dimanche aucun rappel de fin de tour car le plateau est de toute façon fermé à 9h00 du matin (jusqu'à 11h00).
 
     // Lundi à Vendredi 11h00 : Reset normal (bloque en attendant l'énigme)
     cron.schedule('0 11 * * 1-5', async () => {
@@ -52,6 +80,8 @@ function initCronJobs(client) {
         }
         
         console.log('Reset quotidien effectué : énigme réinitialisée, plateau bloqué.');
+    }, {
+        timezone: "Europe/Paris"
     });
 
     // Dimanche 11h00 : Ouverture automatique pour le Marché Noir (Pas d'énigme)
