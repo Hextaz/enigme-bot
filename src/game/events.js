@@ -5,7 +5,7 @@ const { generateBoardImage } = require('../utils/canvas');
 const config = require('../config');
 
 async function handleLancerDe(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (!joueur || !joueur.a_le_droit_de_jouer) {
         return interaction.editReply({ content: 'Tu n\'as pas le droit de jouer.' });
@@ -143,7 +143,7 @@ const contentText = joueur.cases_restantes > 0
                 : `⭐ Tu atterris sur l'Étoile ! Veux-tu l'acheter pour 20 pièces ? (Tu as ${joueur.pieces} pièces)`;
             
             const replyContent = { content: contentText, components: [row] };
-            if (isContinuation) await interaction.followUp({ ...replyContent, ephemeral: true });
+            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
             else await interaction.editReply(replyContent);
         } else if (interruption.type === 'boutique') {
             const { generateShop } = require('./shop');
@@ -173,7 +173,7 @@ const contentText = joueur.cases_restantes > 0
             );
 
             const replyContent = { content: shopMsg, components: [row] };
-            if (isContinuation) await interaction.followUp({ ...replyContent, ephemeral: true });
+            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
             else await interaction.editReply(replyContent);
         }
         return;
@@ -535,18 +535,18 @@ const contentText = joueur.cases_restantes > 0
             );
             
         const replyContent = { content: `👻 **Boo !** Que veux-tu faire ?\n- Voler des pièces (3 à 12) gratuitement\n- Voler une Étoile pour 50 pièces`, components: [row] };
-            if (isContinuation) await interaction.followUp({ ...replyContent, ephemeral: true });
+            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
             else await interaction.editReply(replyContent);
     } else {
         const replyContent = { content: `Tu as atterri sur la case ${caseArrivee.id} ! Regarde le salon <#${config.boardChannelId}> pour voir le résultat.` };
-            if (isContinuation) await interaction.followUp({ ...replyContent, ephemeral: true });
+            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
             else await interaction.editReply(replyContent);
     }
 }
 async function handleAcheterEtoile(interaction) {
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (!joueur || joueur.pieces < 20) {
-        return interaction.reply({ content: 'Tu n\'as pas assez de pièces ou une erreur est survenue.', ephemeral: true });
+        return interaction.reply({ content: 'Tu n\'as pas assez de pièces ou une erreur est survenue.', flags: 64 });
     }
 
     joueur.pieces -= 20;
@@ -585,18 +585,18 @@ async function handlePasserEtoile(interaction) {
 async function handleUtiliserObjet(interaction) {
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (!joueur || !joueur.inventaire || joueur.inventaire.length === 0) {
-        return interaction.reply({ content: 'Ton inventaire est vide.', ephemeral: true });
+        return interaction.reply({ content: 'Ton inventaire est vide.', flags: 64 });
     }
 
     const plateau = await Plateau.findByPk(1);
     if (plateau && plateau.enigme_status === 'active') {
-        return interaction.reply({ content: "Le plateau est verrouillé ! Il faut d'abord résoudre l'énigme du jour.", ephemeral: true });
+        return interaction.reply({ content: "Le plateau est verrouillé ! Il faut d'abord résoudre l'énigme du jour.", flags: 64 });
     }
     
     // Si c'est pas son tour ou s'il a déjà joué
     const isSaturday = new Date().getDay() === 6;
     if (!joueur.a_le_droit_de_jouer || isSaturday) {
-        return interaction.reply({ content: "Tu ne peux pas utiliser d'objet pour le moment (tu as déjà joué ou c'est bloqué).", ephemeral: true });
+        return interaction.reply({ content: "Tu ne peux pas utiliser d'objet pour le moment (tu as déjà joué ou c'est bloqué).", flags: 64 });
     }
 
     const { ITEMS } = require('./items');
@@ -619,7 +619,7 @@ async function handleUtiliserObjet(interaction) {
     await interaction.reply({ 
         content: `**Ton inventaire :**\nTu es sur la case **${joueur.position}**. L'Étoile est sur la case **${plateau.position_etoile}**.\nQuel objet veux-tu utiliser ?`, 
         components: [row], 
-        ephemeral: true 
+        flags: 64 
     });
 }
 
@@ -631,12 +631,12 @@ async function handleUseItem(interaction) {
 
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (!joueur || !joueur.inventaire || joueur.inventaire.length <= itemIndex) {
-        return interaction.reply({ content: 'Erreur avec ton inventaire.', ephemeral: true });
+        return interaction.reply({ content: 'Erreur avec ton inventaire.', flags: 64 });
     }
 
     const { ITEMS } = require('./items');
     const item = ITEMS[itemKey];
-    if (!item) return interaction.reply({ content: 'Objet inconnu.', ephemeral: true });
+    if (!item) return interaction.reply({ content: 'Objet inconnu.', flags: 64 });
 
     // Retirer l'objet de l'inventaire
     const newInv = [...joueur.inventaire];
@@ -721,13 +721,13 @@ async function handleUseItem(interaction) {
             ]);
         const row = new ActionRowBuilder().addComponents(select);
         await joueur.save();
-        return interaction.reply({ content: `Tu as utilisé **Dé pipé** ! Quelle valeur veux-tu ?`, components: [row], ephemeral: true });
+        return interaction.reply({ content: `Tu as utilisé **Dé pipé** ! Quelle valeur veux-tu ?`, components: [row], flags: 64 });
     } else {
         message += `(Effet non implémenté pour le moment)`;
     }
 
     await joueur.save();
-    await interaction.reply({ content: message, ephemeral: true });
+    await interaction.reply({ content: message, flags: 64 });
 }
 
 async function handleDePipeChoix(interaction) {
@@ -736,7 +736,7 @@ async function handleDePipeChoix(interaction) {
     joueur.type_de = 'pipe';
     joueur.de_pipe_valeur = valeur;
     await joueur.save();
-    await interaction.reply({ content: `Ton prochain lancer fera exactement ${valeur} !`, ephemeral: true });
+    await interaction.reply({ content: `Ton prochain lancer fera exactement ${valeur} !`, flags: 64 });
 }
 
 async function handleBooChoice(interaction) {
@@ -744,14 +744,14 @@ async function handleBooChoice(interaction) {
     const joueur = await Joueur.findByPk(interaction.user.id);
     
     if (type === 'etoile' && joueur.pieces < 50) {
-        return interaction.reply({ content: 'Tu n\'as pas assez de pièces pour voler une étoile.', ephemeral: true });
+        return interaction.reply({ content: 'Tu n\'as pas assez de pièces pour voler une étoile.', flags: 64 });
     }
 
     const tousLesJoueurs = await Joueur.findAll();
     const ciblesPotentielles = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && (type === 'pieces' ? j.pieces > 0 : j.etoiles > 0));
 
     if (ciblesPotentielles.length === 0) {
-        return interaction.reply({ content: `Personne n'a de ${type} à voler !`, ephemeral: true });
+        return interaction.reply({ content: `Personne n'a de ${type} à voler !`, flags: 64 });
     }
 
     const { StringSelectMenuBuilder } = require('discord.js');
@@ -771,7 +771,7 @@ async function handleBooChoice(interaction) {
         .addOptions(options);
 
     const row = new ActionRowBuilder().addComponents(select);
-    await interaction.reply({ content: `Qui veux-tu voler ?`, components: [row], ephemeral: true });
+    await interaction.reply({ content: `Qui veux-tu voler ?`, components: [row], flags: 64 });
 }
 
 async function handleBooTarget(interaction) {
@@ -781,7 +781,7 @@ async function handleBooTarget(interaction) {
     const joueur = await Joueur.findByPk(interaction.user.id);
     const cible = await Joueur.findByPk(cibleId);
 
-    if (!cible) return interaction.reply({ content: 'Cible introuvable.', ephemeral: true });
+    if (!cible) return interaction.reply({ content: 'Cible introuvable.', flags: 64 });
 
     let messageAction = '';
     if (type === 'pieces') {
@@ -791,8 +791,8 @@ async function handleBooTarget(interaction) {
         joueur.pieces += volReel;
         messageAction = `👻 **Boo !** <@${joueur.discord_id}> a volé ${volReel} pièces à <@${cible.discord_id}> ! *(${interaction.user.username}: ${joueur.pieces} 🪙 | <@${cible.discord_id}>: ${cible.pieces} 🪙)*`;
     } else if (type === 'etoile') {
-        if (joueur.pieces < 50) return interaction.reply({ content: 'Tu n\'as plus assez de pièces.', ephemeral: true });
-        if (cible.etoiles < 1) return interaction.reply({ content: 'La cible n\'a plus d\'étoile.', ephemeral: true });
+        if (joueur.pieces < 50) return interaction.reply({ content: 'Tu n\'as plus assez de pièces.', flags: 64 });
+        if (cible.etoiles < 1) return interaction.reply({ content: 'La cible n\'a plus d\'étoile.', flags: 64 });
         
         joueur.pieces -= 50;
         cible.etoiles -= 1;
@@ -803,7 +803,7 @@ async function handleBooTarget(interaction) {
     await joueur.save();
     await cible.save();
 
-    await interaction.reply({ content: 'Vol effectué !', ephemeral: true });
+    await interaction.reply({ content: 'Vol effectué !', flags: 64 });
     
     const channel = interaction.client.channels.cache.get(config.boardChannelId);
     if (channel) {
@@ -815,21 +815,21 @@ async function handleBuyItem(interaction) {
     const joueur = await Joueur.findByPk(interaction.user.id);
     const itemId = interaction.customId.replace('buy_', '');
 
-    if (!joueur) return interaction.reply({ content: 'Erreur joueur.', ephemeral: true });
+    if (!joueur) return interaction.reply({ content: 'Erreur joueur.', flags: 64 });
 
     const { ITEMS } = require('./items');
     const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
     const item = ITEMS[itemKey];
 
-    if (!item) return interaction.reply({ content: 'Objet inconnu.', ephemeral: true });
+    if (!item) return interaction.reply({ content: 'Objet inconnu.', flags: 64 });
 
     if (joueur.pieces < item.price) {
-        return interaction.reply({ content: 'Tu n\'as pas assez de pièces.', ephemeral: true });
+        return interaction.reply({ content: 'Tu n\'as pas assez de pièces.', flags: 64 });
     }
 
     if (item.isPack) {
         if (joueur.inventaire.length + item.contents.length > 3) {
-            return interaction.reply({ content: `Ton inventaire est trop plein pour ce pack (il te faut ${item.contents.length} places libres).`, ephemeral: true });
+            return interaction.reply({ content: `Ton inventaire est trop plein pour ce pack (il te faut ${item.contents.length} places libres).`, flags: 64 });
         }
         joueur.pieces -= item.price;
         const newInv = [...joueur.inventaire];
@@ -908,13 +908,13 @@ async function handleReplaceBuy(interaction) {
     const indexToDrop = parseInt(interaction.values[0]);
     const joueur = await Joueur.findByPk(interaction.user.id);
     
-    if (!joueur) return interaction.reply({ content: 'Erreur', ephemeral: true });
+    if (!joueur) return interaction.reply({ content: 'Erreur', flags: 64 });
 
     const { ITEMS } = require('./items');
     const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
     const item = ITEMS[itemKey];
 
-    if (!item) return interaction.reply({ content: 'Objet inconnu.', ephemeral: true });
+    if (!item) return interaction.reply({ content: 'Objet inconnu.', flags: 64 });
 
     if (joueur.pieces < item.price) {
         return interaction.update({ content: 'Tu n\'as plus assez de pièces.', components: [] }).catch(()=>{});
@@ -946,13 +946,13 @@ async function handleReplaceChance(interaction) {
     const indexToDrop = parseInt(interaction.values[0]);
     const joueur = await Joueur.findByPk(interaction.user.id);
     
-    if (!joueur) return interaction.reply({ content: 'Erreur', ephemeral: true });
+    if (!joueur) return interaction.reply({ content: 'Erreur', flags: 64 });
 
     const { ITEMS } = require('./items');
     const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
     const item = ITEMS[itemKey];
 
-    if (!item) return interaction.reply({ content: 'Objet inconnu.', ephemeral: true });
+    if (!item) return interaction.reply({ content: 'Objet inconnu.', flags: 64 });
 
     const droppedItem = joueur.inventaire[indexToDrop];
     

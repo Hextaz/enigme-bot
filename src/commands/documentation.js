@@ -73,7 +73,7 @@ module.exports = {
 
         await interaction.reply({
             embeds: [embedRegles, embedCases, embedObjets, embedEvents, embedCommands],
-            ephemeral: true
+            flags: 64
         });
     },
 };

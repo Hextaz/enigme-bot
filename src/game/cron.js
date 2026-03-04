@@ -261,16 +261,16 @@ function initCronJobs(client) {
 
 async function handlePari(interaction) {
     if (!parisActifs) {
-        return interaction.reply({ content: 'Les paris sont fermés !', ephemeral: true });
+        return interaction.reply({ content: 'Les paris sont fermés !', flags: 64 });
     }
 
     const coureurId = parseInt(interaction.customId.split('_')[1]);
     const coureur = coureurs.find(c => c.id === coureurId);
 
-    if (!coureur) return interaction.reply({ content: 'Coureur introuvable.', ephemeral: true });
+    if (!coureur) return interaction.reply({ content: 'Coureur introuvable.', flags: 64 });
 
     if (parisJoueurs[interaction.user.id]) {
-        return interaction.reply({ content: 'Tu as déjà parié !', ephemeral: true });
+        return interaction.reply({ content: 'Tu as déjà parié !', flags: 64 });
     }
 
     // Demander le montant (on simplifie en utilisant un bouton ou un modal, mais Discord.js v14 permet les Modals)
@@ -300,19 +300,19 @@ async function handleModalPari(interaction) {
     let montant = parseInt(montantStr);
 
     if (isNaN(montant) || montant < 3 || montant > 30) {
-        return interaction.reply({ content: 'Montant invalide. Doit être entre 3 et 30 (3 pièces sont offertes).', ephemeral: true });
+        return interaction.reply({ content: 'Montant invalide. Doit être entre 3 et 30 (3 pièces sont offertes).', flags: 64 });
     }
 
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (!joueur) {
-        return interaction.reply({ content: 'Tu n\'es pas inscrit au jeu.', ephemeral: true });
+        return interaction.reply({ content: 'Tu n\'es pas inscrit au jeu.', flags: 64 });
     }
 
     // Le ticket gratuit de 3 pièces
     let coutReel = Math.max(0, montant - 3);
 
     if (joueur.pieces < coutReel) {
-        return interaction.reply({ content: `Tu n'as pas assez de pièces. Il te faut ${coutReel} pièces (3 sont offertes).`, ephemeral: true });
+        return interaction.reply({ content: `Tu n'as pas assez de pièces. Il te faut ${coutReel} pièces (3 sont offertes).`, flags: 64 });
     }
 
     joueur.pieces -= coutReel;
@@ -324,7 +324,7 @@ async function handleModalPari(interaction) {
     };
 
     const coureur = coureurs.find(c => c.id === coureurId);
-    await interaction.reply({ content: `Tu as parié **${montant} pièces** sur **${coureur.nom}** ! *(Il te reste ${joueur.pieces} 🪙)*`, ephemeral: true });
+    await interaction.reply({ content: `Tu as parié **${montant} pièces** sur **${coureur.nom}** ! *(Il te reste ${joueur.pieces} 🪙)*`, flags: 64 });
 }
 
 module.exports = {

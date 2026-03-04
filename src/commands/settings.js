@@ -51,6 +51,6 @@ module.exports = {
             )
             .setFooter({ text: 'Utilise /settings en ajoutant les options pour modifier ces valeurs.' });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: 64 });
     },
 };

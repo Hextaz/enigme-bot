@@ -7,7 +7,7 @@ module.exports = {
         .setName('jouer')
         .setDescription('Affiche le menu privé pour jouer sur le plateau.'),
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: 64 });
 
         let joueur = await Joueur.findByPk(interaction.user.id);
         

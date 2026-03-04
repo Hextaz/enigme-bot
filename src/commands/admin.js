@@ -92,7 +92,7 @@ module.exports = {
         if (publicSubcommands.includes(subcommand)) {
             await interaction.deferReply();
         } else {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
         }
 
 
@@ -144,13 +144,13 @@ module.exports = {
 
             let joueur = await Joueur.findByPk(targetUser.id);
             if (!joueur) {
-                if (subcommand === 'remove') return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", ephemeral: true });
+                if (subcommand === 'remove') return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", flags: 64 });
                 joueur = await Joueur.create({ discord_id: targetUser.id });
             }
 
             if (ressource === 'pieces' || ressource === 'etoiles') {
                 const quantite = parseInt(valeur);
-                if (isNaN(quantite) || quantite <= 0) return interaction.editReply({ content: "Veuillez entrer un nombre valide et positif.", ephemeral: true });
+                if (isNaN(quantite) || quantite <= 0) return interaction.editReply({ content: "Veuillez entrer un nombre valide et positif.", flags: 64 });
                 
                 if (subcommand === 'give') {
                     joueur[ressource] += quantite;
@@ -170,7 +170,7 @@ module.exports = {
                         await joueur.save();
                         await interaction.editReply(`✅ L'objet "${valeur}" a été donné à <@${targetUser.id}>.`);
                     } else {
-                        return interaction.editReply({ content: 'L\'inventaire du joueur est plein (max 3).', ephemeral: true });
+                        return interaction.editReply({ content: 'L\'inventaire du joueur est plein (max 3).', flags: 64 });
                     }
                 } else {
                     const inventaire = [...joueur.inventaire];
@@ -181,7 +181,7 @@ module.exports = {
                         await joueur.save();
                         await interaction.editReply(`✅ L'objet "${valeur}" a été retiré à <@${targetUser.id}>.`);
                     } else {
-                        return interaction.editReply({ content: `Le joueur ne possède pas l'objet "${valeur}".`, ephemeral: true });
+                        return interaction.editReply({ content: `Le joueur ne possède pas l'objet "${valeur}".`, flags: 64 });
                     }
                 }
             }
@@ -190,7 +190,7 @@ module.exports = {
             const caseNum = interaction.options.getInteger('case');
             
             let joueur = await Joueur.findByPk(targetUser.id);
-            if (!joueur) return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", ephemeral: true });
+            if (!joueur) return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", flags: 64 });
             
             joueur.position = caseNum;
             await joueur.save();
@@ -214,14 +214,14 @@ module.exports = {
             await interaction.editReply({ 
                 content: `⚠️ **Êtes-vous sûr de vouloir supprimer définitivement <@${targetUser.id}> de cette saison ?** Toutes ses données seront perdues.`, 
                 components: [row],
-                ephemeral: true 
+                flags: 64 
             });
             
         } else if (subcommand === 'reset_cooldown') {
             const targetUser = interaction.options.getUser('joueur');
             
             let joueur = await Joueur.findByPk(targetUser.id);
-            if (!joueur) return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", ephemeral: true });
+            if (!joueur) return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", flags: 64 });
             
             joueur.a_le_droit_de_jouer = true;
             joueur.last_deviner_time = null;
@@ -237,7 +237,7 @@ module.exports = {
             // Vérification si on est dimanche
             const today = new Date();
             if (today.getDay() !== 0) {
-                return interaction.editReply({ content: 'Cette commande ne peut être utilisée que le dimanche !', ephemeral: true });
+                return interaction.editReply({ content: 'Cette commande ne peut être utilisée que le dimanche !', flags: 64 });
             }
 
             // Ouverture manuelle
@@ -265,7 +265,7 @@ module.exports = {
                 await channel.send(`${mentionRole}🛍️ **LE MARCHÉ NOIR EST OUVERT ! (Action manuelle du MJ)** 🛍️\nLe plateau est déverrouillé, aucune énigme aujourd'hui. Les boutiques proposent des objets dévastateurs exclusifs ! Utilisez \`/jouer\` pour en profiter !`);
             }
 
-            await interaction.editReply({ content: '✅ Le Marché Noir a été ouvert manuellement avec succès et tous les joueurs ont été débloqués.', ephemeral: true });
+            await interaction.editReply({ content: '✅ Le Marché Noir a été ouvert manuellement avec succès et tous les joueurs ont été débloqués.', flags: 64 });
         }
     },
 };

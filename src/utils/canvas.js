@@ -177,38 +177,42 @@ async function generateBoardImage(joueurs, plateau, client) {
                 }
             }
 
-            try {
-                let avatarUrl = null;
-                let user = null;
-                if (client) {
-                    user = await client.users.fetch(joueur.discord_id).catch(() => null);
-                    if (user) {
-                        avatarUrl = user.displayAvatarURL({ extension: 'png', size: 128 });
-                    }
+            let avatarUrl = null;
+            let user = null;
+            if (client) {
+                user = await client.users.fetch(joueur.discord_id).catch(() => null);
+                if (user) {
+                    avatarUrl = user.displayAvatarURL({ extension: 'png', size: 128 });
                 }
+            }
+            
+            let avatarImg = null;
+            if (avatarUrl) {
+                try {
+                    avatarImg = await loadImage(avatarUrl);
+                } catch (e) {
+                    console.error(`Erreur lors du chargement de l'avatar pour ${joueur.discord_id}`, e.message);
+                }
+            }
+            
+            if (avatarImg) {
+                drawCircleImage(ctx, avatarImg, px, py, radius, '#FFD700');
+            } else {
+                // Fallback si pas d'avatar ou erreur
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(px, py, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#FFD700';
+                ctx.stroke();
                 
-                if (avatarUrl) {
-                    const avatarImg = await loadImage(avatarUrl);
-                    drawCircleImage(ctx, avatarImg, px, py, radius, '#FFD700');
-                } else {
-                    // Fallback si pas d'avatar
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.beginPath();
-                    ctx.arc(px, py, radius, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.lineWidth = 3;
-                    ctx.strokeStyle = '#FFD700';
-                    ctx.stroke();
-                    
-                    ctx.fillStyle = '#000000';
-                    ctx.font = '20px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    const fallbackText = user ? user.username.substring(0, 2).toUpperCase() : '?';
-                    ctx.fillText(fallbackText, px, py);
-                }
-            } catch (e) {
-                console.error(`Erreur lors du chargement de l'avatar pour ${joueur.discord_id}`, e);
+                ctx.fillStyle = '#000000';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const fallbackText = user ? user.username.substring(0, 2).toUpperCase() : '?';
+                ctx.fillText(fallbackText, px, py);
             }
         }
     }
@@ -284,19 +288,39 @@ async function generateZoomedBoardImage(joueur, tousLesJoueurs, plateau, client)
         if (joueursIci.length > 0) {
             // On dessine juste le nombre de joueurs ou l'avatar du joueur actuel
             if (i === joueur.position) {
-                try {
-                    let avatarUrl = null;
-                    if (client) {
-                        const user = await client.users.fetch(joueur.discord_id).catch(() => null);
-                        if (user) {
-                            avatarUrl = user.displayAvatarURL({ extension: 'png', size: 64 });
-                        }
+                let avatarUrl = null;
+                let user = null;
+                if (client) {
+                    user = await client.users.fetch(joueur.discord_id).catch(() => null);
+                    if (user) {
+                        avatarUrl = user.displayAvatarURL({ extension: 'png', size: 64 });
                     }
-                    if (avatarUrl) {
-                        const avatarImg = await loadImage(avatarUrl);
-                        drawCircleImage(ctx, avatarImg, drawX, drawY + 10, 20, '#FFD700');
+                }
+                
+                let avatarImg = null;
+                if (avatarUrl) {
+                    try {
+                        avatarImg = await loadImage(avatarUrl);
+                    } catch (e) {
+                        console.error(`Erreur au chargement avatar zoom ${joueur.discord_id}: ${e.message}`);
                     }
-                } catch (e) {}
+                }
+                
+                if (avatarImg) {
+                    drawCircleImage(ctx, avatarImg, drawX, drawY + 10, 20, '#FFD700');
+                } else {
+                    // Fallback simple
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.beginPath();
+                    ctx.arc(drawX, drawY + 10, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#000000';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    const fallbackText = user ? user.username.substring(0,2).toUpperCase() : '?';
+                    ctx.fillText(fallbackText, drawX, drawY + 10);
+                }
             } else {
                 ctx.fillStyle = '#FFFFFF';
                 ctx.beginPath();

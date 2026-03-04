@@ -14,7 +14,7 @@ module.exports = {
         });
 
         if (joueurs.length === 0) {
-            return interaction.reply({ content: 'Aucun joueur n\'a encore participé.', ephemeral: true });
+            return interaction.reply({ content: 'Aucun joueur n\'a encore participé.', flags: 64 });
         }
 
         const embed = new EmbedBuilder()

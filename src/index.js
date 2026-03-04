@@ -66,9 +66,9 @@ client.on(Events.InteractionCreate, async interaction => {
             console.error(error);
             try {
                 if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', ephemeral: true });
+                    await interaction.followUp({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', flags: 64 });
                 } else {
-                    await interaction.reply({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', ephemeral: true });
+                    await interaction.reply({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', flags: 64 });
                 }
             } catch (e) {
                 console.error("Impossible de répondre à l'interaction qui a échoué (déjà expirée).", e);
@@ -87,7 +87,7 @@ client.on(Events.InteractionCreate, async interaction => {
             } else if (interaction.customId === 'passer_etoile') {
                 await handlePasserEtoile(interaction);
             } else if (interaction.customId === 'voir_plateau') {
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.deferReply({ flags: 64 });
                 const { generateBoardImage } = require('./utils/canvas');
                 const { AttachmentBuilder } = require('discord.js');
                 const tousLesJoueurs = await Joueur.findAll();
@@ -98,7 +98,7 @@ client.on(Events.InteractionCreate, async interaction => {
             } else if (interaction.customId === 'inventaire') {
                 const joueur = await Joueur.findByPk(interaction.user.id);
                 const inv = joueur && joueur.inventaire.length > 0 ? joueur.inventaire.join(', ') : 'Vide';
-                await interaction.reply({ content: `🎒 **Ton inventaire :** ${inv}\n⭐ Étoiles : **${joueur ? joueur.etoiles : 0}** | 🪙 Pièces : **${joueur ? joueur.pieces : 0}**`, ephemeral: true });
+                await interaction.reply({ content: `🎒 **Ton inventaire :** ${inv}\n⭐ Étoiles : **${joueur ? joueur.etoiles : 0}** | 🪙 Pièces : **${joueur ? joueur.pieces : 0}**`, flags: 64 });
             } else if (interaction.customId === 'utiliser_objet') {
                 const { handleUtiliserObjet } = require('./game/events');
                 await handleUtiliserObjet(interaction);
@@ -125,11 +125,11 @@ client.on(Events.InteractionCreate, async interaction => {
             } else if (interaction.customId.startsWith('rappel_deviner_')) {
                 const userId = interaction.customId.split('_')[2];
                 if (interaction.user.id !== userId) {
-                    return interaction.reply({ content: "Ce bouton n'est pas pour toi.", ephemeral: true });
+                    return interaction.reply({ content: "Ce bouton n'est pas pour toi.", flags: 64 });
                 }
                 
                 const joueur = await Joueur.findByPk(userId);
-                if (!joueur || !joueur.last_deviner_time) return interaction.reply({ content: "Erreur lors de la récupération du cooldown.", ephemeral: true });
+                if (!joueur || !joueur.last_deviner_time) return interaction.reply({ content: "Erreur lors de la récupération du cooldown.", flags: 64 });
                 
                 const COOLDOWN_MINUTES = 30;
                 const now = new Date();
@@ -138,7 +138,7 @@ client.on(Events.InteractionCreate, async interaction => {
                 const remainingMins = COOLDOWN_MINUTES - diffMins;
                 
                 if (remainingMins > 0) {
-                    await interaction.reply({ content: `D'accord ! Je t'enverrai un MP dans environ ${remainingMins} minute(s).`, ephemeral: true });
+                    await interaction.reply({ content: `D'accord ! Je t'enverrai un MP dans environ ${remainingMins} minute(s).`, flags: 64 });
                     
                     setTimeout(async () => {
                         try {
@@ -148,10 +148,10 @@ client.on(Events.InteractionCreate, async interaction => {
                         }
                     }, remainingMins * 60000);
                 } else {
-                    await interaction.reply({ content: "Ton cooldown est déjà terminé, tu peux jouer !", ephemeral: true });
+                    await interaction.reply({ content: "Ton cooldown est déjà terminé, tu peux jouer !", flags: 64 });
                 }
             } else if (interaction.customId.startsWith('reponse_')) {
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.deferReply({ flags: 64 });
                 // Format: reponse_good_userId_mot ou reponse_bad_userId_mot
                 const parts = interaction.customId.split('_');
                 const action = parts[1]; // 'good' ou 'bad'
@@ -286,9 +286,9 @@ client.on(Events.InteractionCreate, async interaction => {
             console.error(error);
             try {
                 if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp({ content: 'Une erreur est survenue lors de l\'action.', ephemeral: true });
+                    await interaction.followUp({ content: 'Une erreur est survenue lors de l\'action.', flags: 64 });
                 } else {
-                    await interaction.reply({ content: 'Une erreur est survenue lors de l\'action.', ephemeral: true });
+                    await interaction.reply({ content: 'Une erreur est survenue lors de l\'action.', flags: 64 });
                 }
             } catch (e) {}
         }    } else if (interaction.isStringSelectMenu()) {
@@ -307,7 +307,7 @@ client.on(Events.InteractionCreate, async interaction => {
                 await handleReplaceChance(interaction);}
         } catch (error) {
             console.error(error);
-            await interaction.reply({ content: 'Erreur lors de la sélection.', ephemeral: true });
+            await interaction.reply({ content: 'Erreur lors de la sélection.', flags: 64 });
         }    } else if (interaction.isModalSubmit()) {
         if (interaction.customId.startsWith('modal_pari_')) {
             const { handleModalPari } = require('./game/cron');
@@ -315,7 +315,7 @@ client.on(Events.InteractionCreate, async interaction => {
                 await handleModalPari(interaction);
             } catch (error) {
                 console.error(error);
-                await interaction.reply({ content: 'Erreur lors de l\'enregistrement du pari.', ephemeral: true });
+                await interaction.reply({ content: 'Erreur lors de l\'enregistrement du pari.', flags: 64 });
             }
         }
     }
