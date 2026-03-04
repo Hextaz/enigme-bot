@@ -4,6 +4,15 @@ const { sequelize, Joueur, Plateau } = require('./db/models');
 const fs = require('fs');
 const path = require('path');
 
+// Gestion globale des erreurs non interceptées pour éviter le crash du bot
+process.on('unhandledRejection', error => {
+    console.error('Unhandled promise rejection:', error);
+});
+
+process.on('uncaughtException', error => {
+    console.error('Uncaught exception:', error);
+});
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -12,6 +21,7 @@ const client = new Client({
         GatewayIntentBits.GuildMessageReactions,
     ],
     partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+    rest: { timeout: 60000 }, // Augmente le timeout de l'API REST à 60s
 });
 
 client.commands = new Collection();
