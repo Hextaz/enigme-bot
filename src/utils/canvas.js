@@ -217,7 +217,12 @@ async function generateBoardImage(joueurs, plateau, client) {
         }
     }
 
-    return canvas.toBuffer();
+    return new Promise((resolve, reject) => {
+        canvas.toBuffer((err, buf) => {
+            if (err) reject(err);
+            else resolve(buf);
+        });
+    });
 }
 
 async function generateZoomedBoardImage(joueur, tousLesJoueurs, plateau, client) {
@@ -337,7 +342,12 @@ async function generateZoomedBoardImage(joueur, tousLesJoueurs, plateau, client)
         drawX += spacing;
     }
 
-    return canvas.toBuffer();
+    return new Promise((resolve, reject) => {
+        canvas.toBuffer((err, buf) => {
+            if (err) reject(err);
+            else resolve(buf);
+        });
+    });
 }
 
 module.exports = {

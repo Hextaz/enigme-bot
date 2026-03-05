@@ -73,7 +73,8 @@ client.on(Events.InteractionCreate, async interaction => {
         try {
             await command.execute(interaction);
         } catch (error) {
-            console.error(error);
+            if (error.code === 10062) console.warn('[Timeout] Interaction (ChatInputCommand) a expiré avant réponse (10062).');
+            else console.error(error);
             try {
                 if (interaction.replied || interaction.deferred) {
                     await interaction.followUp({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', flags: 64 });
@@ -81,7 +82,7 @@ client.on(Events.InteractionCreate, async interaction => {
                     await interaction.reply({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', flags: 64 });
                 }
             } catch (e) {
-                console.error("Impossible de répondre à l'interaction qui a échoué (déjà expirée).", e);
+                if (e.code !== 10062) console.error("Impossible de répondre à l'interaction qui a échoué.", e);
             }
         }
     } else if (interaction.isButton()) {
@@ -293,14 +294,17 @@ client.on(Events.InteractionCreate, async interaction => {
                 await interaction.update({ content: `❌ L'exclusion a été annulée.`, components: [] });
             }
         } catch (error) {
-            console.error(error);
+            if (error.code === 10062) console.warn('[Timeout] Interaction (Button) a expiré avant réponse (10062).');
+            else console.error(error);
             try {
                 if (interaction.replied || interaction.deferred) {
                     await interaction.followUp({ content: 'Une erreur est survenue lors de l\'action.', flags: 64 });
                 } else {
                     await interaction.reply({ content: 'Une erreur est survenue lors de l\'action.', flags: 64 });
                 }
-            } catch (e) {}
+            } catch (e) {
+                if (e.code !== 10062) console.error("Impossible de répondre à l'interaction Button.", e);
+            }
         }    } else if (interaction.isStringSelectMenu()) {
         try {
             if (interaction.customId.startsWith('boo_target_')) {
@@ -316,16 +320,26 @@ client.on(Events.InteractionCreate, async interaction => {
                 const { handleReplaceChance } = require('./game/events');
                 await handleReplaceChance(interaction);}
         } catch (error) {
-            console.error(error);
-            await interaction.reply({ content: 'Erreur lors de la sélection.', flags: 64 });
+            if (error.code === 10062) console.warn('[Timeout] Interaction (SelectMenu) a expiré avant réponse (10062).');
+            else console.error(error);
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: 'Erreur lors de la sélection.', flags: 64 }).catch(e => {
+                    if (e.code !== 10062) console.error("Impossible de répondre SelectMenu:", e);
+                });
+            }
         }    } else if (interaction.isModalSubmit()) {
         if (interaction.customId.startsWith('modal_pari_')) {
             const { handleModalPari } = require('./game/cron');
             try {
                 await handleModalPari(interaction);
             } catch (error) {
-                console.error(error);
-                await interaction.reply({ content: 'Erreur lors de l\'enregistrement du pari.', flags: 64 });
+                if (error.code === 10062) console.warn('[Timeout] Interaction (Modal) a expiré avant réponse (10062).');
+                else console.error(error);
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({ content: 'Erreur lors de l\'enregistrement du pari.', flags: 64 }).catch(e => {
+                        if (e.code !== 10062) console.error("Impossible de répondre Modal:", e);
+                    });
+                }
             }
         }
     }
