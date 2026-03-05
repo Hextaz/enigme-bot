@@ -544,25 +544,29 @@ const contentText = joueur.cases_restantes > 0
     }
 }
 async function handleAcheterEtoile(interaction) {
+    const plateau = await Plateau.findByPk(1);
     const joueur = await Joueur.findByPk(interaction.user.id);
+    
     if (!joueur || joueur.pieces < 20) {
         return interaction.reply({ content: 'Tu n\'as pas assez de pièces ou une erreur est survenue.', flags: 64 });
+    }
+
+    if (joueur.position !== plateau.position_etoile) {
+        return interaction.reply({ content: 'Trop tard ! Quelqu\'un d\'autre vient d\'acheter cette étoile ou tu ne te trouves plus dessus.', flags: 64 });
     }
 
     joueur.pieces -= 20;
     joueur.etoiles += 1;
     await joueur.save();
 
-    const plateau = await Plateau.findByPk(1);
-    const oldPosition = plateau.etoile_position;
-    
+    const oldPosition = plateau.position_etoile;
+
     do {
-        plateau.etoile_position = Math.floor(Math.random() * 42) + 1;
-    } while (plateau.etoile_position === oldPosition);
-    
+        plateau.position_etoile = Math.floor(Math.random() * 42) + 1;
+    } while (plateau.position_etoile === oldPosition);
     await plateau.save();
 
-    await interaction.channel.send(`⭐ **Bravo !** <@${interaction.user.id}> a acheté une Étoile ! 🌟 L'Étoile s'envole vers la case ${plateau.etoile_position} !`);
+    await interaction.channel.send(`⭐ **Bravo !** <@${interaction.user.id}> a acheté une Étoile ! 🌟 L'Étoile s'envole vers la case ${plateau.position_etoile} !`);
 
     if (joueur.cases_restantes > 0) {
         await interaction.update({ content: '⭐ **Bravo !** Tu as acheté une Étoile !', components: [] }).catch(()=>{});
@@ -630,7 +634,11 @@ async function handleUseItem(interaction) {
     const itemIndex = parseInt(itemIndexStr);
 
     const joueur = await Joueur.findByPk(interaction.user.id);
-    if (!joueur || !joueur.inventaire || joueur.inventaire.length <= itemIndex) {
+    if (!joueur) return interaction.reply({ content: 'Erreur avec ton joueur.', flags: 64 });
+
+    await joueur.reload();
+
+    if (!joueur.inventaire || joueur.inventaire.length <= itemIndex) {
         return interaction.reply({ content: 'Erreur avec ton inventaire.', flags: 64 });
     }
 
@@ -786,7 +794,7 @@ async function handleBooTarget(interaction) {
     let messageAction = '';
     if (type === 'pieces') {
         const montantVole = Math.floor(Math.random() * 10) + 3; // 3 à 12
-        const volReel = Math.min(montantVole, cible.pieces);
+        const volReel = Math.min(montantVole, Math.max(0, cible.pieces));
         cible.pieces -= volReel;
         joueur.pieces += volReel;
         messageAction = `👻 **Boo !** <@${joueur.discord_id}> a volé ${volReel} pièces à <@${cible.discord_id}> ! *(${interaction.user.username}: ${joueur.pieces} 🪙 | <@${cible.discord_id}>: ${cible.pieces} 🪙)*`;
@@ -803,7 +811,7 @@ async function handleBooTarget(interaction) {
     await joueur.save();
     await cible.save();
 
-    await interaction.reply({ content: 'Vol effectué !', flags: 64 });
+    await interaction.update({ content: 'Vol effectué !', components: [] }).catch(()=>{});
     
     const channel = interaction.client.channels.cache.get(config.boardChannelId);
     if (channel) {
@@ -816,6 +824,8 @@ async function handleBuyItem(interaction) {
     const itemId = interaction.customId.replace('buy_', '');
 
     if (!joueur) return interaction.reply({ content: 'Erreur joueur.', flags: 64 });
+
+    await joueur.reload();
 
     const { ITEMS } = require('./items');
     const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
@@ -909,6 +919,8 @@ async function handleReplaceBuy(interaction) {
     const joueur = await Joueur.findByPk(interaction.user.id);
     
     if (!joueur) return interaction.reply({ content: 'Erreur', flags: 64 });
+
+    await joueur.reload();
 
     const { ITEMS } = require('./items');
     const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
