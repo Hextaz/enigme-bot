@@ -15,7 +15,7 @@ module.exports = {
                 .setDescription('Recevoir un MP 2h avant la fin du tour si tu n\'as pas encore joué.')
                 .setRequired(false)
         ),
-    async execute(interaction) {
+    async execute(interaction) { await interaction.deferReply({flags: 64});
         const userId = interaction.user.id;
         let joueur = await Joueur.findByPk(userId);
 
@@ -51,6 +51,6 @@ module.exports = {
             )
             .setFooter({ text: 'Utilise /settings en ajoutant les options pour modifier ces valeurs.' });
 
-        await interaction.reply({ embeds: [embed], flags: 64 });
+        await interaction.editReply({ embeds: [embed], flags: 64 });
     },
 };

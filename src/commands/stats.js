@@ -6,6 +6,7 @@ module.exports = {
         .setName('stats')
         .setDescription('Affiche le classement et les statistiques des joueurs.'),
     async execute(interaction) {
+        await interaction.deferReply({ flags: 64 });
         const joueurs = await Joueur.findAll({
             order: [
                 ['etoiles', 'DESC'],
@@ -14,7 +15,7 @@ module.exports = {
         });
 
         if (joueurs.length === 0) {
-            return interaction.reply({ content: 'Aucun joueur n\'a encore participé.', flags: 64 });
+            return interaction.editReply({ content: 'Aucun joueur n\'a encore participé.', flags: 64 });
         }
 
         const embed = new EmbedBuilder()
@@ -38,6 +39,6 @@ module.exports = {
             });
         });
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
     },
 };

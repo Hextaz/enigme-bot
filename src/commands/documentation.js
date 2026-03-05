@@ -4,7 +4,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('documentation')
         .setDescription('Affiche les règles complètes et le fonctionnement du jeu.'),
-    async execute(interaction) {
+    async execute(interaction) { await interaction.deferReply({flags: 64});
         const embedRegles = new EmbedBuilder()
             .setTitle('📖 Concept & Règles de base')
             .setColor('#3498db')
@@ -71,7 +71,7 @@ module.exports = {
             `**\`/documentation\`**\n` +
             `Affiche ce message avec toutes les règles du jeu !`);
 
-        await interaction.reply({
+        await interaction.editReply({
             embeds: [embedRegles, embedCases, embedObjets, embedEvents, embedCommands],
             flags: 64
         });
