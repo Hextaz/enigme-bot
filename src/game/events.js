@@ -331,9 +331,50 @@ const contentText = joueur.cases_restantes > 0
                     }
                 }
                 joueur.position = bowserPos;
-                joueur.pieces = Math.floor(joueur.pieces / 2);
-                joueur.etoiles = Math.max(0, joueur.etoiles - 1);
-                messageAction += `\n🌩️ **Malchance !** **${interaction.user.username}** est téléporté sur la case Bowser (${bowserPos}) ! 🔥 ${interaction.user.username} perd la moitié de ses pièces *(Reste: ${joueur.pieces} 🪙)* et 1 étoile *(Reste: ${joueur.etoiles} ⭐)* !`;
+                messageAction += `\n🌩️ **Malchance !** **${interaction.user.username}** est téléporté sur la case Bowser (${bowserPos}) !`;
+
+                // --- Roulette Bowser ---
+                const bowserEvents = [
+                    { type: 'moitie_pieces', msg: 'Perte de la moitié des pièces' },
+                    { type: 'moins_etoile', msg: 'Perte d\'une étoile' },
+                    { type: 'revolution', msg: 'Révolution communiste des pièces du serveur' },
+                    { type: 'destruction_inv', msg: 'Destruction de l\'inventaire' },
+                    { type: 'don_dernier', msg: 'Don forcé au dernier' }
+                ];
+                const bEvt = bowserEvents[Math.floor(Math.random() * bowserEvents.length)];
+
+                if (bEvt.type === 'moitie_pieces') {
+                    joueur.pieces = Math.floor(joueur.pieces / 2);
+                    messageAction += `\n🔥 **BOWSER !** **${interaction.user.username}** perd la moitié de ses pièces ! *(Reste: ${joueur.pieces} 🪙)* 🔥`;
+                } else if (bEvt.type === 'moins_etoile') {
+                    joueur.etoiles = Math.max(0, joueur.etoiles - 1);
+                    messageAction += `\n🔥 **BOWSER !** **${interaction.user.username}** perd 1 étoile ! *(Reste: ${joueur.etoiles} ⭐)* 🔥`;
+                } else if (bEvt.type === 'revolution') {
+                    const tousLesJoueurs = await Joueur.findAll();
+                    let totalPieces = 0;
+                    tousLesJoueurs.forEach(j => totalPieces += j.pieces);
+                    const part = Math.floor(totalPieces / tousLesJoueurs.length);
+                    for (const j of tousLesJoueurs) {
+                        j.pieces = part;
+                        await j.save();
+                    }
+                    messageAction += `\n🔥 **BOWSER !** Révolution communiste ! Toutes les pièces du serveur sont redistribuées équitablement (${part} pièces chacun) ! 🔥`;
+                } else if (bEvt.type === 'destruction_inv') {
+                    joueur.inventaire = [];
+                    messageAction += `\n🔥 **BOWSER !** Destruction totale de son inventaire ! 🔥`;
+                } else if (bEvt.type === 'don_dernier') {
+                    const tousLesJoueurs = await Joueur.findAll({ order: [['etoiles', 'ASC'], ['pieces', 'ASC']] });
+                    const dernier = tousLesJoueurs[0];
+                    if (dernier && dernier.discord_id !== joueur.discord_id) {
+                        const don = Math.floor(joueur.pieces / 2);
+                        joueur.pieces -= don;
+                        dernier.pieces += don;
+                        await dernier.save();
+                        messageAction += `\n🔥 **BOWSER !** Don forcé ! **${interaction.user.username}** donne la moitié de ses pièces (${don}) au dernier du classement (<@${dernier.discord_id}>) ! *(Reste: ${joueur.pieces} 🪙 | <@${dernier.discord_id}> a ${dernier.pieces} 🪙)* 🔥`;
+                    } else {
+                        messageAction += `\n🔥 **BOWSER !** **${interaction.user.username}** est déjà le dernier, Bowser a pitié de lui ! 🔥`;
+                    }
+                }
             }
         } else if (caseArrivee.type === 'Coup du Sort') {
             const events = [
