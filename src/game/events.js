@@ -319,19 +319,7 @@ const contentText = joueur.cases_restantes > 0
                 joueur.de_limite = true;
                 messageAction += `\n🌩️ **Malchance !** Son dé sera limité à 3 au prochain tour !`;
             } else if (perte.type === 'tp_bowser') {
-                let currentPos = joueur.position;
-                let bowserPos = currentPos;
-                for (let i = 1; i <= 42; i++) {
-                    let checkPos = currentPos + i;
-                    if (checkPos > 42) checkPos -= 42;
-                    const c = getCase(checkPos);
-                    if (c.type === 'Bowser') {
-                        bowserPos = checkPos;
-                        break;
-                    }
-                }
-                joueur.position = bowserPos;
-                messageAction += `\n🌩️ **Malchance !** **${interaction.user.username}** est téléporté sur la case Bowser (${bowserPos}) !`;
+                messageAction += `\n🌩️ **Malchance !** Bowser apparaît devant **${interaction.user.username}** et lance sa roulette infernale !`;
 
                 // --- Roulette Bowser ---
                 const bowserEvents = [
