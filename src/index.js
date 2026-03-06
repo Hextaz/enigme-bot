@@ -1,4 +1,15 @@
 const { Client, GatewayIntentBits, Collection, Events, Partials } = require('discord.js');
+const { setGlobalDispatcher, Agent } = require('undici');
+
+// Empêche les erreurs "SocketError: other side closed" courantes sur Fly.io ou avec Discord.js
+// en forçant undici à recycler ses connexions Keep-Alive (15s max) avant que le proxy ne les coupe (souvent 60s/100s).
+const customAgent = new Agent({
+    connect: { timeout: 60000 },
+    keepAliveTimeout: 10000,
+    keepAliveMaxTimeout: 15000,
+});
+setGlobalDispatcher(customAgent);
+
 const config = require('./config');
 const { sequelize, Joueur, Plateau } = require('./db/models');
 const fs = require('fs');
@@ -21,7 +32,7 @@ const client = new Client({
         GatewayIntentBits.GuildMessageReactions,
     ],
     partials: [Partials.Message, Partials.Channel, Partials.Reaction],
-    rest: { timeout: 60000 }, // Augmente le timeout de l'API REST à 60s
+    rest: { timeout: 60000, agent: customAgent, retries: 3 }, // Augmente le timeout et applique l'Agent
 });
 
 client.commands = new Collection();
