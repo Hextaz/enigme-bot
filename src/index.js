@@ -107,9 +107,10 @@ client.on(Events.InteractionCreate, async interaction => {
                 const attachment = new AttachmentBuilder(buffer, { name: 'board.png' });
                 await interaction.editReply({ files: [attachment] });
             } else if (interaction.customId === 'inventaire') {
+                await interaction.deferReply({ flags: 64 }).catch(()=>{});
                 const joueur = await Joueur.findByPk(interaction.user.id);
                 const inv = joueur && joueur.inventaire.length > 0 ? joueur.inventaire.join(', ') : 'Vide';
-                await interaction.reply({ content: `🎒 **Ton inventaire :** ${inv}\n⭐ Étoiles : **${joueur ? joueur.etoiles : 0}** | 🪙 Pièces : **${joueur ? joueur.pieces : 0}**`, flags: 64 });
+                await interaction.editReply({ content: `🎒 **Ton inventaire :** ${inv}\n⭐ Étoiles : **${joueur ? joueur.etoiles : 0}** | 🪙 Pièces : **${joueur ? joueur.pieces : 0}**` });
             } else if (interaction.customId === 'utiliser_objet') {
                 const { handleUtiliserObjet } = require('./game/events');
                 await handleUtiliserObjet(interaction);
