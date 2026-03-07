@@ -9,6 +9,21 @@ let coureurs = [];
 let parisJoueurs = {}; // { discord_id: { coureurId, montant } }
 
 function initCronJobs(client) {
+    // ---- HOTFIX : REPRISE DES PARIS SI CRASH/RESTART LE SAMEDI ----
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', hour: 'numeric', hour12: false });
+    const parts = formatter.formatToParts(now);
+    const weekday = parts.find(p => p.type === 'weekday').value;
+    const hour = parseInt(parts.find(p => p.type === 'hour').value);
+    
+    if (weekday.toLowerCase() === 'samedi' && hour >= 10 && hour < 21) {
+        parisActifs = true;
+        const noms = ['Yoshi Vert', 'Yoshi Rouge', 'Yoshi Bleu', 'Yoshi Jaune', 'Yoshi Noir'];
+        coureurs = noms.map((nom, index) => ({ id: index, nom: nom }));
+        console.log("Restauration de l'état des paris suite au redémarrage !");
+    }
+    // ---------------------------------------------------------------
+
     // Rappel 2h avant la fin du tour (9h00 du matin du lundi au vendredi, car le tour se termine à 11h00)
     cron.schedule('0 9 * * 1-5', async () => {
         const joueursARappeler = await Joueur.findAll({
