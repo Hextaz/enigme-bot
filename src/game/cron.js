@@ -6,7 +6,7 @@ const { Joueur, Plateau } = require('../db/models');
 // Variables globales pour les paris
 let parisActifs = false;
 let coureurs = [];
-let parisJoueurs = {}; // { discord_id: { coureurId, montant } }
+
 
 function initCronJobs(client) {
     // ---- HOTFIX : REPRISE DES PARIS SI CRASH/RESTART LE SAMEDI ----
@@ -133,13 +133,16 @@ function initCronJobs(client) {
         const tousLesJoueurs = await Joueur.findAll();
         for (const j of tousLesJoueurs) {
             j.a_le_droit_de_jouer = false;
+            j.pari_coureurId = null;
+            j.pari_montant = 0;
             await j.save();
         }
+
         const channel = client.channels.cache.get(config.boardChannelId);
         if (!channel) return;
 
         parisActifs = true;
-        parisJoueurs = {};
+        
         
         // Générer 5 Yoshis
         const noms = ['Yoshi Vert', 'Yoshi Rouge', 'Yoshi Bleu', 'Yoshi Jaune', 'Yoshi Noir'];
@@ -202,31 +205,50 @@ function initCronJobs(client) {
             // Calculer le pot total et le total misé sur le gagnant
             let potTotal = 0;
             let totalMiseGagnant = 0;
-            
-            for (const pari of Object.values(parisJoueurs)) {
-                potTotal += pari.montant;
-                if (pari.coureurId === gagnant.id) {
-                    totalMiseGagnant += pari.montant;
+
+            const { Op } = require('sequelize');
+            const laBaseDeParis = await Joueur.findAll({
+                where: {
+                    pari_coureurId: {
+                        [Op.ne]: null
+                    }
+                }
+            });
+
+            for (const p of laBaseDeParis) {
+                potTotal += p.pari_montant;
+                if (p.pari_coureurId === gagnant.id) {
+                    totalMiseGagnant += p.pari_montant;
                 }
             }
 
             let gagnantsCount = 0;
-            
+
             if (totalMiseGagnant > 0) {
-                for (const [discordId, pari] of Object.entries(parisJoueurs)) {
-                    if (pari.coureurId === gagnant.id) {
-                        // Calcul du gain proportionnel : (Mise du joueur / Total misé sur le gagnant) * Pot Total
-                        const part = pari.montant / totalMiseGagnant;
+                for (const joueur of laBaseDeParis) {
+                    if (joueur.pari_coureurId === gagnant.id) {
+                        const part = joueur.pari_montant / totalMiseGagnant;
                         const gain = Math.floor(part * potTotal);
-                        
-                        const joueur = await Joueur.findByPk(discordId);
-                        if (joueur) {
-                            joueur.pieces += gain;
-                            await joueur.save();
-                            resultMsg += `<@${discordId}> gagne **${gain} pièces** (Mise: ${pari.montant}) ! *(Total: ${joueur.pieces} 🪙)*\n`;
-                            gagnantsCount++;
-                        }
+
+                        joueur.pieces += gain;
+                        let oldMise = joueur.pari_montant;
+                        joueur.pari_coureurId = null;
+                        joueur.pari_montant = 0;
+                        await joueur.save();
+
+                        resultMsg += `<@${joueur.discord_id}> gagne **${gain} pièces** (Mise: ${oldMise}) ! *(Total: ${joueur.pieces} 🪙)*\n`;
+                        gagnantsCount++;
+                    } else {
+                        joueur.pari_coureurId = null;
+                        joueur.pari_montant = 0;
+                        await joueur.save();
                     }
+                }
+            } else {
+                for (const joueur of laBaseDeParis) {
+                    joueur.pari_coureurId = null;
+                    joueur.pari_montant = 0;
+                    await joueur.save();
                 }
             }
 
@@ -284,7 +306,9 @@ async function handlePari(interaction) {
 
     if (!coureur) return interaction.reply({ content: 'Coureur introuvable.', flags: 64 });
 
-    if (parisJoueurs[interaction.user.id]) {
+    const joueur = await Joueur.findByPk(interaction.user.id);
+    if (!joueur) return interaction.reply({ content: "Tu n'es pas inscrit !", flags: 64 });
+    if (joueur.pari_coureurId !== null) {
         return interaction.reply({ content: 'Tu as déjà parié !', flags: 64 });
     }
 
@@ -331,12 +355,9 @@ async function handleModalPari(interaction) {
     }
 
     joueur.pieces -= coutReel;
+    joueur.pari_coureurId = coureurId;
+    joueur.pari_montant = montant;
     await joueur.save();
-
-    parisJoueurs[interaction.user.id] = {
-        coureurId: coureurId,
-        montant: montant
-    };
 
     const coureur = coureurs.find(c => c.id === coureurId);
     await interaction.reply({ content: `Tu as parié **${montant} pièces** sur **${coureur.nom}** ! *(Il te reste ${joueur.pieces} 🪙)*`, flags: 64 });

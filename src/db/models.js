@@ -65,6 +65,15 @@ const Joueur = sequelize.define('Joueur', {
     last_deviner_time: {
         type: DataTypes.DATE,
         allowNull: true,
+    },
+    pari_coureurId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: null,
+    },
+    pari_montant: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
     }
 }, {
     tableName: 'joueurs',
