@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Collection, Events, Partials } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, Events, Partials, Options } = require('discord.js');
 const config = require('./config');
 const { sequelize, Joueur, Plateau } = require('./db/models');
 const fs = require('fs');
@@ -21,6 +21,16 @@ const client = new Client({
         GatewayIntentBits.GuildMessageReactions,
     ],
     partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+    makeCache: Options.cacheWithLimits({
+        ...Options.DefaultMakeCacheSettings,
+        MessageManager: 20,
+        ThreadManager: 10,
+        PresenceManager: 0,
+        VoiceStateManager: 0,
+        ReactionManager: 10,
+        GuildMemberManager: 50,
+        UserManager: 50,
+    }),
     rest: { timeout: 60000 }, // Augmente le timeout de l'API REST à 60s
 });
 
@@ -347,14 +357,5 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 // Gestion des messages (Énigme du jour)
-
-// Capture globale des promesses rejetées pour éviter un crash total de l'application
-process.on('unhandledRejection', error => {
-    console.error('Unhandled promise rejection:', error);
-});
-
-process.on('uncaughtException', error => {
-    console.error('Uncaught Exception:', error);
-});
 
 client.login(config.token);

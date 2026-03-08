@@ -66,7 +66,10 @@ async function generateBoardImage(joueurs, plateau, client) {
 
     // Charger l'image de fond
     try {
-        const bgImage = await loadImage(path.join(__dirname, '../../assets/plateau.png'));
+        if (!global.cachedBg) {
+            global.cachedBg = await loadImage(path.join(__dirname, '../../assets/plateau.png'));
+        }
+        const bgImage = global.cachedBg;
         ctx.drawImage(bgImage, 0, 0, BOARD_WIDTH, BOARD_HEIGHT);
     } catch (error) {
         console.error("Image de fond non trouvée, utilisation d'un fond uni.");

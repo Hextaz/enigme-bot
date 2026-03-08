@@ -6,10 +6,11 @@ primary_region = "cdg" # Paris (Charles de Gaulle)
 
 [env]
   PORT = "8080"
+  NODE_OPTIONS = "--max-old-space-size=120"
 
 [mounts]
   source = "enigme_data"
   destination = "/app/data"
 
 [processes]
-  app = "npm start"
+  app = "node --max-old-space-size=120 src/index.js"

@@ -1,4 +1,4 @@
-FROM node:18-bullseye-slim
+FROM node:20-bullseye-slim
 
 # Installer les dépendances système requises par node-canvas
 RUN apt-get update && apt-get install -y \
@@ -24,5 +24,8 @@ COPY . .
 # Créer le dossier pour la base de données
 RUN mkdir -p /app/data
 
-# Démarrer l'application
-CMD ["npm", "start"]
+# Configurer la mémoire limite de Node (très important pour les VM de 256MB comme Fly.io)
+ENV NODE_OPTIONS="--max-old-space-size=120"
+
+# Démarrer directement node pour ne pas gaspiller la mémoire avec l'interpréteur npm
+CMD ["node", "src/index.js"]
