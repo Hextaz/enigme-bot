@@ -280,10 +280,15 @@ function initCronJobs(client) {
             
             if (oublis.length > 0) {
                 msg += `\n⚠️ **Ils ont oublié de jouer aujourd'hui :**\n`;
-                oublis.forEach(j => {
-                    msg += `- <@${j.discord_id}>\n`;
-                });
-                msg += `*Tant pis pour eux !*`;
+                for (const j of oublis) {
+                    try {
+                        const user = await client.users.fetch(j.discord_id);
+                        msg += `- **${user.username}**\n`;
+                    } catch (e) {
+                        msg += `- **Joueur inconnu** (ID: ${j.discord_id})\n`;
+                    }
+                }
+                msg += `\n*Tant pis pour eux ! N'hésitez pas à activer un rappel avec la commande \`/settings\` pour ne plus oublier votre tour.*`;
             }
             
             await channel.send(msg);

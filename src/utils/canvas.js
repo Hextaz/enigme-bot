@@ -92,7 +92,36 @@ async function generateBoardImage(joueurs, plateau, client) {
     if (plateau && plateau.position_etoile) {
         const etoileCase = getCase(plateau.position_etoile);
         if (etoileCase) {
-            drawStar(ctx, etoileCase.x + 45, etoileCase.y - 60, 5, 25, 12, '#FFD700', '#000000');
+            const posId = parseInt(plateau.position_etoile);
+            const prevId = posId - 1 <= 0 ? 42 : posId - 1;
+            const nextId = posId + 1 > 42 ? 1 : posId + 1;
+
+            const prevCase = getCase(prevId);
+            const nextCase = getCase(nextId);
+
+            // Vecteur tangent (direction du chemin)
+            let tangentX = nextCase.x - prevCase.x;
+            let tangentY = nextCase.y - prevCase.y;
+
+            const length = Math.sqrt(tangentX * tangentX + tangentY * tangentY);
+
+            // Vecteur normal vers l'extérieur (rotation de 90° dans le sens horaire des coordonnées écran)
+            let vectorX = 0;
+            let vectorY = -1;
+
+            if (length > 0) {
+                vectorX = tangentY / length;
+                vectorY = -tangentX / length;
+            }
+
+            const caseCenterX = etoileCase.x + 45;
+            const caseCenterY = etoileCase.y + 45;
+            
+            // Pousser l'étoile vers l'extérieur (70px pour qu'elle soit bien visible)
+            const starX = caseCenterX + (vectorX * 70);
+            const starY = caseCenterY + (vectorY * 70);
+
+            drawStar(ctx, starX, starY, 5, 25, 12, '#FFD700', '#000000');
         }
     }
 

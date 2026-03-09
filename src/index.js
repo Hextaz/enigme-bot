@@ -209,7 +209,8 @@ client.on(Events.InteractionCreate, async interaction => {
                         plateau.premier_gagnant = userId;
                         await plateau.save();
                         
-                        await channel.send(`🚨 **<@${userId}> A TROUVÉ L'ÉNIGME !**\nLe compte à rebours est lancé. Il vous reste **30 minutes** pour faire un dernier \`/deviner\` et tenter de gagner des pièces !`);
+                        const roleMention = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
+                        await channel.send(`${roleMention}🚨 **<@${userId}> A TROUVÉ L'ÉNIGME !**\nLe compte à rebours est lancé. Il vous reste **30 minutes** pour faire un dernier \`/deviner\` et tenter de gagner des pièces !`);
                         await interaction.editReply({ content: `Tu as validé la proposition de <@${userId}>. Le compte à rebours de 30 minutes est lancé !` });
                         
                         // Update the original message
