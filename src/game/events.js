@@ -42,20 +42,14 @@ async function handleLancerDe(interaction) {
     await processMovement(interaction, joueur, de, false);
 }
 
-async function handleContinuerDeplacement(interaction) {
+async function handleContinuerDeplacement(interaction, alreadyHandledOnStart = []) {
     if (!interaction.deferred && !interaction.replied) {
         // Enlève les boutons de l'ancien message (Shop, Etoile, /jouer) pour éviter les clics multiples
         await interaction.update({ components: [] }).catch(() => {});
     }
     const joueur = await Joueur.findByPk(interaction.user.id);
-    if (!joueur || joueur.cases_restantes <= 0) {
+    if (!joueur || (joueur.cases_restantes <= 0 && alreadyHandledOnStart.length === 0)) {
         return interaction.editReply({ content: 'Tu n\'as pas de déplacement en cours.' });
-    }
-
-    if (!joueur.a_le_droit_de_jouer && joueur.cases_restantes === 0) {
-        // Just a safety, but actually if a player was interrupted in the middle of a move yesterday,
-        // should they be allowed to finish it today? Usually yes, but to be strict:
-        // "jouer qu'une fois par tour" 
     }
 
     // Sécurité supplémentaire : On vérifie si l'énigme du jour n'est pas "active" 
@@ -66,10 +60,10 @@ async function handleContinuerDeplacement(interaction) {
     }
 
     const de = joueur.cases_restantes;
-    await processMovement(interaction, joueur, de, true);
+    await processMovement(interaction, joueur, de, true, alreadyHandledOnStart);
 }
 
-async function processMovement(interaction, joueur, de, isContinuation = false) {
+async function processMovement(interaction, joueur, de, isContinuation = false, alreadyHandledOnStart = []) {
     const anciennePosition = joueur.position;
     const plateau = await Plateau.findByPk(1);
     
@@ -83,16 +77,29 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
     
     for (let i = 0; i < casesParcourues.length; i++) {
         const c = casesParcourues[i];
-        if (c.id === anciennePosition) continue; // On ignore la case de départ
+        const isStartCase = (c.id === anciennePosition);
         
-        stepsTaken++;
+        // Si on lance le dé (isContinuation FALSE), on ignore systématiquement la case de départ pour ne pas re-déclencher.
+        // Si on reprend, on vérifie si la case de départ a encore des interruptions non traitées.
+        if (isStartCase && !isContinuation) {
+            continue;
+        }
+
+        if (!isStartCase) {
+            stepsTaken++;
+        }
         
-        if (c.id === plateau.position_etoile) {
+        if (c.id === plateau.position_etoile && (!isStartCase || !alreadyHandledOnStart.includes('etoile'))) {
             interruption = { type: 'etoile', case: c, steps: stepsTaken };
             break;
-        } else if (c.type === 'Boutique') {
+        } else if (c.type === 'Boutique' && (!isStartCase || !alreadyHandledOnStart.includes('boutique'))) {
             interruption = { type: 'boutique', case: c, steps: stepsTaken };
             break;
+        }
+
+        // Passé ces vérifications, si c'était la case de départ, on la saute pour aller aux suivantes.
+        if (isStartCase) {
+            continue;
         }
     }
 
@@ -105,7 +112,11 @@ async function processMovement(interaction, joueur, de, isContinuation = false) 
         const cheminStr = joueur.cases_restantes > 0 ? "en chemin " : "";
         
         if (isContinuation) {
-            messageAction = `🚶 **<@${interaction.user.id}>** continue et s'arrête ${cheminStr}sur la case **${interruption.case.id} (${interruption.type === 'etoile' ? 'Étoile' : 'Boutique'})** !`;
+            if (de > 0 && interruption.steps > 0) {
+                messageAction = `🚶 **<@${interaction.user.id}>** continue et s'arrête ${cheminStr}sur la case **${interruption.case.id} (${interruption.type === 'etoile' ? 'Étoile' : 'Boutique'})** !`;
+            } else {
+                messageAction = `📍 **<@${interaction.user.id}>** découvre sur sa case actuelle une **${interruption.type === 'etoile' ? 'Étoile' : 'Boutique'}** !`;
+            }
         } else {
             messageAction = `🎲 **<@${interaction.user.id}>** a fait un **${de}** et s'arrête ${cheminStr}sur la case **${interruption.case.id} (${interruption.type === 'etoile' ? 'Étoile' : 'Boutique'})** !`;
         }
@@ -204,7 +215,11 @@ const contentText = joueur.cases_restantes > 0
     let messageAction;
     let pendingItemToReplace = null;
     if (isContinuation) {
-        messageAction = `🚶 **<@${interaction.user.id}>** avance de **${de} case(s)** et atterrit sur la case **${caseArrivee.id} (${caseArrivee.type})** !`;
+        if (de > 0) {
+            messageAction = `🚶 **<@${interaction.user.id}>** avance de **${de} case(s)** et atterrit sur la case **${caseArrivee.id} (${caseArrivee.type})** !`;
+        } else {
+            messageAction = `📍 **<@${interaction.user.id}>** résout l'effet de sa case **${caseArrivee.id} (${caseArrivee.type})** !`;
+        }
     } else {
         messageAction = `🎲 **<@${interaction.user.id}>** a fait un **${de}** et atterrit sur la case **${caseArrivee.id} (${caseArrivee.type})** !`;
     }
@@ -596,24 +611,24 @@ async function handleAcheterEtoile(interaction) {
     } while (plateau.position_etoile === oldPosition);
     await plateau.save();
 
-    await interaction.channel.send(`⭐ **Bravo !** <@${interaction.user.id}> a acheté une Étoile ! 🌟 L'Étoile s'envole vers la case ${plateau.position_etoile} !`);
-
-    if (joueur.cases_restantes > 0) {
-        await interaction.editReply({ content: '⭐ **Bravo !** Tu as acheté une Étoile !', components: [] }).catch(()=>{});
-        await handleContinuerDeplacement(interaction);
+    const successMsg = `⭐ **Bravo !** <@${interaction.user.id}> a acheté une Étoile ! 🌟 L'Étoile s'envole vers la case ${plateau.position_etoile} !`;
+    const boardChannel = await interaction.client.channels.fetch(config.boardChannelId).catch(() => null);
+    if (boardChannel) {
+        await boardChannel.send(successMsg);
     } else {
-        await interaction.editReply({ content: '⭐ **Bravo !** Tu as acheté une Étoile !', components: [] }).catch(()=>{});
+        await interaction.channel.send(successMsg);
     }
+
+    await interaction.editReply({ content: '⭐ **Bravo !** Tu as acheté une Étoile !', components: [] }).catch(()=>{});
+    await handleContinuerDeplacement(interaction, ['etoile']);
 }
 
 async function handlePasserEtoile(interaction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const joueur = await Joueur.findByPk(interaction.user.id);
-    if (joueur && joueur.cases_restantes > 0) {
+    if (joueur) {
         await interaction.editReply({ content: "Tu as passé ton tour pour l'Étoile.", components: [] }).catch(() => {});
-        await handleContinuerDeplacement(interaction);
-    } else {
-        await interaction.editReply({ content: "Tu as passé ton tour pour l'Étoile.", components: [] }).catch(() => {});
+        await handleContinuerDeplacement(interaction, ['etoile']);
     }
 }
 
@@ -888,12 +903,8 @@ async function handleBuyItem(interaction) {
             joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
         }
         await joueur.save();
-        if (joueur.cases_restantes > 0) {
-            await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !`, components: [] }).catch(()=>{});
-            await handleContinuerDeplacement(interaction);
-        } else {
-            return interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** ! Il te reste **${joueur.pieces} pièces**.`, components: [] }).catch(()=>{});
-        }
+        await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
+        await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
     } else {
         if (joueur.inventaire.length >= 3) {
             const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -930,23 +941,17 @@ async function handleBuyItem(interaction) {
             joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
         }
         await joueur.save();
-        if (joueur.cases_restantes > 0) {
-            await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !`, components: [] }).catch(()=>{});
-            await handleContinuerDeplacement(interaction);
-        } else {
-            return interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** ! Il te reste **${joueur.pieces} pièces**.`, components: [] }).catch(()=>{});
-        }
+        await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
+        await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
     }
 }
 
 async function handleBuyCancel(interaction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const joueur = await Joueur.findByPk(interaction.user.id);
-    if (joueur && joueur.cases_restantes > 0) {
-        await interaction.editReply({ content: 'Tu as quitté la boutique, en route !', components: [] }).catch(()=>{});
-        await handleContinuerDeplacement(interaction);
-    } else {
-        await interaction.editReply({ content: 'Tu as quitté la boutique.', components: [] }).catch(()=>{});
+    if (joueur) {
+        await interaction.editReply({ content: 'Tu as quitté la boutique' + (joueur.cases_restantes > 0 ? ', en route !' : '.'), components: [] }).catch(()=>{});
+        await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
     }
 }
 
@@ -984,12 +989,8 @@ async function handleReplaceBuy(interaction) {
 
     await joueur.save();
 
-    if (joueur.cases_restantes > 0) {
-        await interaction.editReply({ content: `🛒 Tu as jeté **${droppedItem}** et acheté **${item.name}** !`, components: [] }).catch(()=>{});
-        await handleContinuerDeplacement(interaction);
-    } else {
-        await interaction.editReply({ content: `🛒 Tu as jeté **${droppedItem}** et acheté **${item.name}** ! Il te reste **${joueur.pieces} pièces**.`, components: [] }).catch(()=>{});
-    }
+    await interaction.editReply({ content: `🛒 Tu as jeté **${droppedItem}** et acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
+    await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
 }
 
 async function handleReplaceChance(interaction) {
