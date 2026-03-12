@@ -34,7 +34,7 @@ const BOARD_CASES = [
     { id: 33, x: 255, y: 479, type: 'Rouge', name: 'Rouge' },
     { id: 34, x: 278, y: 398, type: 'Boo', name: 'Boo (Virage Gauche)' },
     { id: 35, x: 320, y: 325, type: 'Bleue', name: 'Bleue' },
-    { id: 36, x: 380, y: 265, type: 'Malchance', name: 'Malchance' },
+    { id: 36, x: 380, y: 265, type: 'Bleue', name: 'Bleue' },
     { id: 37, x: 453, y: 222, type: 'Malchance', name: 'Malchance' },
     { id: 38, x: 535, y: 205, type: 'Malchance', name: 'Malchance' },
     { id: 39, x: 620, y: 200, type: 'Verte', name: 'Verte' },
