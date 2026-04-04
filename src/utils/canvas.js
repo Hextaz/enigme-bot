@@ -107,8 +107,8 @@ async function generateBoardImage(joueurs, plateau, client) {
             let vectorY = -1;
 
             if (length > 0) {
-                vectorX = tangentY / length;
-                vectorY = -tangentX / length;
+                vectorX = -tangentY / length;
+                vectorY = tangentX / length;
             }
 
             const caseCenterX = etoileCase.x + 45;
@@ -165,8 +165,8 @@ async function generateBoardImage(joueurs, plateau, client) {
             let vectorY = -1; // Fallback par défaut vers le haut
             
             if (length > 0) {
-                vectorX = tangentY / length;
-                vectorY = -tangentX / length;
+                vectorX = -tangentY / length;
+                vectorY = tangentX / length;
             }
 
             // Pour pousser l'avatar vers l'extérieur du circuit (65px)
