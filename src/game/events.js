@@ -25,6 +25,18 @@ function createTimeout(userId, type, interaction) {
                     }
                 } else if (type === 'boo') {
                     if (channel) channel.send('👻 **<@' + userId + '>** a mis trop de temps à réfléchir... Boo est reparti les mains vides !');
+                    if (j.cases_restantes >= 0) {
+                        const mockInt = { user: { id: userId, username: 'Joueur' }, client: interaction.client, editReply: async () => {}, followUp: async () => {}, update: async () => {}, deferred: true, replied: true };
+                        try { await handleContinuerDeplacement(mockInt, ['boo']); } catch(e) { console.error(e); }
+                    }
+                } else if (type === 'intersection') {
+                    if (channel) channel.send(`⏰ **<@${userId}>** a bêtement foncé tout droit à l'intersection !`);
+                    j.temp_choix_direction = [getCase(j.position).next[0]];
+                    await j.save();
+                    if (j.cases_restantes >= 0) {
+                        const mockInt = { user: { id: userId, username: 'Joueur' }, client: interaction.client, editReply: async () => {}, followUp: async () => {}, update: async () => {}, deferred: true, replied: true };
+                        try { await handleContinuerDeplacement(mockInt, ['choix_direction']); } catch(e) { console.error(e); }
+                    }
                 }
             } catch(e) { console.error(e); }
         }
