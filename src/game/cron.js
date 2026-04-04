@@ -9,6 +9,24 @@ let coureurs = [];
 
 
 function initCronJobs(client) {
+    async function applyGhostRules(tousLesJoueurs) {
+        const channel = client.channels.cache.get(config.boardChannelId);
+        for (const j of tousLesJoueurs) {
+            if (!j.a_joue_ce_tour) {
+                j.jours_inactifs += 1;
+                if (j.jours_inactifs >= 3 && !j.est_fantome) {
+                    j.est_fantome = true;
+                    if (channel) {
+                        await channel.send(`👻 **<@${j.discord_id}>** ne donne plus de nouvelles depuis 3 tours et s'est transformé(e) en fantôme ! Son personnage est maintenant bloqué jusqu'à son possible réveil.`);
+                    }
+                }
+            } else {
+                j.jours_inactifs = 0;
+            }
+            j.a_joue_ce_tour = false; // Reset pour le prochain tour
+            // On ne save pas ici, on sauvegarde dans la boucle appelante
+        }
+    }
     // ---- HOTFIX : REPRISE DES PARIS SI CRASH/RESTART LE SAMEDI ----
     const now = new Date();
     const formatter = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', hour: 'numeric', hour12: false });
@@ -77,6 +95,7 @@ function initCronJobs(client) {
     // Lundi à Vendredi 11h00 : Reset normal (bloque en attendant l'énigme)
     cron.schedule('0 11 * * 1-5', async () => {
         const tousLesJoueurs = await Joueur.findAll();
+        await applyGhostRules(tousLesJoueurs);
         for (const j of tousLesJoueurs) {
             j.a_le_droit_de_jouer = false; // On bloque le plateau jusqu'à la résolution de l'énigme
             j.guess_du_jour = 0;
@@ -131,6 +150,7 @@ function initCronJobs(client) {
     cron.schedule('0 10 * * 6', async () => {
         // Sécurité : On s'assure que tout le monde est bloqué pour le plateau
         const tousLesJoueurs = await Joueur.findAll();
+        await applyGhostRules(tousLesJoueurs);
         for (const j of tousLesJoueurs) {
             j.a_le_droit_de_jouer = false;
             j.pari_coureurId = null;
@@ -313,6 +333,7 @@ async function handlePari(interaction) {
 
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (!joueur) return interaction.reply({ content: "Tu n'es pas inscrit !", flags: 64 });
+    if (joueur.est_fantome) return interaction.reply({ content: "👻 Tu es en mode fantôme, tu ne peux pas parier !", flags: 64 });
     if (joueur.pari_coureurId !== null) {
         return interaction.reply({ content: 'Tu as déjà parié !', flags: 64 });
     }
@@ -350,6 +371,9 @@ async function handleModalPari(interaction) {
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (!joueur) {
         return interaction.reply({ content: 'Tu n\'es pas inscrit au jeu.', flags: 64 });
+    }
+    if (joueur.est_fantome) {
+        return interaction.reply({ content: 'Tu es en mode fantôme, tu ne peux pas parier.', flags: 64 });
     }
 
     // Le ticket gratuit de 3 pièces

@@ -96,10 +96,12 @@ client.on(Events.InteractionCreate, async interaction => {
             }
         }
     } else if (interaction.isButton()) {
-        const { handleLancerDe, handleContinuerDeplacement, handleAcheterEtoile, handlePasserEtoile } = require('./game/events');
-        
+        const { handleLancerDe, handleContinuerDeplacement, handleAcheterEtoile, handlePasserEtoile, handleUnblockFantome } = require('./game/events');
+
         try {
-            if (interaction.customId === 'lancer_de') {
+            if (interaction.customId === 'unblock_fantome') {
+                await handleUnblockFantome(interaction);
+            } else if (interaction.customId === 'lancer_de') {
                 await handleLancerDe(interaction);
             } else if (interaction.customId === 'continuer_deplacement') {
                 await handleContinuerDeplacement(interaction);
@@ -197,6 +199,26 @@ client.on(Events.InteractionCreate, async interaction => {
                     await channel.send({ embeds: [newEmbed] });
 
                     await interaction.editReply({ content: `Tu as refusé la proposition de <@${userId}>.` });
+                    
+                    // Update the original PM message to show it was processed
+                    await interaction.message.edit({ embeds: [newEmbed], components: [] });
+                    
+                } else if (action === 'spam') {
+                    // Create the rejected embed
+                    const embed = interaction.message.embeds[0];
+                    const newEmbed = { ...embed.data, color: 0xe74c3c, title: 'Proposition refusée (Non conforme)' };
+
+                    // Send the embed to the enigma channel
+                    await channel.send({ embeds: [newEmbed] });
+
+                    // Puni le try guess random en supprimant 1 piece
+                    const p_joueur = await Joueur.findByPk(userId);
+                    if (p_joueur && p_joueur.pieces > 0) {
+                        p_joueur.pieces -= 1;
+                        await p_joueur.save();
+                    }
+
+                    await interaction.editReply({ content: `Tu as refusé la proposition non conforme de <@${userId}> et 1 pièce de participation lui a été retirée.` });
                     
                     // Update the original PM message to show it was processed
                     await interaction.message.edit({ embeds: [newEmbed], components: [] });

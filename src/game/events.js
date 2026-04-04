@@ -37,6 +37,8 @@ async function handleLancerDe(interaction) {
     }
 
     joueur.a_le_droit_de_jouer = false; // Il a joué pour aujourd'hui
+    joueur.a_joue_ce_tour = true;
+    joueur.jours_inactifs = 0;
     await joueur.save();
 
     await processMovement(interaction, joueur, de, false);
@@ -169,7 +171,7 @@ const contentText = joueur.cases_restantes > 0
                 shopMsg += `${index + 1}. **${item.name}** - ${item.price} pièces\n*${item.description}*\n\n`;
                 row.addComponents(
                     new ButtonBuilder()
-                        .setCustomId(`buy_${item.id}`)
+                        .setCustomId(`buy_${item.id}#${index}`)
                         .setLabel(`Acheter ${item.name} (${item.price}p)`)
                         .setStyle(ButtonStyle.Primary)
                         .setDisabled(joueur.pieces < item.price)
@@ -285,7 +287,7 @@ const contentText = joueur.cases_restantes > 0
                 }
             } else if (gain.type === 'vol') {
                 const tousLesJoueurs = await Joueur.findAll();
-                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && j.pieces > 0);
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && j.pieces > 0 && !j.est_fantome);
                 if (autresJoueurs.length > 0) {
                     const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
                     const montantVole = Math.min(gain.val, cible.pieces);
@@ -394,7 +396,7 @@ const contentText = joueur.cases_restantes > 0
             
             if (evt.type === 'echange_pos') {
                 const tousLesJoueurs = await Joueur.findAll();
-                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && !j.est_fantome);
                 if (autresJoueurs.length > 0) {
                     const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
                     const tempPos = joueur.position;
@@ -421,7 +423,7 @@ const contentText = joueur.cases_restantes > 0
                 messageAction += `\n🎭 **Coup du Sort !** Étoile Filante : L'Étoile se déplace sur la case ${nouvellePositionEtoile} !`;
             } else if (evt.type === 'roulette_vol') {
                 const tousLesJoueurs = await Joueur.findAll();
-                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && !j.est_fantome);
                 if (autresJoueurs.length > 0) {
                     const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
                     const montant = Math.floor(Math.random() * 15) + 5;
@@ -438,7 +440,7 @@ const contentText = joueur.cases_restantes > 0
                 }
             } else if (evt.type === 'duel_des') {
                 const tousLesJoueurs = await Joueur.findAll();
-                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && !j.est_fantome);
                 if (autresJoueurs.length > 0) {
                     const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
                     const deJoueur = Math.floor(Math.random() * 6) + 1;
@@ -464,7 +466,7 @@ const contentText = joueur.cases_restantes > 0
                 }
             } else if (evt.type === 'don_pieces') {
                 const tousLesJoueurs = await Joueur.findAll();
-                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && !j.est_fantome);
                 if (autresJoueurs.length > 0) {
                     const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
                     const don = Math.min(20, joueur.pieces);
@@ -477,7 +479,7 @@ const contentText = joueur.cases_restantes > 0
                 }
             } else if (evt.type === 'echange_pieces') {
                 const tousLesJoueurs = await Joueur.findAll();
-                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && !j.est_fantome);
                 if (autresJoueurs.length > 0) {
                     const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
                     const tempPieces = joueur.pieces;
@@ -490,7 +492,7 @@ const contentText = joueur.cases_restantes > 0
                 }
             } else if (evt.type === 'echange_etoiles') {
                 const tousLesJoueurs = await Joueur.findAll();
-                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+                const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && !j.est_fantome);
                 if (autresJoueurs.length > 0) {
                     const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
                     const tempEtoiles = joueur.etoiles;
@@ -719,7 +721,7 @@ async function handleUseItem(interaction) {
         if (channel) channel.send(`🧪 <@${joueur.discord_id}> a utilisé un Tuyau et atterrit sur la case ${joueur.position} !`);
     } else if (item.id === 'miroir') {
         const tousLesJoueurs = await Joueur.findAll();
-        const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id);
+        const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && !j.est_fantome);
         if (autresJoueurs.length > 0) {
             const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
             const tempPos = joueur.position;
@@ -806,7 +808,7 @@ async function handleBooChoice(interaction) {
     }
 
     const tousLesJoueurs = await Joueur.findAll();
-    const ciblesPotentielles = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && (type === 'pieces' ? j.pieces > 0 : j.etoiles > 0));
+    const ciblesPotentielles = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && (type === 'pieces' ? j.pieces > 0 : j.etoiles > 0) && !j.est_fantome);
 
     if (ciblesPotentielles.length === 0) {
         return interaction.followUp({ content: `Personne n'a de ${type} à voler !`, flags: 64 });
@@ -873,7 +875,7 @@ async function handleBooTarget(interaction) {
 async function handleBuyItem(interaction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const joueur = await Joueur.findByPk(interaction.user.id);
-    const itemId = interaction.customId.replace('buy_', '');
+    let itemId = interaction.customId.replace('buy_', '').split('#')[0];
 
     if (!joueur) return interaction.followUp({ content: 'Erreur joueur.', flags: 64 });
 
@@ -1018,7 +1020,23 @@ async function handleReplaceChance(interaction) {
     await interaction.editReply({ content: `🗑️ Tu as jeté **${droppedItem}** et gardé **${item.name}** !`, components: [] }).catch(()=>{});
 }
 
+async function handleUnblockFantome(interaction) {
+    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+    const joueur = await Joueur.findByPk(interaction.user.id);
+    if (!joueur) return interaction.followUp({ content: 'Erreur', flags: 64 });
+
+    if (joueur.est_fantome && !joueur.fantome_unblock_used) {
+        joueur.est_fantome = false;
+        joueur.fantome_unblock_used = true;
+        await joueur.save();
+        await interaction.editReply({ content: `🔓 Tu as utilisé ton déblocage unique pour cette partie de 30 tours ! Tu n'es plus en mode fantôme. Utilise à nouveau /jouer pour jouer.`, components: [] }).catch(()=>{});
+    } else {
+         await interaction.editReply({ content: "Tu ne peux pas te débloquer.", components: [] }).catch(()=>{});
+    }
+}
+
 module.exports = {
+    handleUnblockFantome,
     handleLancerDe,
     handleContinuerDeplacement,
     handleAcheterEtoile,

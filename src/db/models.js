@@ -58,6 +58,22 @@ const Joueur = sequelize.define('Joueur', {
         type: DataTypes.JSON,
         defaultValue: [],
     },
+    jours_inactifs: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+    },
+    est_fantome: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    },
+    fantome_unblock_used: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    },
+    a_joue_ce_tour: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+    },
     cases_restantes: {
         type: DataTypes.INTEGER,
         defaultValue: 0,

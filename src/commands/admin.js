@@ -225,8 +225,8 @@ module.exports = {
             
             joueur.a_le_droit_de_jouer = true;
             joueur.last_deviner_time = null;
-            await joueur.save();
-            
+              joueur.est_fantome = false;
+              joueur.jours_inactifs = 0;
             await interaction.editReply(`⏳ Le cooldown de <@${targetUser.id}> a été réinitialisé. Il peut rejouer immédiatement.`);
             
         } else if (subcommand === 'tour') {

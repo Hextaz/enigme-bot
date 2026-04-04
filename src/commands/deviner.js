@@ -21,6 +21,10 @@ module.exports = {
             joueur = await Joueur.create({ discord_id: userId });
         }
 
+        if (joueur.est_fantome) {
+            return interaction.editReply({ content: "👻 Tu es en mode fantôme ! Utilise la commande `/jouer` pour te débloquer avant de pouvoir deviner.", flags: 64 });
+        }
+
         const plateau = await Plateau.findByPk(1);
         if (plateau.enigme_status === 'finished') {
             return interaction.editReply({ content: "L'énigme du jour est déjà terminée !", flags: 64 });
@@ -107,6 +111,10 @@ module.exports = {
                             .setCustomId(`reponse_bad_${userId}_${safeMot}`)
                             .setLabel('❌ Mauvaise réponse')
                             .setStyle(ButtonStyle.Danger),
+                        new ButtonBuilder()
+                            .setCustomId(`reponse_spam_${userId}_${safeMot}`)
+                            .setLabel('🚫 Réponse non conforme')
+                            .setStyle(ButtonStyle.Secondary),
                         new ButtonBuilder()
                             .setCustomId(`reponse_good_${userId}_${safeMot}`)
                             .setLabel('✅ Bonne réponse')

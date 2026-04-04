@@ -79,10 +79,27 @@ module.exports = {
         }
 
         const tourActuel = plateau ? plateau.tour : 1;
-        
+
         let contentMsg = `**Tour ${tourActuel}/30**\n**Tes statistiques :**\n⭐ Étoiles : **${joueur.etoiles}** | 🪙 Pièces : **${joueur.pieces}** | 🏆 Classement : **${rank}/${tousLesJoueurs.length}**\n\nTu es sur la case **${joueur.position}**. Que veux-tu faire ?`;
-        
-        if (isSaturday) {
+
+        if (joueur.est_fantome) {
+            contentMsg = `**Tour ${tourActuel}/30**\n\n👻 **MODE FANTÔME ACTIVÉ** 👻\nTu n'as pas joué pendant 3 jours. Tu es en mode fantôme et ton personnage est bloqué.\n`;
+            
+            // Vider les boutons
+            row.components.length = 0; 
+            
+            if (!joueur.fantome_unblock_used) {
+                contentMsg += `\nTu peux te débloquer **UNE SEULE FOIS** pour cette partie. Veux-tu revenir dans la partie ?`;
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('unblock_fantome')
+                        .setLabel('🔓 Me débloquer (Unique)')
+                        .setStyle(ButtonStyle.Success)
+                );
+            } else {
+                contentMsg += `\n💥 Tu as déjà utilisé ton déblocage unique pour cette partie. Tu es donc définitivement éliminé(e) jusqu'à la prochaine partie de 30 tours.`;
+            }
+        } else if (isSaturday) {
             contentMsg += `\n\n🎰 *C'est samedi ! Il n'y a pas de lancer de dé aujourd'hui. Place aux paris sur la course de Yoshis !*`;
         } else if (!joueur.a_le_droit_de_jouer && joueur.cases_restantes <= 0) {
             contentMsg += `\n\n⏳ *Tu as déjà joué aujourd'hui ! Reviens demain après la nouvelle énigme.*`;
