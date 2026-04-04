@@ -44,7 +44,7 @@ const ITEMS = {
     CLE: {
         id: 'cle',
         name: '🔑 Clé',
-        price: 15,
+        price: 5,
         description: 'Permet d\'ouvrir un portail vers une zone bonus.'
     },
     // Objets du dimanche

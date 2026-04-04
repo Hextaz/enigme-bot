@@ -47,7 +47,7 @@ Si tu es inactif pendant 3 tours, tu passes en *Mode Fantôme*. Tu deviens immun
             `🧪 **Tuyau** (8p) : Téléportation aléatoire.\n` +
             `🎯 **Dé Pipé** (10p) : Choisis le résultat de ton dé (1 à 6).\n` +
             `🎲 **Double Dé** (12p) : Lance 2 dés (2 à 20).\n` +
-            `🔑 **Clé** (15p) : Déverrouille les accès aux Zones Bonus dorées.\n` +
+            `🔑 **Clé** (5p) : Déverrouille les accès aux Zones Bonus dorées.\n` +
             `🪞 **Miroir** (15p) : Échange ta position avec un joueur aléatoire.\n` +
             `🎺 **Sifflet** (15p) : Déplace l'Étoile sur une autre case.\n\n` +
             `*Objets exclusifs du Marché Noir (Dimanche) :*\n` +
