@@ -14,16 +14,16 @@ async function handleLancerDe(interaction) {
     // Lancer le dé
     let de = 0;
     if (joueur.type_de === 'double') {
-        de = Math.floor(Math.random() * 11) + 2; // 2 à 12
+        de = Math.floor(Math.random() * 19) + 2; // 2 à 20
         joueur.type_de = 'normal';
     } else if (joueur.type_de === 'triple') {
-        de = Math.floor(Math.random() * 16) + 3; // 3 à 18
+        de = Math.floor(Math.random() * 28) + 3; // 3 à 30
         joueur.type_de = 'normal';
     } else if (joueur.type_de === 'pipe') {
         de = joueur.de_pipe_valeur;
         joueur.type_de = 'normal';
     } else {
-        de = Math.floor(Math.random() * 6) + 1; // 1 à 6
+        de = Math.floor(Math.random() * 10) + 1; // 1 à 10
     }
     
     if (joueur.de_limite) {
@@ -283,12 +283,16 @@ const contentText = joueur.cases_restantes > 0
     }
 
     if (!piegeDeclenche) {
+        // Multiplicateur fin de partie (tours 26 à 30 = x2)
+        const isLastTurns = plateau && plateau.tour >= 26;
+        const gainPiece = isLastTurns ? 6 : 3;
+
         if (caseArrivee.type === 'Bleue') {
-            joueur.pieces += 3;
-            messageAction += `\n**${interaction.user.username}** gagne 3 pièces ! 💰 *(Total: ${joueur.pieces} 🪙)*`;
+            joueur.pieces += gainPiece;
+            messageAction += `\n**${interaction.user.username}** gagne ${gainPiece} pièces ! 💰 *(Total: ${joueur.pieces} 🪙)*`;
         } else if (caseArrivee.type === 'Rouge') {
-            joueur.pieces = Math.max(0, joueur.pieces - 3);
-            messageAction += `\n**${interaction.user.username}** perd 3 pièces ! 💸 *(Reste: ${joueur.pieces} 🪙)*`;
+            joueur.pieces = Math.max(0, joueur.pieces - gainPiece);
+            messageAction += `\n**${interaction.user.username}** perd ${gainPiece} pièces ! 💸 *(Reste: ${joueur.pieces} 🪙)*`;
         } else if (caseArrivee.type === 'Chance') {
             const gains = [
                 { type: 'pieces', val: 5, msg: '+5 pièces' },
