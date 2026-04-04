@@ -55,7 +55,25 @@ for (const file of commandFiles) {
 
 client.once(Events.ClientReady, async c => {
     console.log(`Prêt ! Connecté en tant que ${c.user.tag}`);
-    
+
+    try {
+        const guild = await c.guilds.fetch(config.guildId).catch(() => null);
+        if (guild) {
+            let winnerRole = guild.roles.cache.find(r => r.name === "Vainqueur d'une partie");
+            if (!winnerRole) {
+                await guild.roles.create({
+                    name: "Vainqueur d'une partie",
+                    color: '#FFD700',
+                    hoist: true,
+                    reason: 'Rôle automatique pour le vainqueur de la saison'
+                });
+                console.log(`Rôle "Vainqueur d'une partie" créé avec succès.`);
+            }
+        }
+    } catch (e) {
+        console.error("Erreur lors de la vérification du rôle vainqueur:", e);
+    }
+
     // Synchroniser la base de données
     await sequelize.sync({ alter: true });
     console.log('Base de données synchronisée.');

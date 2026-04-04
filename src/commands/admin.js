@@ -1,10 +1,10 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+﻿const { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { Joueur, Plateau } = require('../db/models');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('admin')
-        .setDescription('Commandes d\'administration pour le Maître du Jeu.')
+        .setDescription('Commandes d\'administration pour le MaÃ®tre du Jeu.')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addSubcommand(subcommand =>
             subcommand
@@ -19,71 +19,71 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('lancer_enigme')
-                .setDescription('Lance l\'énigme du jour (incrémente le tour).')
+                .setDescription('Lance l\'Ã©nigme du jour (incrÃ©mente le tour).')
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('give')
-                .setDescription('Donner une ressource à un joueur.')
+                .setDescription('Donner une ressource Ã  un joueur.')
                 .addUserOption(option => option.setName('joueur').setDescription('Le joueur cible').setRequired(true))
                 .addStringOption(option => 
                     option.setName('ressource')
                         .setDescription('Type de ressource')
                         .setRequired(true)
                         .addChoices(
-                            { name: 'Pièces', value: 'pieces' },
-                            { name: 'Étoiles', value: 'etoiles' },
+                            { name: 'PiÃ¨ces', value: 'pieces' },
+                            { name: 'Ã‰toiles', value: 'etoiles' },
                             { name: 'Objet', value: 'objet' }
                         )
                 )
-                .addStringOption(option => option.setName('valeur').setDescription('Quantité (nombre) ou Nom de l\'objet').setRequired(true))
+                .addStringOption(option => option.setName('valeur').setDescription('QuantitÃ© (nombre) ou Nom de l\'objet').setRequired(true))
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('remove')
-                .setDescription('Retirer une ressource à un joueur.')
+                .setDescription('Retirer une ressource Ã  un joueur.')
                 .addUserOption(option => option.setName('joueur').setDescription('Le joueur cible').setRequired(true))
                 .addStringOption(option => 
                     option.setName('ressource')
                         .setDescription('Type de ressource')
                         .setRequired(true)
                         .addChoices(
-                            { name: 'Pièces', value: 'pieces' },
-                            { name: 'Étoiles', value: 'etoiles' },
+                            { name: 'PiÃ¨ces', value: 'pieces' },
+                            { name: 'Ã‰toiles', value: 'etoiles' },
                             { name: 'Objet', value: 'objet' }
                         )
                 )
-                .addStringOption(option => option.setName('valeur').setDescription('Quantité (nombre) ou Nom de l\'objet').setRequired(true))
+                .addStringOption(option => option.setName('valeur').setDescription('QuantitÃ© (nombre) ou Nom de l\'objet').setRequired(true))
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('set_position')
-                .setDescription('Téléporter manuellement un joueur.')
+                .setDescription('TÃ©lÃ©porter manuellement un joueur.')
                 .addUserOption(option => option.setName('joueur').setDescription('Le joueur cible').setRequired(true))
-                .addIntegerOption(option => option.setName('case').setDescription('Numéro de la case (1-42)').setRequired(true).setMinValue(1).setMaxValue(42))
+                .addIntegerOption(option => option.setName('case').setDescription('NumÃ©ro de la case (1-42)').setRequired(true).setMinValue(1).setMaxValue(42))
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('kick')
-                .setDescription('Exclure un joueur et supprimer ses données.')
+                .setDescription('Exclure un joueur et supprimer ses donnÃ©es.')
                 .addUserOption(option => option.setName('joueur').setDescription('Le joueur cible').setRequired(true))
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('reset_cooldown')
-                .setDescription('Remet à zéro le temps d\'attente d\'un joueur.')
+                .setDescription('Remet Ã  zÃ©ro le temps d\'attente d\'un joueur.')
                 .addUserOption(option => option.setName('joueur').setDescription('Le joueur cible').setRequired(true))
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('tour')
-                .setDescription('Définit le numéro du tour actuel.')
-                .addIntegerOption(option => option.setName('numero').setDescription('Le numéro du tour').setRequired(true))
+                .setDescription('DÃ©finit le numÃ©ro du tour actuel.')
+                .addIntegerOption(option => option.setName('numero').setDescription('Le numÃ©ro du tour').setRequired(true))
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('open_black_market')
-                .setDescription('Force l\'ouverture du Marché Noir (utile si le cron a planté le dimanche).')
+                .setDescription('Force l\'ouverture du MarchÃ© Noir (utile si le cron a plantÃ© le dimanche).')
         ),
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
@@ -98,10 +98,10 @@ module.exports = {
 
         if (subcommand === 'start') {
             await Joueur.destroy({ where: {} });
-            // L'étoile spawn entre la case 10 et 42 pour ne pas être trop proche du départ
+            // L'Ã©toile spawn entre la case 10 et 42 pour ne pas Ãªtre trop proche du dÃ©part
             const randomStarPos = Math.floor(Math.random() * 33) + 10; 
             await Plateau.update({ position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true }, { where: { id: 1 } });
-            await interaction.editReply(`La saison a été réinitialisée et lancée ! L'Étoile est apparue sur la case ${randomStarPos}. Le prochain \`/admin lancer_enigme\` lancera le **Tour 1**.`);
+            await interaction.editReply(`La saison a Ã©tÃ© rÃ©initialisÃ©e et lancÃ©e ! L'Ã‰toile est apparue sur la case ${randomStarPos}. Le prochain \`/admin lancer_enigme\` lancera le **Tour 1**.`);
         } else if (subcommand === 'lancer_enigme') {
             let plateau = await Plateau.findByPk(1);
             if (!plateau) {
@@ -112,31 +112,16 @@ module.exports = {
             plateau.enigme_status = 'active';
             await plateau.save();
             
-            let message = `📢 **Tour ${plateau.tour}/30** : L'énigme du jour a commencé !\n\n`;
-            message += `💡 Utilisez la commande \`/deviner [votre mot]\` pour proposer une réponse secrètement au Maître du Jeu.\n`;
-            message += `🪙 Chaque proposition vous rapporte **1 pièce** de participation (maximum 5 pièces par jour) !\n`;
-            message += `🎲 **Rappel :** Le plateau \`/jouer\` est verrouillé tant que l'énigme n'a pas été trouvée !`;
+            let message = `ðŸ“¢ **Tour ${plateau.tour}/30** : L'Ã©nigme du jour a commencÃ© !\n\n`;
+            message += `ðŸ’¡ Utilisez la commande \`/deviner [votre mot]\` pour proposer une rÃ©ponse secrÃ¨tement au MaÃ®tre du Jeu.\n`;
+            message += `ðŸª™ Chaque proposition vous rapporte **1 piÃ¨ce** de participation (maximum 5 piÃ¨ces par jour) !\n`;
+            message += `ðŸŽ² **Rappel :** Le plateau \`/jouer\` est verrouillÃ© tant que l'Ã©nigme n'a pas Ã©tÃ© trouvÃ©e !`;
             
             return interaction.editReply({ content: message });
         } else if (subcommand === 'stop') {
-            // Bloquer le jeu (on pourrait ajouter une variable globale dans Plateau)
-            // Annoncer le podium
-            const joueurs = await Joueur.findAll({
-                order: [
-                    ['etoiles', 'DESC'],
-                    ['pieces', 'DESC']
-                ],
-                limit: 3
-            });
-
-            let podiumMsg = '🏁 **FIN DE LA SAISON ! Voici le podium :** 🏁\n\n';
-            const medailles = ['🥇', '🥈', '🥉'];
-            
-            joueurs.forEach((joueur, index) => {
-                podiumMsg += `${medailles[index]} <@${joueur.discord_id}> avec ${joueur.etoiles} ⭐ et ${joueur.pieces} 💰\n`;
-            });
-
-            await interaction.editReply(podiumMsg);
+            const { endSeason } = require('../game/endgame');
+            await endSeason(interaction.client);
+            return interaction.editReply('La saison a été arrêtée manuellement. L''annonce finale a été postée sur le canal du plateau.');
         } else if (subcommand === 'give' || subcommand === 'remove') {
             const targetUser = interaction.options.getUser('joueur');
             const ressource = interaction.options.getString('ressource');
@@ -144,7 +129,7 @@ module.exports = {
 
             let joueur = await Joueur.findByPk(targetUser.id);
             if (!joueur) {
-                if (subcommand === 'remove') return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", flags: 64 });
+                if (subcommand === 'remove') return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de donnÃ©es.", flags: 64 });
                 joueur = await Joueur.create({ discord_id: targetUser.id });
             }
 
@@ -155,11 +140,11 @@ module.exports = {
                 if (subcommand === 'give') {
                     joueur[ressource] += quantite;
                     await joueur.save();
-                    await interaction.editReply(`✅ Ajout de ${quantite} ${ressource} à <@${targetUser.id}>.`);
+                    await interaction.editReply(`âœ… Ajout de ${quantite} ${ressource} Ã  <@${targetUser.id}>.`);
                 } else {
                     joueur[ressource] = Math.max(0, joueur[ressource] - quantite);
                     await joueur.save();
-                    await interaction.editReply(`✅ Retrait de ${quantite} ${ressource} à <@${targetUser.id}>.`);
+                    await interaction.editReply(`âœ… Retrait de ${quantite} ${ressource} Ã  <@${targetUser.id}>.`);
                 }
             } else if (ressource === 'objet') {
                 if (subcommand === 'give') {
@@ -168,7 +153,7 @@ module.exports = {
                         inventaire.push(valeur);
                         joueur.inventaire = inventaire;
                         await joueur.save();
-                        await interaction.editReply(`✅ L'objet "${valeur}" a été donné à <@${targetUser.id}>.`);
+                        await interaction.editReply(`âœ… L'objet "${valeur}" a Ã©tÃ© donnÃ© Ã  <@${targetUser.id}>.`);
                     } else {
                         return interaction.editReply({ content: 'L\'inventaire du joueur est plein (max 3).', flags: 64 });
                     }
@@ -179,9 +164,9 @@ module.exports = {
                         inventaire.splice(index, 1);
                         joueur.inventaire = inventaire;
                         await joueur.save();
-                        await interaction.editReply(`✅ L'objet "${valeur}" a été retiré à <@${targetUser.id}>.`);
+                        await interaction.editReply(`âœ… L'objet "${valeur}" a Ã©tÃ© retirÃ© Ã  <@${targetUser.id}>.`);
                     } else {
-                        return interaction.editReply({ content: `Le joueur ne possède pas l'objet "${valeur}".`, flags: 64 });
+                        return interaction.editReply({ content: `Le joueur ne possÃ¨de pas l'objet "${valeur}".`, flags: 64 });
                     }
                 }
             }
@@ -190,11 +175,11 @@ module.exports = {
             const caseNum = interaction.options.getInteger('case');
             
             let joueur = await Joueur.findByPk(targetUser.id);
-            if (!joueur) return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", flags: 64 });
+            if (!joueur) return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de donnÃ©es.", flags: 64 });
             
             joueur.position = caseNum;
             await joueur.save();
-            await interaction.editReply(`📍 <@${targetUser.id}> a été téléporté sur la case ${caseNum}.`);
+            await interaction.editReply(`ðŸ“ <@${targetUser.id}> a Ã©tÃ© tÃ©lÃ©portÃ© sur la case ${caseNum}.`);
             
         } else if (subcommand === 'kick') {
             const targetUser = interaction.options.getUser('joueur');
@@ -203,7 +188,7 @@ module.exports = {
                 .addComponents(
                     new ButtonBuilder()
                         .setCustomId(`admin_kick_confirm_${targetUser.id}`)
-                        .setLabel('Oui, exclure définitivement')
+                        .setLabel('Oui, exclure dÃ©finitivement')
                         .setStyle(ButtonStyle.Danger),
                     new ButtonBuilder()
                         .setCustomId('admin_kick_cancel')
@@ -212,7 +197,7 @@ module.exports = {
                 );
 
             await interaction.editReply({ 
-                content: `⚠️ **Êtes-vous sûr de vouloir supprimer définitivement <@${targetUser.id}> de cette saison ?** Toutes ses données seront perdues.`, 
+                content: `âš ï¸ **ÃŠtes-vous sÃ»r de vouloir supprimer dÃ©finitivement <@${targetUser.id}> de cette saison ?** Toutes ses donnÃ©es seront perdues.`, 
                 components: [row],
                 flags: 64 
             });
@@ -221,23 +206,23 @@ module.exports = {
             const targetUser = interaction.options.getUser('joueur');
             
             let joueur = await Joueur.findByPk(targetUser.id);
-            if (!joueur) return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", flags: 64 });
+            if (!joueur) return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de donnÃ©es.", flags: 64 });
             
             joueur.a_le_droit_de_jouer = true;
             joueur.last_deviner_time = null;
               joueur.est_fantome = false;
               joueur.jours_inactifs = 0;
-            await interaction.editReply(`⏳ Le cooldown de <@${targetUser.id}> a été réinitialisé. Il peut rejouer immédiatement.`);
+            await interaction.editReply(`â³ Le cooldown de <@${targetUser.id}> a Ã©tÃ© rÃ©initialisÃ©. Il peut rejouer immÃ©diatement.`);
             
         } else if (subcommand === 'tour') {
             const numero = interaction.options.getInteger('numero');
             await Plateau.update({ tour: numero }, { where: { id: 1 } });
-            await interaction.editReply(`Le tour a été défini sur **${numero}**.`);
+            await interaction.editReply(`Le tour a Ã©tÃ© dÃ©fini sur **${numero}**.`);
         } else if (subcommand === 'open_black_market') {
-            // Vérification si on est dimanche
+            // VÃ©rification si on est dimanche
             const today = new Date();
             if (today.getDay() !== 0) {
-                return interaction.editReply({ content: 'Cette commande ne peut être utilisée que le dimanche !', flags: 64 });
+                return interaction.editReply({ content: 'Cette commande ne peut Ãªtre utilisÃ©e que le dimanche !', flags: 64 });
             }
 
             // Ouverture manuelle
@@ -245,7 +230,7 @@ module.exports = {
             for (const j of tousLesJoueurs) {
                 j.a_le_droit_de_jouer = true; // Plateau ouvert d'office !
                 j.guess_du_jour = 0;
-                j.boutique_du_jour = []; // Reset pour forcer la génération du marché noir
+                j.boutique_du_jour = []; // Reset pour forcer la gÃ©nÃ©ration du marchÃ© noir
                 j.last_deviner_time = null;
                 await j.save();
             }
@@ -262,10 +247,11 @@ module.exports = {
             
             if (channel) {
                 let mentionRole = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
-                await channel.send(`${mentionRole}🛍️ **LE MARCHÉ NOIR EST OUVERT ! (Action manuelle du MJ)** 🛍️\nLe plateau est déverrouillé, aucune énigme aujourd'hui. Les boutiques proposent des objets dévastateurs exclusifs ! Utilisez \`/jouer\` pour en profiter !`);
+                await channel.send(`${mentionRole}ðŸ›ï¸ **LE MARCHÃ‰ NOIR EST OUVERT ! (Action manuelle du MJ)** ðŸ›ï¸\nLe plateau est dÃ©verrouillÃ©, aucune Ã©nigme aujourd'hui. Les boutiques proposent des objets dÃ©vastateurs exclusifs ! Utilisez \`/jouer\` pour en profiter !`);
             }
 
-            await interaction.editReply({ content: '✅ Le Marché Noir a été ouvert manuellement avec succès et tous les joueurs ont été débloqués.', flags: 64 });
+            await interaction.editReply({ content: 'âœ… Le MarchÃ© Noir a Ã©tÃ© ouvert manuellement avec succÃ¨s et tous les joueurs ont Ã©tÃ© dÃ©bloquÃ©s.', flags: 64 });
         }
     },
 };
+

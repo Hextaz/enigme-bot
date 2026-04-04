@@ -159,6 +159,33 @@ const contentText = joueur.cases_restantes > 0
             if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
             else await interaction.editReply(replyContent);
         } else if (interruption.type === 'boutique') {
+            const plateauCur = await Plateau.findByPk(1);
+            if (plateauCur && plateauCur.tour >= 30) {
+                let shopMsg = joueur.cases_restantes > 0
+                    ? "🏪 **Tu passes devant la Boutique, mais elle est fermée pour ce dernier tour !**"
+                    : "🏪 **Tu atterris sur la Boutique, mais elle est fermée pour ce dernier tour !**";
+                const tempRow = new ActionRowBuilder();
+                if (joueur.cases_restantes > 0) {
+                    tempRow.addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('continuer_deplacement')
+                            .setLabel(`🚶 Continuer (${joueur.cases_restantes} cases)`)
+                            .setStyle(ButtonStyle.Success)
+                    );
+                } else {
+                    tempRow.addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('voir_plateau')
+                            .setLabel('🗺️ Voir le plateau')
+                            .setStyle(ButtonStyle.Success)
+                    );
+                }
+                const replyContent = { content: shopMsg, components: [tempRow] };
+                if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
+                else await interaction.editReply(replyContent);
+                return;
+            }
+
             const { generateShop } = require('./shop');
             const shopItems = await generateShop(joueur.discord_id);
 

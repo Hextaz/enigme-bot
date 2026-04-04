@@ -94,6 +94,13 @@ function initCronJobs(client) {
 
     // Lundi à Vendredi 11h00 : Reset normal (bloque en attendant l'énigme)
     cron.schedule('0 11 * * 1-5', async () => {
+        const plateauCheck = await Plateau.findByPk(1);
+        if (plateauCheck && plateauCheck.tour >= 30) {
+            const { endSeason } = require('./endgame');
+            await endSeason(client);
+            return;
+        }
+
         const tousLesJoueurs = await Joueur.findAll();
         await applyGhostRules(tousLesJoueurs);
         for (const j of tousLesJoueurs) {
@@ -120,6 +127,13 @@ function initCronJobs(client) {
 
     // Dimanche 11h00 : Ouverture automatique pour le Marché Noir (Pas d'énigme)
     cron.schedule('0 11 * * 0', async () => {
+        const plateauCheck = await Plateau.findByPk(1);
+        if (plateauCheck && plateauCheck.tour >= 30) {
+            const { endSeason } = require('./endgame');
+            await endSeason(client);
+            return;
+        }
+
         const tousLesJoueurs = await Joueur.findAll();
         for (const j of tousLesJoueurs) {
             j.a_le_droit_de_jouer = true; // Plateau ouvert d'office !
@@ -148,6 +162,13 @@ function initCronJobs(client) {
     // Samedi 10h00 : Lancement des paris (Le plateau est fermé)
     // '0 10 * * 6' = À 10:00 le samedi
     cron.schedule('0 10 * * 6', async () => {
+        const plateauCheck = await Plateau.findByPk(1);
+        if (plateauCheck && plateauCheck.tour >= 30) {
+            const { endSeason } = require('./endgame');
+            await endSeason(client);
+            return;
+        }
+
         // Sécurité : On s'assure que tout le monde est bloqué pour le plateau
         const tousLesJoueurs = await Joueur.findAll();
         await applyGhostRules(tousLesJoueurs);
@@ -291,6 +312,11 @@ function initCronJobs(client) {
     // Annonce de fin de tour à 11h00 (du lundi au samedi, pour annoncer la fin du jour précédent)
     // Le dimanche à 11h00 on n'annonce rien car il n'y a pas eu de jeu le samedi
     cron.schedule('0 11 * * 1-6', async () => {
+        const plateauCheck = await Plateau.findByPk(1);
+        if (plateauCheck && plateauCheck.tour >= 30) {
+            return; // Fin du jeu gérée par endgame.js !
+        }
+        
         const channel = client.channels.cache.get(config.boardChannelId);
         if (channel) {
             const tousLesJoueurs = await Joueur.findAll();
