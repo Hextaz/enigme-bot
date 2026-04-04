@@ -157,6 +157,10 @@ const Plateau = sequelize.define('Plateau', {
     enigme_channel_id: {
         type: DataTypes.STRING,
         allowNull: true,
+    },
+    blocs_caches: {
+        type: DataTypes.JSON,
+        defaultValue: {},
     }
 }, {
     tableName: 'plateau',

@@ -254,6 +254,43 @@ const contentText = joueur.cases_restantes > 0
         messageAction = `🎲 **<@${interaction.user.id}>** a fait un **${de}** et atterrit sur la case **${caseArrivee.id} (${caseArrivee.type})** !`;
     }
 
+    if (plateau.blocs_caches) {
+        let bc = { ...plateau.blocs_caches };
+        let foundHiddenBlock = null;
+        if (bc.etoile === nouvellePosition) {
+            foundHiddenBlock = "etoile";
+            bc.etoile = -1;
+        } else if (bc.pieces_20 === nouvellePosition) {
+            foundHiddenBlock = "pieces_20";
+            bc.pieces_20 = -1;
+        } else if (bc.pieces_10 === nouvellePosition) {
+            foundHiddenBlock = "pieces_10";
+            bc.pieces_10 = -1;
+        } else if (bc.pieces_5 === nouvellePosition) {
+            foundHiddenBlock = "pieces_5";
+            bc.pieces_5 = -1;
+        }
+        
+        if (foundHiddenBlock) {
+            plateau.blocs_caches = bc;
+            await plateau.save();
+            
+            if (foundHiddenBlock === 'etoile') {
+                joueur.etoiles += 1;
+                messageAction += `\n\n🤫✨ **INCROYABLE !** <@${interaction.user.id}> a découvert un **BLOC CACHÉ** sur cette case et obtient une **ÉTOILE** (+1 🌟) !`;
+            } else if (foundHiddenBlock === 'pieces_20') {
+                joueur.pieces += 20;
+                messageAction += `\n\n🤫💰 **GÉNIAL !** <@${interaction.user.id}> a découvert un **BLOC CACHÉ** riche en joyaux sur cette case et obtient **20 PIÈCES** (+20 🪙) !`;
+            } else if (foundHiddenBlock === 'pieces_10') {
+                joueur.pieces += 10;
+                messageAction += `\n\n🤫🪙 **SUPER !** <@${interaction.user.id}> a découvert un **BLOC CACHÉ** sur cette case et y trouve **10 PIÈCES** (+10 🪙) !`;
+            } else if (foundHiddenBlock === 'pieces_5') {
+                joueur.pieces += 5;
+                messageAction += `\n\n🤫🪙 **CHANCEUX !** <@${interaction.user.id}> a découvert un petit **BLOC CACHÉ** sur cette case et obtient **5 PIÈCES** (+5 🪙) !`;
+            }
+        }
+    }
+
     if (piegeDeclenche) {
         if (piegeDeclenche.type === 'pieces') {
             const poseur = await Joueur.findByPk(piegeDeclenche.poseur);

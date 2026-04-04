@@ -100,8 +100,28 @@ module.exports = {
             await Joueur.destroy({ where: {} });
             // L'Ã©toile spawn entre la case 10 et 42 pour ne pas Ãªtre trop proche du dÃ©part
             const randomStarPos = Math.floor(Math.random() * 33) + 10; 
-            await Plateau.update({ position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true }, { where: { id: 1 } });
-            await interaction.editReply(`La saison a Ã©tÃ© rÃ©initialisÃ©e et lancÃ©e ! L'Ã‰toile est apparue sur la case ${randomStarPos}. Le prochain \`/admin lancer_enigme\` lancera le **Tour 1**.`);
+            
+            // GÃ©nÃ©rer 4 blocs cachÃ©s sur des cases uniques (2-42)
+            let blocs_pos = [];
+            while(blocs_pos.length < 4) {
+                let r = Math.floor(Math.random() * 41) + 2;
+                if(!blocs_pos.includes(r)) blocs_pos.push(r);
+            }
+            const blocs_caches = {
+                etoile: blocs_pos[0],
+                pieces_20: blocs_pos[1],
+                pieces_10: blocs_pos[2],
+                pieces_5: blocs_pos[3]
+            };
+
+            let plateau = await Plateau.findByPk(1);
+            if (!plateau) {
+                await Plateau.create({ id: 1, position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches });
+            } else {
+                await Plateau.update({ position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches }, { where: { id: 1 } });
+            }
+            
+            await interaction.editReply(`La saison a Ã©tÃ© rÃ©initialisÃ©e et lancÃ©e ! L'Ã‰toile est apparue sur la case ${randomStarPos}. 4 blocs cachÃ©s ont Ã©tÃ© placÃ©s secrÃ¨tement. Le prochain \`/admin lancer_enigme\` lancera le **Tour 1**.`);
         } else if (subcommand === 'lancer_enigme') {
             let plateau = await Plateau.findByPk(1);
             if (!plateau) {
