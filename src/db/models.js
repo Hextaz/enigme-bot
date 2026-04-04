@@ -158,6 +158,10 @@ const Plateau = sequelize.define('Plateau', {
         type: DataTypes.STRING,
         allowNull: true,
     },
+    fin_enigme_timestamp: {
+        type: DataTypes.BIGINT,
+        allowNull: true,
+    },
     blocs_caches: {
         type: DataTypes.JSON,
         defaultValue: {},

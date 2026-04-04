@@ -87,6 +87,18 @@ client.once(Events.ClientReady, async c => {
     // Initialiser les tâches planifiées (CRON)
     const { initCronJobs } = require('./game/cron');
     initCronJobs(client);
+
+    // Relancer le minuteur de l'énigme s'il y a eu un redémarrage
+    if (plateau && plateau.enigme_status === 'countdown' && plateau.fin_enigme_timestamp) {
+        const remainingMs = plateau.fin_enigme_timestamp - Date.now();
+        if (remainingMs <= 0) {
+            console.log("Le temps de l'énigme est déjà écoulé, clôture immédiate...");
+            triggerEnigmaEnd(client);
+        } else {
+            console.log(`Reprise du compte à rebours de l'énigme : il reste ${Math.floor(remainingMs / 60000)} minutes.`);
+            setTimeout(() => triggerEnigmaEnd(client), remainingMs);
+        }
+    }
 });
 
 client.on(Events.InteractionCreate, async interaction => {
@@ -261,53 +273,7 @@ client.on(Events.InteractionCreate, async interaction => {
                         const newEmbed = { ...embed.data, color: 0x2ecc71, title: 'Proposition validée (Premier)' };
                         await interaction.message.edit({ embeds: [newEmbed], components: [] });
 
-                        // Lancer le timer de 30 minutes
-                        setTimeout(async () => {
-                            const p = await Plateau.findByPk(1);
-                            if (p.enigme_status === 'countdown') {
-                                p.enigme_status = 'finished';
-                                await p.save();
-                                
-                                let finalMsg = `⏰ **FIN DU TEMPS !** La bonne réponse était : **${p.enigme_reponse}**\n\n`;
-                                finalMsg += `🏆 <@${p.premier_gagnant}> a été le plus rapide et remporte **10 pièces** !\n`;
-                                
-                                // Récompenser le premier gagnant
-                                const premierJoueur = await Joueur.findByPk(p.premier_gagnant);
-                                if (premierJoueur) {
-                                    premierJoueur.pieces += 10;
-                                    premierJoueur.a_le_droit_de_jouer = true;
-                                    premierJoueur.stat_enigmes_trouvees = (premierJoueur.stat_enigmes_trouvees || 0) + 1;
-                                    await premierJoueur.save();
-                                }
-
-                                // Récompenser les autres gagnants
-                                if (p.autres_gagnants && p.autres_gagnants.length > 0) {
-                                    const autresMentions = p.autres_gagnants.map(id => `<@${id}>`).join(', ');
-                                    finalMsg += `👏 ${autresMentions} ont également trouvé la réponse à temps et remportent **5 pièces** !\n`;
-
-                                    for (const id of p.autres_gagnants) {
-                                        const j = await Joueur.findByPk(id);
-                                        if (j) {
-                                            j.pieces += 5;
-                                            j.a_le_droit_de_jouer = true;
-                                            j.stat_enigmes_trouvees = (j.stat_enigmes_trouvees || 0) + 1;
-                                            await j.save();
-                                        }
-                                    }
-                                }
-                                finalMsg += `\n🎲 **Le plateau est maintenant ouvert !** Vous pouvez utiliser \`/jouer\`.`;
-                                
-                                if (config.roleEnigmeId) {
-                                    finalMsg = `<@&${config.roleEnigmeId}>\n` + finalMsg;
-                                }
-
-                                await channel.send(finalMsg);
-                                
-                                // Donner le droit de jouer à tout le monde
-                                await Joueur.update({ a_le_droit_de_jouer: true }, { where: {} });
-                            }
-                        }, 30 * 60000); // 30 minutes
-
+                        plateau.fin_enigme_timestamp = Date.now() + 30 * 60000; await plateau.save(); setTimeout(() => triggerEnigmaEnd(interaction.client), 30 * 60000);
                     } else if (plateau.enigme_status === 'countdown') {
                         // Autres gagnants pendant le compte à rebours
                         if (userId !== plateau.premier_gagnant && !plateau.autres_gagnants.includes(userId)) {
@@ -400,5 +366,59 @@ client.on(Events.InteractionCreate, async interaction => {
 });
 
 // Gestion des messages (Énigme du jour)
+
+
+async function triggerEnigmaEnd(client) {
+    const { Joueur, Plateau } = require('./db/models');
+    const config = require('./config');
+    try {
+        const p = await Plateau.findByPk(1);
+        if (!p || p.enigme_status !== 'countdown') return;
+
+        p.enigme_status = 'finished';
+        p.fin_enigme_timestamp = null;
+        await p.save();
+
+        const channelId = config.enigmaChannelId;
+        const channel = await client.channels.fetch(channelId).catch(() => null);
+        if (!channel) return;
+
+        let finalMsg = '⏰ **FIN DU TEMPS !** La bonne réponse était : **' + p.enigme_reponse + '**\n\n';
+        finalMsg += '🏆 <@' + p.premier_gagnant + '> a été le plus rapide et remporte **10 pièces** !\n';
+
+        const premierJoueur = await Joueur.findByPk(p.premier_gagnant);
+        if (premierJoueur) {
+            premierJoueur.pieces += 10;
+            premierJoueur.a_le_droit_de_jouer = true;
+            premierJoueur.stat_enigmes_trouvees = (premierJoueur.stat_enigmes_trouvees || 0) + 1;
+            await premierJoueur.save();
+        }
+
+        if (p.autres_gagnants && p.autres_gagnants.length > 0) {
+            const autresMentions = p.autres_gagnants.map(id => '<@' + id + '>').join(', ');
+            finalMsg += '👏 ' + autresMentions + ' ont également trouvé la réponse à temps et remportent **5 pièces** !\n';
+
+            for (const id of p.autres_gagnants) {
+                const j = await Joueur.findByPk(id);
+                if (j) {
+                    j.pieces += 5;
+                    j.a_le_droit_de_jouer = true;
+                    j.stat_enigmes_trouvees = (j.stat_enigmes_trouvees || 0) + 1;
+                    await j.save();
+                }
+            }
+        }
+        finalMsg += '\n🎲 **Le plateau est maintenant ouvert !** Vous pouvez utiliser `/jouer`.';
+
+        if (config.roleEnigmeId) {
+            finalMsg = '<@&' + config.roleEnigmeId + '>\n' + finalMsg;
+        }
+
+        await channel.send(finalMsg);
+        await Joueur.update({ a_le_droit_de_jouer: true }, { where: {} });
+    } catch(err) {
+        console.error('Erreur dans triggerEnigmaEnd:', err);
+    }
+}
 
 client.login(config.token);
