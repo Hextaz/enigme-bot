@@ -1,6 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const { Joueur, Plateau } = require('../db/models');
-const { getCase, getCasesInRange } = require('./board');
+const { getCase } = require('./board');
 const { generateBoardImage } = require('../utils/canvas');
 const config = require('../config');
 
@@ -96,61 +96,63 @@ async function handleContinuerDeplacement(interaction, alreadyHandledOnStart = [
 }
 
 async function processMovement(interaction, joueur, de, isContinuation = false, alreadyHandledOnStart = []) {
-    const anciennePosition = joueur.position;
     const plateau = await Plateau.findByPk(1);
-    
-    let nouvellePosition = anciennePosition + de;
-    if (nouvellePosition > 42) nouvellePosition -= 42;
 
-    const casesParcourues = getCasesInRange(anciennePosition, nouvellePosition);
-    
+    if (!isContinuation) {
+        joueur.cases_restantes = de;
+    }
+
     let interruption = null;
-    let stepsTaken = 0;
-    
-    for (let i = 0; i < casesParcourues.length; i++) {
-        const c = casesParcourues[i];
-        const isStartCase = (c.id === anciennePosition);
-        
-        // Si on lance le dé (isContinuation FALSE), on ignore systématiquement la case de départ pour ne pas re-déclencher.
-        // Si on reprend, on vérifie si la case de départ a encore des interruptions non traitées.
-        if (isStartCase && !isContinuation) {
-            continue;
-        }
 
-        if (!isStartCase) {
-            stepsTaken++;
+    while (joueur.cases_restantes > 0) {
+        const currentCase = getCase(joueur.position);
+        
+        if (currentCase.next.length > 1 && !alreadyHandledOnStart.includes('choix_direction')) {
+             interruption = { type: 'intersection', case: currentCase };
+             break;
         }
         
-        if (c.id === plateau.position_etoile && (!isStartCase || !alreadyHandledOnStart.includes('etoile'))) {
-            interruption = { type: 'etoile', case: c, steps: stepsTaken };
+        let pathChoisi = currentCase.next[0];
+        if (currentCase.next.length > 1 && alreadyHandledOnStart.includes('choix_direction')) {
+             if (joueur.temp_choix_direction) pathChoisi = joueur.temp_choix_direction;
+             const idx = alreadyHandledOnStart.indexOf('choix_direction');
+             if (idx > -1) alreadyHandledOnStart.splice(idx, 1);
+        }
+        
+        joueur.position = pathChoisi;
+        joueur.cases_restantes -= 1;
+        
+        const c = getCase(joueur.position);
+        
+        if (c.id === plateau.position_etoile && !alreadyHandledOnStart.includes('etoile')) {     
+            interruption = { type: 'etoile', case: c };
             break;
-        } else if (c.type === 'Boutique' && (!isStartCase || !alreadyHandledOnStart.includes('boutique'))) {
-            interruption = { type: 'boutique', case: c, steps: stepsTaken };
+        } else if (c.type === 'Boutique' && !alreadyHandledOnStart.includes('boutique')) {
+            interruption = { type: 'boutique', case: c };
+            break;
+        } else if (c.type === 'Boo' && !alreadyHandledOnStart.includes('boo')) { // Add Boo passthrough support!
+            interruption = { type: 'boo', case: c };
             break;
         }
-
-        // Passé ces vérifications, si c'était la case de départ, on la saute pour aller aux suivantes.
-        if (isStartCase) {
-            continue;
-        }
+        
+        alreadyHandledOnStart = [];
     }
 
     if (interruption) {
         joueur.position = interruption.case.id;
-        joueur.cases_restantes = de - interruption.steps;
         await joueur.save();
 
         let messageAction;
         const cheminStr = joueur.cases_restantes > 0 ? "en chemin " : "";
         
         if (isContinuation) {
-            if (de > 0 && interruption.steps > 0) {
-                messageAction = `🚶 **<@${interaction.user.id}>** continue et s'arrête ${cheminStr}sur la case **${interruption.case.id} (${interruption.type === 'etoile' ? 'Étoile' : 'Boutique'})** !`;
+            if (de > 0 && de > joueur.cases_restantes) {
+                messageAction = `🚶 **<@${interaction.user.id}>** continue et s'arrête ${cheminStr}sur la case **${interruption.case.id} (${interruption.type === 'etoile' ? 'Étoile' : interruption.type === 'boutique' ? 'Boutique' : interruption.type === 'boo' ? 'Boo' : 'Intersection'})** !`;
             } else {
-                messageAction = `📍 **<@${interaction.user.id}>** découvre sur sa case actuelle une **${interruption.type === 'etoile' ? 'Étoile' : 'Boutique'}** !`;
+                messageAction = `📍 **<@${interaction.user.id}>** découvre sur sa case actuelle une **${interruption.type === 'etoile' ? 'Étoile' : interruption.type === 'boutique' ? 'Boutique' : interruption.type === 'boo' ? 'Boo' : 'Intersection'}** !`;
             }
         } else {
-            messageAction = `🎲 **<@${interaction.user.id}>** a fait un **${de}** et s'arrête ${cheminStr}sur la case **${interruption.case.id} (${interruption.type === 'etoile' ? 'Étoile' : 'Boutique'})** !`;
+            messageAction = `🎲 **<@${interaction.user.id}>** a fait un **${de}** et s'arrête ${cheminStr}sur la case **${interruption.case.id} (${interruption.type === 'etoile' ? 'Étoile' : interruption.type === 'boutique' ? 'Boutique' : interruption.type === 'boo' ? 'Boo' : 'Intersection'})** !`;
         }
         messageAction += `\n*(🤫 Un menu secret s'est ouvert en dessous de sa commande pour interagir avec la case !)*`;
         
@@ -247,19 +249,74 @@ const contentText = joueur.cases_restantes > 0
             if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
             else await interaction.editReply(replyContent);
             createTimeout(interaction.user.id, 'boutique', interaction);
+        } else if (interruption.type === 'intersection') {
+            const row = new ActionRowBuilder();
+            interruption.case.next.forEach(path => {
+                const isBonus = [46, 55].includes(path);
+                if (isBonus) {
+                    let hasKey = false;
+                    try {
+                        const inv = typeof joueur.inventaire === "string" ? JSON.parse(joueur.inventaire) : (joueur.inventaire || []);
+                        hasKey = inv.includes("🔑 Clé");
+                    } catch (e) {}
+
+                    row.addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`choix_direction_${path}`)
+                            .setLabel(`🔑 Entrer (Zone Bonus)`)
+                            .setStyle(ButtonStyle.Success)
+                            .setDisabled(!hasKey)
+                    );
+                } else {
+                    row.addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`choix_direction_${path}`)
+                            .setLabel(`Prendre le chemin vers ${path}`)
+                            .setStyle(ButtonStyle.Primary)
+                    );
+                }
+            });
+            const replyContent = { content: `🔀 **Intersection !** Quelle direction veux-tu prendre ?`, components: [row] };
+            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
+            else await interaction.editReply(replyContent);
+            createTimeout(interaction.user.id, "intersection", interaction);
+        } else if (interruption.type === 'boo') {
+            const tempRow = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('boo_pieces')
+                        .setLabel('Voler des pièces (Gratuit)')
+                        .setStyle(ButtonStyle.Success),
+                    new ButtonBuilder()
+                        .setCustomId('boo_etoile')
+                        .setLabel('Voler une Étoile (50 pièces)')
+                        .setStyle(ButtonStyle.Success)
+                        .setDisabled(joueur.pieces < 50),
+                    new ButtonBuilder()
+                        .setCustomId('boo_annuler')
+                        .setLabel('Passer')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+            const contentText = joueur.cases_restantes > 0
+                ? `👻 Boo ! Tu passes devant moi. Voudrais-tu que je vole quelque chose pour toi ?`
+                : `👻 Boo ! Tu atterris sur ma case. Voudrais-tu que je vole quelque chose pour toi ?`;
+            const replyContent = { content: contentText, components: [tempRow] };
+            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
+            else await interaction.editReply(replyContent);
+            createTimeout(interaction.user.id, 'boo', interaction);
         }
         return;
     }
 
     // Pas d'interruption, on arrive à la fin
-    joueur.position = nouvellePosition;
+    // Note: nouvellePosition is not used correctly anymore because we moved step-by-step
     joueur.cases_restantes = 0;
     
     // Vérifier les pièges sur la case d'arrivée
     let piegeDeclenche = null;
     let piegesRestants = [...plateau.pieges_actifs];
     
-    const piegeIndex = piegesRestants.findIndex(p => p.position === nouvellePosition);
+    const piegeIndex = piegesRestants.findIndex(p => p.position === joueur.position);
     if (piegeIndex !== -1) {
         piegeDeclenche = piegesRestants[piegeIndex];
         piegesRestants.splice(piegeIndex, 1);
@@ -272,7 +329,7 @@ const contentText = joueur.cases_restantes > 0
 
     await joueur.save();
 
-    const caseArrivee = getCase(nouvellePosition);
+    const caseArrivee = getCase(joueur.position);
     let messageAction;
     let pendingItemToReplace = null;
     if (isContinuation) {
@@ -288,16 +345,16 @@ const contentText = joueur.cases_restantes > 0
     if (plateau.blocs_caches) {
         let bc = { ...plateau.blocs_caches };
         let foundHiddenBlock = null;
-        if (bc.etoile === nouvellePosition) {
+        if (bc.etoile === joueur.position) {
             foundHiddenBlock = "etoile";
             bc.etoile = -1;
-        } else if (bc.pieces_20 === nouvellePosition) {
+        } else if (bc.pieces_20 === joueur.position) {
             foundHiddenBlock = "pieces_20";
             bc.pieces_20 = -1;
-        } else if (bc.pieces_10 === nouvellePosition) {
+        } else if (bc.pieces_10 === joueur.position) {
             foundHiddenBlock = "pieces_10";
             bc.pieces_10 = -1;
-        } else if (bc.pieces_5 === nouvellePosition) {
+        } else if (bc.pieces_5 === joueur.position) {
             foundHiddenBlock = "pieces_5";
             bc.pieces_5 = -1;
         }
@@ -520,7 +577,7 @@ const contentText = joueur.cases_restantes > 0
             } else if (evt.type === 'etoile_filante') {
                 let nouvellePositionEtoile;
                 do {
-                    nouvellePositionEtoile = Math.floor(Math.random() * 42) + 1;
+                    nouvellePositionEtoile = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
                 } while (nouvellePositionEtoile === plateau.position_etoile);
                 plateau.position_etoile = nouvellePositionEtoile;
                 await plateau.save();
@@ -715,7 +772,7 @@ async function handleAcheterEtoile(interaction) {
     const oldPosition = plateau.position_etoile;
 
     do {
-        plateau.position_etoile = Math.floor(Math.random() * 42) + 1;
+        plateau.position_etoile = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
     } while (plateau.position_etoile === oldPosition);
     await plateau.save();
 
@@ -824,7 +881,7 @@ async function handleUseItem(interaction) {
         await plateau.save();
         message += `Un piège à pièces a été posé sur la case ${joueur.position} !`;
     } else if (item.id === 'tuyau') {
-        joueur.position = Math.floor(Math.random() * 42) + 1;
+        joueur.position = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
         message += `Tu as été téléporté sur la case ${joueur.position} !`;
         if (channel) channel.send(`🧪 <@${joueur.discord_id}> a utilisé un Tuyau et atterrit sur la case ${joueur.position} !`);
     } else if (item.id === 'miroir') {
@@ -845,7 +902,7 @@ async function handleUseItem(interaction) {
         const plateau = await Plateau.findByPk(1);
         let nouvellePositionEtoile;
         do {
-            nouvellePositionEtoile = Math.floor(Math.random() * 42) + 1;
+            nouvellePositionEtoile = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
         } while (nouvellePositionEtoile === plateau.position_etoile);
         plateau.position_etoile = nouvellePositionEtoile;
         await plateau.save();
@@ -866,8 +923,9 @@ async function handleUseItem(interaction) {
         message += `Un piège à Étoile a été posé sur la case ${joueur.position} !`;
     } else if (item.id === 'tuyau_dore') {
         const plateau = await Plateau.findByPk(1);
-        let posDevant = plateau.position_etoile - 1;
-        if (posDevant <= 0) posDevant += 42;
+        const boardDef = require('./board').BOARD_CASES;
+        const findDevant = boardDef.find(ca => ca.next.includes(plateau.position_etoile));
+        let posDevant = findDevant ? findDevant.id : 1;
         joueur.position = posDevant;
         message += `Tu as été téléporté juste devant l'Étoile (case ${posDevant}) !`;
         if (channel) channel.send(`🏆 <@${joueur.discord_id}> a utilisé un Tuyau Doré et atterrit devant l'Étoile !`);
@@ -1154,7 +1212,39 @@ async function handleUnblockFantome(interaction) {
     }
 }
 
+async function handleDirectionChoice(interaction) {
+    await interaction.deferUpdate();
+    const { Joueur } = require('../db/models');
+    const joueur = await Joueur.findOne({ where: { discord_id: interaction.user.id } });
+    if (!joueur) {
+        return interaction.followUp({ content: '❌ Joueur introuvable.', flags: 64 });
+    }
+    const pathChoisi = parseInt(interaction.customId.split('_').pop(), 10);
+
+    if (pathChoisi === 46 || pathChoisi === 55) {
+        const inv = [...(joueur.inventaire || [])];
+        const keyIndex = inv.indexOf('🔑 Clé');
+        if (keyIndex > -1) {
+            inv.splice(keyIndex, 1);
+            joueur.inventaire = inv;
+        } else {
+            return interaction.followUp({ content: '❌ Tu n\'as pas la clé pour entrer dans cette zone !', flags: 64 });
+        }
+    }
+
+    joueur.temp_choix_direction = [pathChoisi];
+    await joueur.save();
+
+    if (global.timeouts && global.timeouts[interaction.user.id]) {
+        clearTimeout(global.timeouts[interaction.user.id]);
+        delete global.timeouts[interaction.user.id];
+    }
+
+    await processMovement(interaction, joueur, 0, true, ['choix_direction']);
+}
+
 module.exports = {
+    handleDirectionChoice,
     handleUnblockFantome,
     handleLancerDe,
     handleContinuerDeplacement,

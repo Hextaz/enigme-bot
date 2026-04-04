@@ -41,6 +41,12 @@ const ITEMS = {
         price: 15,
         description: 'Téléporte l\'Étoile ailleurs.'
     },
+    CLE: {
+        id: 'cle',
+        name: '🔑 Clé',
+        price: 15,
+        description: 'Permet d\'ouvrir un portail vers une zone bonus.'
+    },
     // Objets du dimanche
     DE_TRIPLE: {
         id: 'de_triple',

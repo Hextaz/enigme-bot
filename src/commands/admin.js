@@ -141,7 +141,7 @@ module.exports = {
         } else if (subcommand === 'stop') {
             const { endSeason } = require('../game/endgame');
             await endSeason(interaction.client);
-            return interaction.editReply('La saison a été arrêtée manuellement. L''annonce finale a été postée sur le canal du plateau.');
+            return interaction.editReply("La saison a été arrêtée manuellement. L'annonce finale a été postée sur le canal du plateau.");
         } else if (subcommand === 'give' || subcommand === 'remove') {
             const targetUser = interaction.options.getUser('joueur');
             const ressource = interaction.options.getString('ressource');

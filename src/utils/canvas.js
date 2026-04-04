@@ -93,11 +93,8 @@ async function generateBoardImage(joueurs, plateau, client) {
         const etoileCase = getCase(plateau.position_etoile);
         if (etoileCase) {
             const posId = parseInt(plateau.position_etoile);
-            const prevId = posId - 1 <= 0 ? 42 : posId - 1;
-            const nextId = posId + 1 > 42 ? 1 : posId + 1;
-
-            const prevCase = getCase(prevId);
-            const nextCase = getCase(nextId);
+            const prevCase = BOARD_CASES.find(c => c.next.includes(posId)) || etoileCase;
+            const nextCase = getCase(etoileCase.next[0]) || etoileCase;
 
             // Vecteur tangent (direction du chemin)
             let tangentX = nextCase.x - prevCase.x;
@@ -154,11 +151,8 @@ async function generateBoardImage(joueurs, plateau, client) {
 
             // Calculer l'angle parfait vers l'extérieur en utilisant les cases adjacentes
             const posId = parseInt(position);
-            const prevId = posId - 1 <= 0 ? 42 : posId - 1;
-            const nextId = posId + 1 > 42 ? 1 : posId + 1;
-            
-            const prevCase = getCase(prevId);
-            const nextCase = getCase(nextId);
+            const prevCase = BOARD_CASES.find(cas => cas.next.includes(posId)) || c;
+            const nextCase = getCase(c.next[0]) || c;
             
             // Vecteur tangent (direction du chemin)
             let tangentX = nextCase.x - prevCase.x;

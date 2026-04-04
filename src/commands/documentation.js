@@ -12,9 +12,9 @@ module.exports = {
             `**1. L'Énigme du jour**\n` +
             `Chaque jour, le MJ poste l'énigme du jour. Utilise la commande \`/deviner [mot]\` pour faire une proposition. Chaque participation te rapporte **1 pièce** (max 5/jour) et tu peux tenter ta chance toutes les 30 minutes. Le premier à trouver rapporte **10 pièces** (et 5 pièces pour les retardataires dans les 30 minutes suivantes).\n\n` +
             `**2. Jouer sur le plateau**\n` +
-            `Tu as le droit à **1 lancer de dé par jour**. Le droit de jouer est réinitialisé tous les jours à **11h00**. Tu pourras lancer un dé (1 à 10) et avancer sur le plateau.\n\n` +
-            `**3. L'Étoile et la Boutique (Passer devant)**\n` +
-            `L'Étoile se trouve sur une case du plateau. Si tu **passes devant** ou t'arrêtes dessus, ton déplacement se met en pause. Tu peux l'acheter pour **20 pièces**. Ensuite, tu continues d'avancer de tes cases restantes. Même chose pour la Boutique !
+            `Tu as le droit à **1 lancer de dé par jour**. Le droit de jouer est réinitialisé tous les jours à **11h00**. Tu pourras lancer un dé (1 à 10) et avancer sur le plateau. Garde l'œil ouvert, certaines intersections demandent de choisir son chemin !\n\n` +
+            `**3. L'Étoile, la Boutique et Boo (Passer devant)**\n` +
+            `L'Étoile se trouve sur une case du plateau. Si tu **passes devant** ou t'arrêtes dessus, ton déplacement se met en pause. Tu peux l'acheter pour **20 pièces**. Ensuite, tu continues d'avancer. Même chose pour la Boutique ou le fantôme Boo ! Mieux encore : Certaines Zones Bonus sont verrouillées derrière un portail doré (case 46, 55), il te faudra posséder la Clé !
 
 **4. Mode Fantôme 👻**
 Si tu es inactif pendant 3 tours, tu passes en *Mode Fantôme*. Tu deviens immunisé aux interactions aléatoires et tu es bloqué sur ta case. Tu as un unique Joker pour te réveiller lors de ta prochaine connexion, mais au sommeil suivant, c'est l'élimination définitive !\n\n` +
@@ -32,7 +32,7 @@ Si tu es inactif pendant 3 tours, tu passes en *Mode Fantôme*. Tu deviens immun
             `🟥 **Rouge** : -3 pièces (passe à **-6 pièces** dans les 5 derniers tours).\n` +
             `🍀 **Chance** : Bonus aléatoire (pièces, objet, vol, sac plein).\n` +
             `🌩️ **Malchance** : Malus aléatoire (perte de pièces, objet, dé limité, TP Bowser).\n` +
-            `👻 **Boo** : Permet de voler des pièces (gratuit) ou une Étoile (coûte 50 pièces) à un autre joueur. *(Il faut atterrir pile dessus)*\n` +
+            `👻 **Boo** : Permet de voler des pièces (gratuit) ou une Étoile (coûte 50 pièces) à un autre joueur. *(Il suffit de passer devant)*\n` +
             `🔥 **Bowser** : Événement catastrophique (perte de moitié des pièces, perte d'étoile, révolution communiste, etc.). *(Il faut atterrir pile dessus)*\n` +
             `🎭 **Coup du Sort** : Événement global aléatoire (échange de places, loterie, duel de dés, etc.).\n` +
             `🛒 **Boutique** : Permet d'acheter des objets avec tes pièces. *(Fermée lors du dernier tour)*`);
@@ -47,6 +47,7 @@ Si tu es inactif pendant 3 tours, tu passes en *Mode Fantôme*. Tu deviens immun
             `🧪 **Tuyau** (8p) : Téléportation aléatoire.\n` +
             `🎯 **Dé Pipé** (10p) : Choisis le résultat de ton dé (1 à 6).\n` +
             `🎲 **Double Dé** (12p) : Lance 2 dés (2 à 20).\n` +
+            `🔑 **Clé** (15p) : Déverrouille les accès aux Zones Bonus dorées.\n` +
             `🪞 **Miroir** (15p) : Échange ta position avec un joueur aléatoire.\n` +
             `🎺 **Sifflet** (15p) : Déplace l'Étoile sur une autre case.\n\n` +
             `*Objets exclusifs du Marché Noir (Dimanche) :*\n` +

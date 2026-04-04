@@ -121,6 +121,9 @@ client.on(Events.InteractionCreate, async interaction => {
                 await handleUnblockFantome(interaction);
             } else if (interaction.customId === 'lancer_de') {
                 await handleLancerDe(interaction);
+            } else if (interaction.customId.startsWith('choix_direction_')) {
+                const { handleDirectionChoice } = require('./game/events');
+                await handleDirectionChoice(interaction);
             } else if (interaction.customId === 'continuer_deplacement') {
                 await handleContinuerDeplacement(interaction);
             } else if (interaction.customId === 'acheter_etoile') {
@@ -147,7 +150,7 @@ client.on(Events.InteractionCreate, async interaction => {
             } else if (interaction.customId.startsWith('use_')) {
                 const { handleUseItem } = require('./game/events');
                 await handleUseItem(interaction);
-            } else if (interaction.customId.startsWith('boo_pieces') || interaction.customId.startsWith('boo_etoile')) {
+            } else if (interaction.customId.startsWith('boo_pieces') || interaction.customId.startsWith('boo_etoile') || interaction.customId.startsWith('boo_annuler')) {
                 const { handleBooChoice } = require('./game/events');
                 await handleBooChoice(interaction);
             } else if (interaction.customId === 'discard_new_item') {
@@ -288,6 +291,10 @@ client.on(Events.InteractionCreate, async interaction => {
                                             j.pieces += 5;
                                             j.a_le_droit_de_jouer = true;
                                             j.stat_enigmes_trouvees = (j.stat_enigmes_trouvees || 0) + 1;
+                                            await j.save();
+                                        }
+                                    }
+                                }
                                 finalMsg += `\n🎲 **Le plateau est maintenant ouvert !** Vous pouvez utiliser \`/jouer\`.`;
                                 
                                 if (config.roleEnigmeId) {
@@ -320,9 +327,11 @@ client.on(Events.InteractionCreate, async interaction => {
                         if (j) {
                             j.pieces += 5;
                             // S'assurer qu'il a le droit de jouer car le plateau a sûrement déjà ouvert
-                            j.a_le_droit_de_jouer = true; 
+                            j.a_le_droit_de_jouer = true;
                             j.stat_enigmes_trouvees = (j.stat_enigmes_trouvees || 0) + 1;
-                        
+                            await j.save();
+                        }
+
                         const embed = interaction.message.embeds[0];
                         const newEmbed = { ...embed.data, color: 0x2ecc71, title: 'Proposition validée (Retardataire)' };
                         await interaction.message.edit({ embeds: [newEmbed], components: [] });

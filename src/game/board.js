@@ -1,69 +1,69 @@
 const BOARD_CASES = [
-    { id: 1, x: 960, y: 200, type: 'Verte', name: 'DÉPART' },
-    { id: 2, x: 1045, y: 200, type: 'Bleue', name: 'Bleue' },
-    { id: 3, x: 1130, y: 200, type: 'Bleue', name: 'Bleue' },
-    { id: 4, x: 1215, y: 200, type: 'Bleue', name: 'Bleue' },
-    { id: 5, x: 1300, y: 200, type: 'Chance', name: 'Chance' },
-    { id: 6, x: 1385, y: 205, type: 'Rouge', name: 'Rouge' },
-    { id: 7, x: 1467, y: 222, type: 'Rouge', name: 'Rouge' },
-    { id: 8, x: 1540, y: 265, type: 'Verte', name: 'Verte' },
-    { id: 9, x: 1600, y: 325, type: 'Bleue', name: 'Bleue' },
-    { id: 10, x: 1642, y: 398, type: 'Malchance', name: 'Malchance' },
-    { id: 11, x: 1665, y: 479, type: 'Rouge', name: 'Rouge' },
-    { id: 12, x: 1665, y: 561, type: 'Boo', name: 'Boo (Virage Droit)' },
-    { id: 13, x: 1642, y: 642, type: 'Bleue', name: 'Bleue' },
-    { id: 14, x: 1600, y: 715, type: 'Bleue', name: 'Bleue' },
-    { id: 15, x: 1540, y: 775, type: 'Boutique', name: 'Boutique' },
-    { id: 16, x: 1467, y: 818, type: 'Verte', name: 'Verte' },
-    { id: 17, x: 1385, y: 835, type: 'Rouge', name: 'Rouge' },
-    { id: 18, x: 1300, y: 840, type: 'Chance', name: 'Chance' },
-    { id: 19, x: 1215, y: 840, type: 'Bleue', name: 'Bleue' },
-    { id: 20, x: 1130, y: 840, type: 'Bleue', name: 'Bleue' },
-    { id: 21, x: 1045, y: 840, type: 'Coup du Sort', name: 'Coup du Sort' },
-    { id: 22, x: 960, y: 840, type: 'Rouge', name: 'Rouge' },    
-    { id: 23, x: 875, y: 840, type: 'Bowser', name: 'BOWSER' },
-    { id: 24, x: 790, y: 840, type: 'Rouge', name: 'Rouge' },
-    { id: 25, x: 705, y: 840, type: 'Bleue', name: 'Bleue' },
-    { id: 26, x: 620, y: 840, type: 'Bleue', name: 'Bleue' },
-    { id: 27, x: 535, y: 835, type: 'Verte', name: 'Verte' },
-    { id: 28, x: 453, y: 818, type: 'Rouge', name: 'Rouge' },
-    { id: 29, x: 380, y: 775, type: 'Bleue', name: 'Bleue' },
-    { id: 30, x: 320, y: 715, type: 'Bleue', name: 'Bleue' },
-    { id: 31, x: 278, y: 642, type: 'Boutique', name: 'Boutique' },
-    { id: 32, x: 255, y: 561, type: 'Chance', name: 'Chance' },
-    { id: 33, x: 255, y: 479, type: 'Rouge', name: 'Rouge' },
-    { id: 34, x: 278, y: 398, type: 'Boo', name: 'Boo (Virage Gauche)' },
-    { id: 35, x: 320, y: 325, type: 'Bleue', name: 'Bleue' },
-    { id: 36, x: 380, y: 265, type: 'Bleue', name: 'Bleue' },
-    { id: 37, x: 453, y: 222, type: 'Malchance', name: 'Malchance' },
-    { id: 38, x: 535, y: 205, type: 'Malchance', name: 'Malchance' },
-    { id: 39, x: 620, y: 200, type: 'Verte', name: 'Verte' },
-    { id: 40, x: 705, y: 200, type: 'Coup du Sort', name: 'Coup du Sort' },
-    { id: 41, x: 790, y: 200, type: 'Rouge', name: 'Rouge' },
-    { id: 42, x: 875, y: 200, type: 'Boutique', name: 'Boutique' }
+    { id: 1, x: 163, y: 843, type: 'Verte', name: 'Verte', next: [2] },
+    { id: 2, x: 248, y: 816, type: 'Bleue', name: 'Bleue', next: [3] },
+    { id: 3, x: 334, y: 831, type: 'Chance', name: 'Chance', next: [4] },
+    { id: 4, x: 418, y: 846, type: 'Verte', name: 'Verte', next: [5] },
+    { id: 5, x: 499, y: 824, type: 'Rouge', name: 'Rouge', next: [6] },
+    { id: 6, x: 585, y: 813, type: 'Chance', name: 'Chance', next: [7, 41] },
+    { id: 7, x: 756, y: 813, type: 'Coup du sort', name: 'Coup du sort', next: [8] },
+    { id: 8, x: 840, y: 792, type: 'Bleue', name: 'Bleue', next: [9] },
+    { id: 9, x: 923, y: 801, type: 'Rouge', name: 'Rouge', next: [10] },
+    { id: 10, x: 1010, y: 801, type: 'Bleue', name: 'Bleue', next: [11] },
+    { id: 11, x: 1094, y: 816, type: 'Malchance', name: 'Malchance', next: [12] },
+    { id: 12, x: 1158, y: 753, type: 'Bleue', name: 'Bleue', next: [13] },
+    { id: 13, x: 1232, y: 707, type: 'Bleue', name: 'Bleue', next: [14] },
+    { id: 14, x: 1311, y: 675, type: 'Rouge', name: 'Rouge', next: [15, 46] },
+    { id: 15, x: 1345, y: 595, type: 'Bleue', name: 'Bleue', next: [16] },
+    { id: 16, x: 1372, y: 513, type: 'Bowser', name: 'Bowser', next: [17] },
+    { id: 17, x: 1417, y: 429, type: 'Verte', name: 'Verte', next: [18] },
+    { id: 18, x: 1401, y: 339, type: 'Bleue', name: 'Bleue', next: [19] },
+    { id: 19, x: 1365, y: 257, type: 'Rouge', name: 'Rouge', next: [20] },
+    { id: 20, x: 1365, y: 173, type: 'Rouge', name: 'Rouge', next: [21] },
+    { id: 21, x: 1283, y: 129, type: 'Coup du sort', name: 'Coup du sort', next: [22] },
+    { id: 22, x: 1196, y: 110, type: 'Bleue', name: 'Bleue', next: [23] },
+    { id: 23, x: 1116, y: 140, type: 'Boutique', name: 'Boutique', next: [24] },
+    { id: 24, x: 1049, y: 198, type: 'Bleue', name: 'Bleue', next: [25] },
+    { id: 25, x: 1059, y: 282, type: 'Chance', name: 'Chance', next: [26] },
+    { id: 26, x: 1000, y: 351, type: 'Malchance', name: 'Malchance', next: [27] },
+    { id: 27, x: 910, y: 372, type: 'Rouge', name: 'Rouge', next: [28] },
+    { id: 28, x: 840, y: 312, type: 'Bleue', name: 'Bleue', next: [29] },
+    { id: 29, x: 756, y: 288, type: 'Chance', name: 'Chance', next: [30] },
+    { id: 30, x: 668, y: 271, type: 'Rouge', name: 'Rouge', next: [31] },
+    { id: 31, x: 578, y: 282, type: 'Coup du sort', name: 'Coup du sort', next: [32] },
+    { id: 32, x: 490, y: 257, type: 'Bleue', name: 'Bleue', next: [33, 55] },
+    { id: 33, x: 406, y: 282, type: 'Bleue', name: 'Bleue', next: [34] },
+    { id: 34, x: 317, y: 313, type: 'Rouge', name: 'Rouge', next: [35] },
+    { id: 35, x: 236, y: 339, type: 'Rouge', name: 'Rouge', next: [36] },
+    { id: 36, x: 185, y: 415, type: 'Bleue', name: 'Bleue', next: [37] },
+    { id: 37, x: 147, y: 493, type: 'Boutique', name: 'Boutique', next: [38] },
+    { id: 38, x: 118, y: 577, type: 'Malchance', name: 'Malchance', next: [39] },
+    { id: 39, x: 101, y: 668, type: 'Bleue', name: 'Bleue', next: [40] },
+    { id: 40, x: 128, y: 752, type: 'Bowser', name: 'Bowser', next: [1] },
+    { id: 41, x: 673, y: 707, type: 'Boutique', name: 'Boutique', next: [42] },
+    { id: 42, x: 719, y: 632, type: 'Rouge', name: 'Rouge', next: [43] },
+    { id: 43, x: 795, y: 585, type: 'Bleue', name: 'Bleue', next: [44] },
+    { id: 44, x: 878, y: 550, type: 'Bowser', name: 'Bowser', next: [45] },
+    { id: 45, x: 878, y: 460, type: 'Chance', name: 'Chance', next: [27] },
+    { id: 46, x: 1478, y: 676, type: 'Bleue', name: 'Bleue', next: [47] },
+    { id: 47, x: 1478, y: 766, type: 'Chance', name: 'Chance', next: [48] },
+    { id: 48, x: 1560, y: 804, type: 'Chance', name: 'Chance', next: [49] },
+    { id: 49, x: 1650, y: 816, type: 'Boutique', name: 'Boutique', next: [50] },
+    { id: 50, x: 1713, y: 749, type: 'Bleue', name: 'Bleue', next: [51] },
+    { id: 51, x: 1706, y: 659, type: 'Chance', name: 'Chance', next: [52] },
+    { id: 52, x: 1650, y: 577, type: 'Boo', name: 'Boo', next: [53] },
+    { id: 53, x: 1574, y: 520, type: 'Bleue', name: 'Bleue', next: [54] },
+    { id: 54, x: 1500, y: 470, type: 'Chance', name: 'Chance', next: [17] },
+    { id: 55, x: 523, y: 403, type: 'Chance', name: 'Chance', next: [56] },
+    { id: 56, x: 563, y: 483, type: 'Boo', name: 'Boo', next: [57] },
+    { id: 57, x: 643, y: 526, type: 'Bleue', name: 'Bleue', next: [58] },
+    { id: 58, x: 728, y: 528, type: 'Chance', name: 'Chance', next: [43] }
 ];
 
 function getCase(id) {
-    // Le plateau est circulaire, donc on utilise le modulo
-    // Si id = 43, ça devient 1
-    let normalizedId = ((id - 1) % 42) + 1;
-    if (normalizedId <= 0) normalizedId += 42; // Pour gérer les reculs
-    return BOARD_CASES.find(c => c.id === normalizedId);
-}
-
-function getCasesInRange(startId, endId) {
-    const cases = [];
-    let currentId = startId;
-    while (currentId !== endId) {
-        cases.push(getCase(currentId));
-        currentId = ((currentId) % 42) + 1;
-    }
-    cases.push(getCase(endId));
-    return cases;
+    return BOARD_CASES.find(c => c.id === id);
 }
 
 module.exports = {
     BOARD_CASES,
-    getCase,
-    getCasesInRange
+    getCase
 };

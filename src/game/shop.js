@@ -3,7 +3,7 @@ const { Joueur } = require('../db/models');
 
 const TIERS = {
     1: ['CHAMPIGNON', 'PIEGE_PIECES'],
-    2: ['TUYAU', 'DE_PIPE', 'DOUBLE_DE'],
+    2: ['TUYAU', 'DE_PIPE', 'DOUBLE_DE', 'CLE'],
     3: ['MIROIR', 'SIFFLET']
 };
 
