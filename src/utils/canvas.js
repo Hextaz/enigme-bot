@@ -274,6 +274,7 @@ async function generateZoomedBoardImage(joueur, tousLesJoueurs, plateau, client)
         if (c.type === 'Bleue') caseColor = '#3498db';
         else if (c.type === 'Rouge') caseColor = '#e74c3c';
         else if (c.type === 'Chance') caseColor = '#2ecc71';
+        else if (c.type === 'Verte' || c.type === 'Départ') caseColor = '#27ae60';
         else if (c.type === 'Malchance') caseColor = '#9b59b6';
         else if (c.type === 'Bowser') caseColor = '#c0392b';
         else if (c.type === 'Coup du Sort') caseColor = '#f1c40f';
