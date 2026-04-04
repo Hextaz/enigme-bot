@@ -90,6 +90,26 @@ const Joueur = sequelize.define('Joueur', {
     pari_montant: {
         type: DataTypes.INTEGER,
         defaultValue: 0,
+    },
+    stat_cases_chance: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+    },
+    stat_cases_malchance: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+    },
+    stat_cases_avancees: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+    },
+    stat_enigmes_trouvees: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+    },
+    stat_objets_utilises: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
     }
 }, {
     tableName: 'joueurs',

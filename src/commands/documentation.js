@@ -17,7 +17,9 @@ module.exports = {
             `L'Étoile se trouve sur une case du plateau. Si tu **passes devant** ou t'arrêtes dessus, ton déplacement se met en pause. Tu peux l'acheter pour **20 pièces**. Ensuite, tu continues d'avancer de tes cases restantes. Même chose pour la Boutique !
 
 **4. Mode Fantôme 👻**
-Si tu es inactif pendant 3 tours, tu passes en *Mode Fantôme*. Tu deviens immunisé aux interactions aléatoires et tu es bloqué sur ta case. Tu as un unique Joker pour te réveiller lors de ta prochaine connexion, mais au sommeil suivant, c'est l'élimination définitive !`);
+Si tu es inactif pendant 3 tours, tu passes en *Mode Fantôme*. Tu deviens immunisé aux interactions aléatoires et tu es bloqué sur ta case. Tu as un unique Joker pour te réveiller lors de ta prochaine connexion, mais au sommeil suivant, c'est l'élimination définitive !\n\n` +
+            `**5. Étoiles Bonus 🌟**\n` +
+            `À la fin de la partie (tour 30), juste avant l'annonce du podium, **2 étoiles bonus** sont décernées aléatoirement parmi 6 catégories : Chance, Malchance, Avancée Max, Avancée Min, Énigmes résolues et Objets utilisés. Chaque étoile bonus rapporte +1 ⭐ !`);
 
         const embedCases = new EmbedBuilder()
             .setTitle('🗺️ Les Cases du Plateau')

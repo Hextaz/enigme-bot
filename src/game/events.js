@@ -39,6 +39,7 @@ async function handleLancerDe(interaction) {
     joueur.a_le_droit_de_jouer = false; // Il a joué pour aujourd'hui
     joueur.a_joue_ce_tour = true;
     joueur.jours_inactifs = 0;
+    joueur.stat_cases_avancees = (joueur.stat_cases_avancees || 0) + de;
     await joueur.save();
 
     await processMovement(interaction, joueur, de, false);
@@ -289,11 +290,14 @@ const contentText = joueur.cases_restantes > 0
 
         if (caseArrivee.type === 'Bleue') {
             joueur.pieces += gainPiece;
+            joueur.stat_cases_chance = (joueur.stat_cases_chance || 0) + 1;
             messageAction += `\n**${interaction.user.username}** gagne ${gainPiece} pièces ! 💰 *(Total: ${joueur.pieces} 🪙)*`;
         } else if (caseArrivee.type === 'Rouge') {
             joueur.pieces = Math.max(0, joueur.pieces - gainPiece);
+            joueur.stat_cases_malchance = (joueur.stat_cases_malchance || 0) + 1;
             messageAction += `\n**${interaction.user.username}** perd ${gainPiece} pièces ! 💸 *(Reste: ${joueur.pieces} 🪙)*`;
         } else if (caseArrivee.type === 'Chance') {
+            joueur.stat_cases_chance = (joueur.stat_cases_chance || 0) + 1;
             const gains = [
                 { type: 'pieces', val: 5, msg: '+5 pièces' },
                 { type: 'pieces', val: 15, msg: '+15 pièces' },
@@ -341,6 +345,7 @@ const contentText = joueur.cases_restantes > 0
                 messageAction += `\n🍀 **Chance !** Son inventaire a été rempli au maximum !`;
             }
         } else if (caseArrivee.type === 'Malchance') {
+            joueur.stat_cases_malchance = (joueur.stat_cases_malchance || 0) + 1;
             const pertes = [
                 { type: 'pieces', val: -5, msg: '-5 pièces' },
                 { type: 'pieces', val: -10, msg: '-10 pièces' },
@@ -367,6 +372,7 @@ const contentText = joueur.cases_restantes > 0
                 joueur.de_limite = true;
                 messageAction += `\n🌩️ **Malchance !** Son dé sera limité à 3 au prochain tour !`;
             } else if (perte.type === 'tp_bowser') {
+                joueur.stat_cases_malchance = (joueur.stat_cases_malchance || 0) + 1;
                 messageAction += `\n🌩️ **Malchance !** Bowser apparaît devant **${interaction.user.username}** et lance sa roulette infernale !`;
 
                 // --- Roulette Bowser ---
@@ -538,6 +544,7 @@ const contentText = joueur.cases_restantes > 0
         } else if (caseArrivee.type === 'Boo') {
             messageAction += `\n👻 **Boo !** **${interaction.user.username}** est tombé sur Boo ! Un choix de vol se présente à lui.`;
         } else if (caseArrivee.type === 'Bowser') {
+            joueur.stat_cases_malchance = (joueur.stat_cases_malchance || 0) + 1;
             const bowserEvents = [
                 { type: 'moitie_pieces', msg: 'Perte de la moitié des pièces' },
                 { type: 'moins_etoile', msg: 'Perte d\'une étoile' },
@@ -731,6 +738,7 @@ async function handleUseItem(interaction) {
     const newInv = [...joueur.inventaire];
     newInv.splice(itemIndex, 1);
     joueur.inventaire = newInv;
+    joueur.stat_objets_utilises = (joueur.stat_objets_utilises || 0) + 1;
 
     let message = `Tu as utilisé **${item.name}** ! `;
     const channel = interaction.client.channels.cache.get(config.boardChannelId);

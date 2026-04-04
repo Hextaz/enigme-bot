@@ -273,6 +273,7 @@ client.on(Events.InteractionCreate, async interaction => {
                                 if (premierJoueur) {
                                     premierJoueur.pieces += 10;
                                     premierJoueur.a_le_droit_de_jouer = true;
+                                    premierJoueur.stat_enigmes_trouvees = (premierJoueur.stat_enigmes_trouvees || 0) + 1;
                                     await premierJoueur.save();
                                 }
 
@@ -280,17 +281,13 @@ client.on(Events.InteractionCreate, async interaction => {
                                 if (p.autres_gagnants && p.autres_gagnants.length > 0) {
                                     const autresMentions = p.autres_gagnants.map(id => `<@${id}>`).join(', ');
                                     finalMsg += `👏 ${autresMentions} ont également trouvé la réponse à temps et remportent **5 pièces** !\n`;
-                                    
+
                                     for (const id of p.autres_gagnants) {
                                         const j = await Joueur.findByPk(id);
                                         if (j) {
                                             j.pieces += 5;
                                             j.a_le_droit_de_jouer = true;
-                                            await j.save();
-                                        }
-                                    }
-                                }
-                                
+                                            j.stat_enigmes_trouvees = (j.stat_enigmes_trouvees || 0) + 1;
                                 finalMsg += `\n🎲 **Le plateau est maintenant ouvert !** Vous pouvez utiliser \`/jouer\`.`;
                                 
                                 if (config.roleEnigmeId) {
@@ -324,11 +321,7 @@ client.on(Events.InteractionCreate, async interaction => {
                             j.pieces += 5;
                             // S'assurer qu'il a le droit de jouer car le plateau a sûrement déjà ouvert
                             j.a_le_droit_de_jouer = true; 
-                            await j.save();
-                        }
-                        
-                        await channel.send(`🎉 **<@${userId}> avait également trouvé la bonne réponse juste à temps !** *(+5 pièces)*`);
-                        await interaction.editReply({ content: `Tu as validé la proposition de <@${userId}> en retard, il a reçu ses 5 pièces.` });
+                            j.stat_enigmes_trouvees = (j.stat_enigmes_trouvees || 0) + 1;
                         
                         const embed = interaction.message.embeds[0];
                         const newEmbed = { ...embed.data, color: 0x2ecc71, title: 'Proposition validée (Retardataire)' };
