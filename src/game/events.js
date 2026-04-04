@@ -4,6 +4,34 @@ const { getCase, getCasesInRange } = require('./board');
 const { generateBoardImage } = require('../utils/canvas');
 const config = require('../config');
 
+const activeInteractionTokens = new Map();
+
+function createTimeout(userId, type, interaction) {
+    const token = Date.now().toString() + Math.random().toString();
+    activeInteractionTokens.set(userId, token);
+    setTimeout(async () => {
+        if (activeInteractionTokens.get(userId) === token) {
+            activeInteractionTokens.delete(userId);
+            try {
+                await interaction.editReply({ components: [] }).catch(()=>{});
+                const j = await Joueur.findByPk(userId);
+                if (!j) return;
+                const channel = interaction.client.channels.cache.get(config.boardChannelId);
+                if (type === 'etoile' || type === 'boutique') {
+                    if (channel) channel.send('⏰ **<@' + userId + '>** a hésité trop longtemps devant la ' + (type === 'etoile' ? 'Étoile' : 'Boutique') + ' ! Son tour passe automatiquement.');
+                    if (j.cases_restantes >= 0) {
+                        const mockInt = { user: { id: userId, username: 'Joueur' }, client: interaction.client, editReply: async () => {}, followUp: async () => {}, update: async () => {}, deferred: true, replied: true };
+                        try { await handleContinuerDeplacement(mockInt, [type]); } catch(e) { console.error(e); }
+                    }
+                } else if (type === 'boo') {
+                    if (channel) channel.send('👻 **<@' + userId + '>** a mis trop de temps à réfléchir... Boo est reparti les mains vides !');
+                }
+            } catch(e) { console.error(e); }
+        }
+    }, 60000);
+}
+
+
 async function handleLancerDe(interaction) {
     await interaction.deferReply({ flags: 64 });
     const joueur = await Joueur.findByPk(interaction.user.id);
@@ -46,6 +74,7 @@ async function handleLancerDe(interaction) {
 }
 
 async function handleContinuerDeplacement(interaction, alreadyHandledOnStart = []) {
+    activeInteractionTokens.delete(interaction.user.id);
     if (!interaction.deferred && !interaction.replied) {
         // Enlève les boutons de l'ancien message (Shop, Etoile, /jouer) pour éviter les clics multiples
         await interaction.update({ components: [] }).catch(() => {});
@@ -151,14 +180,15 @@ async function processMovement(interaction, joueur, de, isContinuation = false, 
                         .setLabel('Passer')
                         .setStyle(ButtonStyle.Secondary)
                 );
-            
-const contentText = joueur.cases_restantes > 0 
+
+const contentText = joueur.cases_restantes > 0
                 ? `⭐ Tu passes devant l'Étoile ! Veux-tu l'acheter pour 20 pièces ? (Tu as ${joueur.pieces} pièces)`
                 : `⭐ Tu atterris sur l'Étoile ! Veux-tu l'acheter pour 20 pièces ? (Tu as ${joueur.pieces} pièces)`;
-            
+
             const replyContent = { content: contentText, components: [row] };
             if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
             else await interaction.editReply(replyContent);
+            createTimeout(interaction.user.id, 'etoile', interaction);
         } else if (interruption.type === 'boutique') {
             const plateauCur = await Plateau.findByPk(1);
             if (plateauCur && plateauCur.tour >= 30) {
@@ -216,6 +246,7 @@ const contentText = joueur.cases_restantes > 0
             const replyContent = { content: shopMsg, components: [row] };
             if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
             else await interaction.editReply(replyContent);
+            createTimeout(interaction.user.id, 'boutique', interaction);
         }
         return;
     }
@@ -320,12 +351,11 @@ const contentText = joueur.cases_restantes > 0
         }
     }
 
-    if (!piegeDeclenche) {
-        // Multiplicateur fin de partie (tours 26 à 30 = x2)
-        const isLastTurns = plateau && plateau.tour >= 26;
-        const gainPiece = isLastTurns ? 6 : 3;
+    // Multiplicateur fin de partie (tours 26 à 30 = x2)
+    const isLastTurns = plateau && plateau.tour >= 26;
+    const gainPiece = isLastTurns ? 6 : 3;
 
-        if (caseArrivee.type === 'Bleue') {
+    if (caseArrivee.type === 'Bleue') {
             joueur.pieces += gainPiece;
             joueur.stat_cases_chance = (joueur.stat_cases_chance || 0) + 1;
             messageAction += `\n**${interaction.user.username}** gagne ${gainPiece} pièces ! 💰 *(Total: ${joueur.pieces} 🪙)*`;
@@ -624,7 +654,6 @@ const contentText = joueur.cases_restantes > 0
                 }
             }
         }
-    }
 
     await joueur.save();
 
@@ -658,6 +687,7 @@ const contentText = joueur.cases_restantes > 0
         const replyContent = { content: `👻 **Boo !** Que veux-tu faire ?\n- Voler des pièces (3 à 12) gratuitement\n- Voler une Étoile pour 50 pièces`, components: [row] };
             if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
             else await interaction.editReply(replyContent);
+            createTimeout(interaction.user.id, 'boo', interaction);
     } else {
         const replyContent = { content: `Tu as atterri sur la case ${caseArrivee.id} ! Regarde le salon <#${config.boardChannelId}> pour voir le résultat.` };
             if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
@@ -665,6 +695,7 @@ const contentText = joueur.cases_restantes > 0
     }
 }
 async function handleAcheterEtoile(interaction) {
+    activeInteractionTokens.delete(interaction.user.id);
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const plateau = await Plateau.findByPk(1);
     const joueur = await Joueur.findByPk(interaction.user.id);
@@ -701,6 +732,7 @@ async function handleAcheterEtoile(interaction) {
 }
 
 async function handlePasserEtoile(interaction) {
+    activeInteractionTokens.delete(interaction.user.id);
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (joueur) {
@@ -875,8 +907,16 @@ async function handleDePipeChoix(interaction) {
 }
 
 async function handleBooChoice(interaction) {
+    activeInteractionTokens.delete(interaction.user.id);
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const type = interaction.customId.split('_')[1]; // 'pieces' ou 'etoile'
+    const type = interaction.customId.split('_')[1]; // 'pieces' ou 'etoile' ou 'annuler'
+    
+    const channel = interaction.client.channels.cache.get(require('../config').boardChannelId);
+    if (type === 'annuler') {
+        if (channel) await channel.send(`👻 <@${interaction.user.id}> a ignoré l'invitation de Boo... le fantôme s'en va, déçu.`);
+        return interaction.followUp({ content: 'Interaction expiré, Boo s\'en est allé.', components: [], flags: 64 });
+    }
+
     const joueur = await Joueur.findByPk(interaction.user.id);
     
     if (type === 'etoile' && joueur.pieces < 50) {
@@ -911,6 +951,7 @@ async function handleBooChoice(interaction) {
 }
 
 async function handleBooTarget(interaction) {
+    activeInteractionTokens.delete(interaction.user.id);
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const type = interaction.customId.split('_')[2]; // 'pieces' ou 'etoile'
     const cibleId = interaction.values[0];
@@ -949,6 +990,7 @@ async function handleBooTarget(interaction) {
 }
 
 async function handleBuyItem(interaction) {
+    activeInteractionTokens.delete(interaction.user.id);
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const joueur = await Joueur.findByPk(interaction.user.id);
     let itemId = interaction.customId.replace('buy_', '').split('#')[0];
@@ -1025,6 +1067,7 @@ async function handleBuyItem(interaction) {
 }
 
 async function handleBuyCancel(interaction) {
+    activeInteractionTokens.delete(interaction.user.id);
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (joueur) {
