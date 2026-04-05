@@ -61,6 +61,8 @@ function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, fillColor, stro
 }
 
 async function generateBoardImage(joueurs, plateau, client) {
+    const userCache = {};
+    const avatarCache = {};
     const canvas = createCanvas(BOARD_WIDTH, BOARD_HEIGHT);
     const ctx = canvas.getContext('2d');
 
@@ -203,22 +205,19 @@ async function generateBoardImage(joueurs, plateau, client) {
                 }
             }
 
-            let avatarUrl = null;
-            let user = null;
-            if (client) {
+let user = userCache[joueur.discord_id] || null;
+            if (!user && client) {
                 user = await client.users.fetch(joueur.discord_id).catch(() => null);
-                if (user) {
-                    avatarUrl = user.displayAvatarURL({ extension: 'png', size: 128 });
-                }
+                if (user) userCache[joueur.discord_id] = user;
             }
-            
-            let avatarImg = null;
-            if (avatarUrl) {
+
+            let avatarImg = avatarCache[joueur.discord_id] || null;
+            if (!avatarImg && user) {
+                const avatarUrl = user.displayAvatarURL({ extension: 'png', size: 128 });
                 try {
                     avatarImg = await loadImage(avatarUrl);
-                } catch (e) {
-                    console.error(`Erreur lors du chargement de l'avatar pour ${joueur.discord_id}`, e.message);
-                }
+                    avatarCache[joueur.discord_id] = avatarImg;
+                } catch(e) {}
             }
             
             if (avatarImg) {
@@ -241,6 +240,84 @@ async function generateBoardImage(joueurs, plateau, client) {
                 ctx.fillText(fallbackText, px, py);
             }
         }
+    }
+
+    // --- LEADERBOARD (Top 5) ---
+    const sortedPlayers = [...joueurs].sort((a, b) => {
+        if (b.etoiles !== a.etoiles) return b.etoiles - a.etoiles;
+        return b.pieces - a.pieces;
+    }).slice(0, 5);
+
+    let startX = 20;
+    let startY = 20;
+    const cardHeight = 70;
+    const cardWidth = 280;
+    const padding = 10;
+
+    // Fond Titre
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(startX, startY, cardWidth, 40);
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 22px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🏆 CLASSEMENT (TOP 5)', startX + cardWidth / 2, startY + 20);
+    
+    startY += 40 + padding;
+
+    for (let i = 0; i < sortedPlayers.length; i++) {
+        const p = sortedPlayers[i];
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(startX, startY, cardWidth, cardHeight);
+
+        const avX = startX + 35;
+        const avY = startY + 35;
+        
+        let img = avatarCache[p.discord_id];
+        let uName = userCache[p.discord_id] ? userCache[p.discord_id].username : 'Joueur';
+        
+        if (img) {
+            drawCircleImage(ctx, img, avX, avY, 25, '#FFFFFF');
+        } else {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(avX, avY, 25, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#000000';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(uName.substring(0, 2).toUpperCase(), avX, avY);
+        }
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(((i + 1) + '.'), startX + 5, avY);
+
+        ctx.font = 'bold 18px Arial';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(uName.length > 12 ? uName.substring(0, 10)+'...' : uName, startX + 70, startY + 25);
+
+        ctx.font = 'bold 16px Arial';
+        ctx.fillStyle = '#FFD700'; // Or
+        ctx.fillText('★ ' + (p.etoiles || 0), startX + 70, startY + 50);
+        
+        ctx.fillStyle = '#F1C40F'; // Jaune piece
+        ctx.fillText('🪙 ' + (p.pieces || 0), startX + 130, startY + 50);
+        
+        let inv = [];
+        try {
+            inv = typeof p.inventaire === 'string' ? JSON.parse(p.inventaire) : (p.inventaire || []);
+        } catch(e) {}
+        
+        ctx.fillStyle = '#AAB7B8';
+        ctx.font = '14px Arial';
+        const invSummary = inv.length > 0 ? ('🎒 ' + inv.length) : '🎒 Vide';
+        ctx.fillText(invSummary, startX + 190, startY + 50);
+
+        startY += cardHeight + padding;
     }
 
     return new Promise((resolve, reject) => {
