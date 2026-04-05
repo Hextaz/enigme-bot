@@ -242,7 +242,7 @@ let user = userCache[joueur.discord_id] || null;
         }
     }
 
-    // --- LEADERBOARD (Top 5) ---
+    // --- LEADERBOARD (Top 5) HORIZONTAL ---
     const sortedPlayers = [...joueurs].sort((a, b) => {
         if (b.etoiles !== a.etoiles) return b.etoiles - a.etoiles;
         return b.pieces - a.pieces;
@@ -250,20 +250,9 @@ let user = userCache[joueur.discord_id] || null;
 
     let startX = 20;
     let startY = 20;
-    const cardHeight = 70;
-    const cardWidth = 280;
-    const padding = 10;
-
-    // Fond Titre
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(startX, startY, cardWidth, 40);
-    ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 22px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🏆 CLASSEMENT (TOP 5)', startX + cardWidth / 2, startY + 20);
-    
-    startY += 40 + padding;
+    const cardHeight = 60;
+    const cardWidth = 250;
+    const padding = 15;
 
     for (let i = 0; i < sortedPlayers.length; i++) {
         const p = sortedPlayers[i];
@@ -271,53 +260,59 @@ let user = userCache[joueur.discord_id] || null;
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(startX, startY, cardWidth, cardHeight);
 
-        const avX = startX + 35;
-        const avY = startY + 35;
+        const avX = startX + 30;
+        const avY = startY + 30;
         
         let img = avatarCache[p.discord_id];
         let uName = userCache[p.discord_id] ? userCache[p.discord_id].username : 'Joueur';
         
         if (img) {
-            drawCircleImage(ctx, img, avX, avY, 25, '#FFFFFF');
+            drawCircleImage(ctx, img, avX, avY, 20, '#FFFFFF');
         } else {
             ctx.fillStyle = '#FFFFFF';
             ctx.beginPath();
-            ctx.arc(avX, avY, 25, 0, Math.PI * 2);
+            ctx.arc(avX, avY, 20, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = '#000000';
-            ctx.font = '16px Arial';
+            ctx.font = '14px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(uName.substring(0, 2).toUpperCase(), avX, avY);
         }
 
+        // Rank number
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 18px Arial';
+        ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
         ctx.fillText(((i + 1) + '.'), startX + 5, avY);
 
-        ctx.font = 'bold 18px Arial';
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(uName.length > 12 ? uName.substring(0, 10)+'...' : uName, startX + 70, startY + 25);
-
+        // Player Name
         ctx.font = 'bold 16px Arial';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(uName.length > 10 ? uName.substring(0, 9)+'...' : uName, startX + 60, startY + 18);
+
+        // Stars
+        ctx.font = 'bold 15px Arial';
         ctx.fillStyle = '#FFD700'; // Or
-        ctx.fillText('★ ' + (p.etoiles || 0), startX + 70, startY + 50);
+        ctx.fillText('★ ' + (p.etoiles || 0), startX + 60, startY + 45);
         
+        // Coins (P)
         ctx.fillStyle = '#F1C40F'; // Jaune piece
-        ctx.fillText('🪙 ' + (p.pieces || 0), startX + 130, startY + 50);
+        ctx.fillText('P: ' + (p.pieces || 0), startX + 105, startY + 45); // Used unicode coin if supported by Discord, otherwise changed
         
+        // Inventory
         let inv = [];
         try {
             inv = typeof p.inventaire === 'string' ? JSON.parse(p.inventaire) : (p.inventaire || []);
         } catch(e) {}
         
         ctx.fillStyle = '#AAB7B8';
-        ctx.font = '14px Arial';
-        const invSummary = inv.length > 0 ? ('🎒 ' + inv.length) : '🎒 Vide';
-        ctx.fillText(invSummary, startX + 190, startY + 50);
+        ctx.font = '13px Arial';
+        ctx.fillText('Obj: ' + inv.length, startX + 180, startY + 45);
 
-        startY += cardHeight + padding;
+        // Move to the right for the next card
+        startX += cardWidth + padding;
     }
 
     return new Promise((resolve, reject) => {
