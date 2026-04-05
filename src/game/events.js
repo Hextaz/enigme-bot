@@ -31,7 +31,7 @@ function createTimeout(userId, type, interaction) {
                     }
                 } else if (type === 'intersection') {
                     if (channel) channel.send(`⏰ **<@${userId}>** a bêtement foncé tout droit à l'intersection !`);
-                    j.temp_choix_direction = [getCase(j.position).next[0]];
+                    j.temp_choix_direction = getCase(j.position).next[0];
                     await j.save();
                     if (j.cases_restantes >= 0) {
                         const mockInt = { user: { id: userId, username: 'Joueur' }, client: interaction.client, editReply: async () => {}, followUp: async () => {}, update: async () => {}, deferred: true, replied: true };
@@ -126,7 +126,7 @@ async function processMovement(interaction, joueur, de, isContinuation = false, 
         
         let pathChoisi = currentCase.next[0];
         if (currentCase.next.length > 1 && alreadyHandledOnStart.includes('choix_direction')) {
-             if (joueur.temp_choix_direction) pathChoisi = joueur.temp_choix_direction;
+             if (joueur.temp_choix_direction) pathChoisi = Array.isArray(joueur.temp_choix_direction) ? joueur.temp_choix_direction[0] : joueur.temp_choix_direction;
              const idx = alreadyHandledOnStart.indexOf('choix_direction');
              if (idx > -1) alreadyHandledOnStart.splice(idx, 1);
         }
@@ -265,6 +265,19 @@ const contentText = joueur.cases_restantes > 0
             const row = new ActionRowBuilder();
             interruption.case.next.forEach(path => {
                 const isBonus = [46, 55].includes(path);
+                const nextC = getCase(path);
+                let dirLabel = "";
+                if (nextC) {
+                    const dx = nextC.x - interruption.case.x;
+                    const dy = nextC.y - interruption.case.y;
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        dirLabel = dx > 0 ? "➡️ Droite" : "⬅️ Gauche";
+                    } else {
+                        dirLabel = dy > 0 ? "⬇️ Bas" : "⬆️ Haut";
+                    }
+                }
+                const pathDesc = dirLabel ? `${dirLabel} (Case ${path})` : `Case ${path}`;
+
                 if (isBonus) {
                     let hasKey = false;
                     try {
@@ -275,7 +288,7 @@ const contentText = joueur.cases_restantes > 0
                     row.addComponents(
                         new ButtonBuilder()
                             .setCustomId(`choix_direction_${path}`)
-                            .setLabel(`🔑 Entrer (Zone Bonus)`)
+                            .setLabel(`🔑 Entrer ${pathDesc}`)
                             .setStyle(ButtonStyle.Success)
                             .setDisabled(!hasKey)
                     );
@@ -283,7 +296,7 @@ const contentText = joueur.cases_restantes > 0
                     row.addComponents(
                         new ButtonBuilder()
                             .setCustomId(`choix_direction_${path}`)
-                            .setLabel(`Prendre le chemin vers ${path}`)
+                            .setLabel(`${pathDesc}`)
                             .setStyle(ButtonStyle.Primary)
                     );
                 }
@@ -436,6 +449,7 @@ const contentText = joueur.cases_restantes > 0
             joueur.stat_cases_chance = (joueur.stat_cases_chance || 0) + 1;
             const gains = [
                 { type: 'pieces', val: 5, msg: '+5 pièces' },
+                { type: 'pieces', val: 10, msg: '+10 pièces' },
                 { type: 'pieces', val: 15, msg: '+15 pièces' },
                 { type: 'objet', msg: '1 objet standard aléatoire' },
                 { type: 'vol', val: 5, msg: 'Vol de 5 pièces à un joueur au hasard' },
@@ -1244,7 +1258,7 @@ async function handleDirectionChoice(interaction) {
         }
     }
 
-    joueur.temp_choix_direction = [pathChoisi];
+    joueur.temp_choix_direction = pathChoisi;
     await joueur.save();
 
     if (global.timeouts && global.timeouts[interaction.user.id]) {
