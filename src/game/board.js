@@ -2,7 +2,7 @@ const BOARD_CASES = [
 { id: 1, x: 163, y: 843, type: 'Départ', name: 'Départ', next: [2] },
     { id: 2, x: 248, y: 816, type: 'Bleue', name: 'Bleue', next: [3] },
     { id: 3, x: 334, y: 831, type: 'Chance', name: 'Chance', next: [4] },
-    { id: 4, x: 418, y: 846, type: 'Départ', name: 'Départ', next: [5] },
+    { id: 4, x: 418, y: 846, type: 'Bleue', name: 'Bleue', next: [5] },
     { id: 5, x: 499, y: 824, type: 'Rouge', name: 'Rouge', next: [6] },
     { id: 6, x: 585, y: 813, type: 'Chance', name: 'Chance', next: [7, 41] },
     { id: 7, x: 756, y: 813, type: 'Coup du Sort', name: 'Coup du Sort', next: [8] },
