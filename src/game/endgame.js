@@ -67,19 +67,8 @@ async function endSeason(client) {
 
     const guild = await client.guilds.fetch(config.guildId).catch(() => null);
     if (guild) {
-        let winnerRole = guild.roles.cache.find(r => r.name === "Vainqueur d'une partie");
-        if (!winnerRole) {
-            try {
-                winnerRole = await guild.roles.create({
-                    name: "Vainqueur d'une partie",
-                    color: '#FFD700',
-                    hoist: true,
-                    reason: 'Rôle automatique pour le vainqueur de la saison'
-                });
-            } catch (e) {
-                console.error("Impossible de créer le rôle vainqueur :", e);
-            }
-        }
+        const winnerRoleId = '1490005606273388555';
+        let winnerRole = await guild.roles.fetch(winnerRoleId).catch(() => null);
 
         if (winnerRole) {
             // Nettoyer les anciens membres

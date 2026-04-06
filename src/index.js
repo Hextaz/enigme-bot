@@ -59,15 +59,11 @@ client.once(Events.ClientReady, async c => {
     try {
         const guild = await c.guilds.fetch(config.guildId).catch(() => null);
         if (guild) {
-            let winnerRole = guild.roles.cache.find(r => r.name === "Vainqueur d'une partie");
+            let winnerRole = await guild.roles.fetch('1490005606273388555').catch(() => null);
             if (!winnerRole) {
-                await guild.roles.create({
-                    name: "Vainqueur d'une partie",
-                    color: '#FFD700',
-                    hoist: true,
-                    reason: 'Rôle automatique pour le vainqueur de la saison'
-                });
-                console.log(`Rôle "Vainqueur d'une partie" créé avec succès.`);
+                console.log(`[WARNING] Le rôle vainqueur 1490005606273388555 est introuvable.`);
+            } else {
+                console.log(`Rôle vainqueur trouvé.`);
             }
         }
     } catch (e) {
