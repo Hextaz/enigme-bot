@@ -1241,6 +1241,7 @@ async function handleUnblockFantome(interaction) {
 }
 
 async function handleDirectionChoice(interaction) {
+    activeInteractionTokens.delete(interaction.user.id);
     await interaction.deferUpdate();
     const { Joueur } = require('../db/models');
     const joueur = await Joueur.findOne({ where: { discord_id: interaction.user.id } });
