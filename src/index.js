@@ -3,8 +3,6 @@ const config = require('./config');
 const { sequelize, Joueur, Plateau } = require('./db/models');
 const { lockUser, unlockUser, getLockedUser } = require('./game/transaction');
 const { activeInteractionTokens } = require('./game/events');
-const { lockUser, unlockUser, getLockedUser } = require('./game/transaction');
-const { activeInteractionTokens } = require('./game/events');
 const fs = require('fs');
 const path = require('path');
 
