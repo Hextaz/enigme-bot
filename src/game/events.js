@@ -38,6 +38,8 @@ function createTimeout(userId, type, interaction) {
                         try { await handleContinuerDeplacement(mockInt, ['choix_direction']); } catch(e) { console.error(e); }
                     }
                 }
+                const { unlockUser } = require('./transaction');
+                unlockUser(userId);
             } catch(e) { console.error(e); }
         }
     }, 60000);
@@ -1284,5 +1286,6 @@ module.exports = {
     handleBuyItem,
     handleBuyCancel,
     handleReplaceBuy,
-    handleReplaceChance
+    handleReplaceChance,
+    activeInteractionTokens
 };

@@ -1,6 +1,10 @@
 const { Client, GatewayIntentBits, Collection, Events, Partials, Options } = require('discord.js');
 const config = require('./config');
 const { sequelize, Joueur, Plateau } = require('./db/models');
+const { lockUser, unlockUser, getLockedUser } = require('./game/transaction');
+const { activeInteractionTokens } = require('./game/events');
+const { lockUser, unlockUser, getLockedUser } = require('./game/transaction');
+const { activeInteractionTokens } = require('./game/events');
 const fs = require('fs');
 const path = require('path');
 
@@ -98,6 +102,26 @@ client.once(Events.ClientReady, async c => {
 });
 
 client.on(Events.InteractionCreate, async interaction => {
+    // --- L'ACCES SE FAIT ICI POUR LE MUTEX GLOBAL ---
+    const isGameCommand = interaction.isChatInputCommand() && ['jouer'].includes(interaction.commandName);
+    
+    let isGameAction = false;
+    if (interaction.isButton()) {
+        const id = interaction.customId;
+        isGameAction = (!id || (!id.startsWith('rappel_') && !id.startsWith('pari_') && !id.startsWith('reponse_') && !id.startsWith('admin_')));
+    } else if (interaction.isStringSelectMenu() || interaction.isModalSubmit()) {
+        isGameAction = true;
+    }
+
+    if (isGameCommand || isGameAction) {
+        const lockedId = getLockedUser();
+        if (lockedId && lockedId !== interaction.user.id) {
+            return interaction.reply({ content: '⏳ **Action refusée** : Un autre joueur effectue actuellement son tour ou son déplacement. Veuillez patienter la fin de son action !', flags: 64 }).catch(()=>{});
+        }
+        lockUser(interaction.user.id);
+    }
+
+    try {
     if (interaction.isChatInputCommand()) {
         const command = interaction.client.commands.get(interaction.commandName);
 
@@ -356,6 +380,14 @@ client.on(Events.InteractionCreate, async interaction => {
                         if (e.code !== 10062) console.error("Impossible de répondre Modal:", e);
                     });
                 }
+            }
+        }
+            }
+    } finally {
+        if (isGameCommand || isGameAction) {
+            // Check if player's turn is kept open by a prompt (intersection, boo, shop)
+            if (!activeInteractionTokens || !activeInteractionTokens.has(interaction.user.id)) {
+                unlockUser(interaction.user.id);
             }
         }
     }
