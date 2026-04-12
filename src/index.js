@@ -99,6 +99,8 @@ client.once(Events.ClientReady, async c => {
     }
 });
 
+const processingUsers = new Set();
+
 client.on(Events.InteractionCreate, async interaction => {
     // --- L'ACCES SE FAIT ICI POUR LE MUTEX GLOBAL ---
     const isGameCommand = interaction.isChatInputCommand() && ['jouer'].includes(interaction.commandName);
@@ -112,10 +114,10 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 
     if (isGameCommand || isGameAction) {
+        if (processingUsers.has(interaction.user.id)) return interaction.reply({ content: "? Ton action pr�c�dente est en cours de traitement !", flags: 64 }).catch(()=>{});
         const lockedId = getLockedUser();
-        if (lockedId && lockedId !== interaction.user.id) {
-            return interaction.reply({ content: '⏳ **Action refusée** : Un autre joueur effectue actuellement son tour ou son déplacement. Veuillez patienter la fin de son action !', flags: 64 }).catch(()=>{});
-        }
+        if (lockedId && lockedId !== interaction.user.id) return interaction.reply({ content: "? Un autre joueur effectue actuellement son action !", flags: 64 }).catch(()=>{});
+        processingUsers.add(interaction.user.id);
         lockUser(interaction.user.id);
     }
 
@@ -383,7 +385,7 @@ client.on(Events.InteractionCreate, async interaction => {
             }
     } finally {
         if (isGameCommand || isGameAction) {
-            // Check if player's turn is kept open by a prompt (intersection, boo, shop)
+            processingUsers.delete(interaction.user.id);
             if (!activeInteractionTokens || !activeInteractionTokens.has(interaction.user.id)) {
                 unlockUser(interaction.user.id);
             }
