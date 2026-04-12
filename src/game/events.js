@@ -13,7 +13,7 @@ function createTimeout(userId, type, interaction) {
         if (activeInteractionTokens.get(userId) === token) {
             activeInteractionTokens.delete(userId);
             try {
-                await interaction.editReply({ components: [] }).catch(()=>{});
+                await interaction.editReply().catch(()=>{});
                 const j = await Joueur.findByPk(userId);
                 if (!j) return;
                 const channel = interaction.client.channels.cache.get(config.boardChannelId);
@@ -202,8 +202,8 @@ const contentText = joueur.cases_restantes > 0
                 : `⭐ Tu atterris sur l'Étoile ! Veux-tu l'acheter pour 20 pièces ? (Tu as ${joueur.pieces} pièces)`;
 
             const replyContent = { content: contentText, components: [row] };
-            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
-            else await interaction.editReply(replyContent);
+            if (isContinuation) await interaction.followUp({}).catch(()=>{});
+            else await interaction.editReply().catch(()=>{});
             createTimeout(interaction.user.id, 'etoile', interaction);
         } else if (interruption.type === 'boutique') {
             const plateauCur = await Plateau.findByPk(1);
@@ -228,8 +228,8 @@ const contentText = joueur.cases_restantes > 0
                     );
                 }
                 const replyContent = { content: shopMsg, components: [tempRow] };
-                if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
-                else await interaction.editReply(replyContent);
+                if (isContinuation) await interaction.followUp({}).catch(()=>{});
+                else await interaction.editReply().catch(()=>{});
                 return;
             }
 
@@ -260,8 +260,8 @@ const contentText = joueur.cases_restantes > 0
             );
 
             const replyContent = { content: shopMsg, components: [row] };
-            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
-            else await interaction.editReply(replyContent);
+            if (isContinuation) await interaction.followUp({}).catch(()=>{});
+            else await interaction.editReply().catch(()=>{});
             createTimeout(interaction.user.id, 'boutique', interaction);
         } else if (interruption.type === 'intersection') {
             const row = new ActionRowBuilder();
@@ -304,8 +304,8 @@ const contentText = joueur.cases_restantes > 0
                 }
             });
             const replyContent = { content: `🔀 **Intersection !** Quelle direction veux-tu prendre ?`, components: [row] };
-            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
-            else await interaction.editReply(replyContent);
+            if (isContinuation) await interaction.followUp({}).catch(()=>{});
+            else await interaction.editReply().catch(()=>{});
             createTimeout(interaction.user.id, "intersection", interaction);
         } else if (interruption.type === 'boo') {
             const tempRow = new ActionRowBuilder()
@@ -328,8 +328,8 @@ const contentText = joueur.cases_restantes > 0
                 ? `👻 Boo ! Tu passes devant moi. Voudrais-tu que je vole quelque chose pour toi ?`
                 : `👻 Boo ! Tu atterris sur ma case. Voudrais-tu que je vole quelque chose pour toi ?`;
             const replyContent = { content: contentText, components: [tempRow] };
-            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
-            else await interaction.editReply(replyContent);
+            if (isContinuation) await interaction.followUp({}).catch(()=>{});
+            else await interaction.editReply().catch(()=>{});
             createTimeout(interaction.user.id, 'boo', interaction);
         }
         return;
@@ -770,13 +770,13 @@ const contentText = joueur.cases_restantes > 0
             );
             
         const replyContent = { content: `👻 **Boo !** Que veux-tu faire ?\n- Voler des pièces (3 à 12) gratuitement\n- Voler une Étoile pour 50 pièces`, components: [row] };
-            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
-            else await interaction.editReply(replyContent);
+            if (isContinuation) await interaction.followUp({}).catch(()=>{});
+            else await interaction.editReply().catch(()=>{});
             createTimeout(interaction.user.id, 'boo', interaction);
     } else {
         const replyContent = { content: `Tu as atterri sur la case ${caseArrivee.id} ! Regarde le salon <#${config.boardChannelId}> pour voir le résultat.` };
-            if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 });
-            else await interaction.editReply(replyContent);
+            if (isContinuation) await interaction.followUp({}).catch(()=>{});
+            else await interaction.editReply().catch(()=>{});
     }
 }
 async function handleAcheterEtoile(interaction) {
@@ -812,7 +812,7 @@ async function handleAcheterEtoile(interaction) {
         await interaction.channel.send(successMsg);
     }
 
-    await interaction.editReply({ content: '⭐ **Bravo !** Tu as acheté une Étoile !', components: [] }).catch(()=>{});
+    await interaction.editReply().catch(()=>{});
     await handleContinuerDeplacement(interaction, ['etoile']);
 }
 
@@ -821,7 +821,7 @@ async function handlePasserEtoile(interaction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (joueur) {
-        await interaction.editReply({ content: "Tu as passé ton tour pour l'Étoile.", components: [] }).catch(() => {});
+        await interaction.editReply().catch(()=>{});
         await handleContinuerDeplacement(interaction, ['etoile']);
     }
 }
@@ -979,7 +979,7 @@ async function handleUseItem(interaction) {
     }
 
     await joueur.save();
-    await interaction.followUp({ content: message, flags: 64 });
+    await interaction.followUp({}).catch(()=>{});
 }
 
 async function handleDePipeChoix(interaction) {
@@ -989,7 +989,7 @@ async function handleDePipeChoix(interaction) {
     joueur.type_de = 'pipe';
     joueur.de_pipe_valeur = valeur;
     await joueur.save();
-    await interaction.followUp({ content: `Ton prochain lancer fera exactement ${valeur} !`, flags: 64 });
+    await interaction.followUp({}).catch(()=>{});
 }
 
 async function handleBooChoice(interaction) {
@@ -1033,7 +1033,7 @@ async function handleBooChoice(interaction) {
         .addOptions(options);
 
     const row = new ActionRowBuilder().addComponents(select);
-    await interaction.followUp({ content: `Qui veux-tu voler ?`, components: [row], flags: 64 });
+    await interaction.followUp({}).catch(()=>{});
 }
 
 async function handleBooTarget(interaction) {
@@ -1067,7 +1067,7 @@ async function handleBooTarget(interaction) {
     await joueur.save();
     await cible.save();
 
-    await interaction.editReply({ content: 'Vol effectué !', components: [] }).catch(()=>{});
+    await interaction.editReply().catch(()=>{});
     
     const channel = interaction.client.channels.cache.get(config.boardChannelId);
     if (channel) {
@@ -1109,7 +1109,7 @@ async function handleBuyItem(interaction) {
             joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
         }
         await joueur.save();
-        await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
+        await interaction.editReply().catch(()=>{});
         await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
     } else {
         if (joueur.inventaire.length >= 3) {
@@ -1147,7 +1147,7 @@ async function handleBuyItem(interaction) {
             joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
         }
         await joueur.save();
-        await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
+        await interaction.editReply().catch(()=>{});
         await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
     }
 }
@@ -1157,7 +1157,7 @@ async function handleBuyCancel(interaction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (joueur) {
-        await interaction.editReply({ content: 'Tu as quitté la boutique' + (joueur.cases_restantes > 0 ? ', en route !' : '.'), components: [] }).catch(()=>{});
+        await interaction.editReply().catch(()=>{});
         await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
     }
 }
@@ -1196,7 +1196,7 @@ async function handleReplaceBuy(interaction) {
 
     await joueur.save();
 
-    await interaction.editReply({ content: `🛒 Tu as jeté **${droppedItem}** et acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
+    await interaction.editReply().catch(()=>{});
     await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
 }
 
@@ -1222,7 +1222,7 @@ async function handleReplaceChance(interaction) {
 
     await joueur.save();
     
-    await interaction.editReply({ content: `🗑️ Tu as jeté **${droppedItem}** et gardé **${item.name}** !`, components: [] }).catch(()=>{});
+    await interaction.editReply().catch(()=>{});
 }
 
 async function handleUnblockFantome(interaction) {
@@ -1234,9 +1234,9 @@ async function handleUnblockFantome(interaction) {
         joueur.est_fantome = false;
         joueur.fantome_unblock_used = true;
         await joueur.save();
-        await interaction.editReply({ content: `🔓 Tu as utilisé ton déblocage unique pour cette partie de 30 tours ! Tu n'es plus en mode fantôme. Utilise à nouveau /jouer pour jouer.`, components: [] }).catch(()=>{});
+        await interaction.editReply().catch(()=>{});
     } else {
-         await interaction.editReply({ content: "Tu ne peux pas te débloquer.", components: [] }).catch(()=>{});
+         await interaction.editReply().catch(()=>{});
     }
 }
 

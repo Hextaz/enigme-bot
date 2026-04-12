@@ -60,9 +60,12 @@ function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, fillColor, stro
     ctx.stroke();
 }
 
+const globalAvatarCache = {};
+const globalUserCache = {};
+
 async function generateBoardImage(joueurs, plateau, client) {
-    const userCache = {};
-    const avatarCache = {};
+    const userCache = globalUserCache;
+    const avatarCache = globalAvatarCache;
     const canvas = createCanvas(BOARD_WIDTH, BOARD_HEIGHT);
     const ctx = canvas.getContext('2d');
 
