@@ -13,7 +13,7 @@ function createTimeout(userId, type, interaction) {
         if (activeInteractionTokens.get(userId) === token) {
             activeInteractionTokens.delete(userId);
             try {
-                await interaction.editReply({ components: [] }).catch(()=>{}).catch(()=>{});
+                await interaction.editReply({ components: [] }).catch(()=>{});
                 const j = await Joueur.findByPk(userId);
                 if (!j) return;
                 const channel = interaction.client.channels.cache.get(config.boardChannelId);
@@ -38,9 +38,7 @@ function createTimeout(userId, type, interaction) {
                         try { await handleContinuerDeplacement(mockInt, ['choix_direction']); } catch(e) { console.error(e); }
                     }
                 }
-                const { unlockUser } = require('./transaction');
-                unlockUser(userId);
-            } catch(e) { console.error(e); }
+                } catch(e) { console.error(e); } finally { const { unlockUser } = require('./transaction'); unlockUser(userId); }
         }
     }, 60000);
 }
@@ -812,7 +810,7 @@ async function handleAcheterEtoile(interaction) {
         await interaction.channel.send(successMsg);
     }
 
-    await interaction.editReply({ content: '⭐ **Bravo !** Tu as acheté une Étoile !', components: [] }).catch(()=>{}).catch(()=>{});
+    await interaction.editReply({ content: '⭐ **Bravo !** Tu as acheté une Étoile !', components: [] }).catch(()=>{});
     await handleContinuerDeplacement(interaction, ['etoile']);
 }
 
@@ -821,7 +819,7 @@ async function handlePasserEtoile(interaction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (joueur) {
-        await interaction.editReply({ content: "Tu as passé ton tour pour l'Étoile.", components: [] }).catch(() => {}).catch(()=>{});
+        await interaction.editReply({ content: "Tu as passé ton tour pour l'Étoile.", components: [] }).catch(() => {});
         await handleContinuerDeplacement(interaction, ['etoile']);
     }
 }
@@ -865,7 +863,7 @@ async function handleUtiliserObjet(interaction) {
         content: `**Ton inventaire :**\nTu es sur la case **${joueur.position}**. L'Étoile est sur la case **${plateau.position_etoile}**.\nQuel objet veux-tu utiliser ?`, 
         components: [row], 
         flags: 64 
-    });
+    }).catch(()=>{});
 }
 
 async function handleUseItem(interaction) {
@@ -1067,7 +1065,7 @@ async function handleBooTarget(interaction) {
     await joueur.save();
     await cible.save();
 
-    await interaction.editReply({ content: 'Vol effectué !', components: [] }).catch(()=>{}).catch(()=>{});
+    await interaction.editReply({ content: 'Vol effectué !', components: [] }).catch(()=>{});
     
     const channel = interaction.client.channels.cache.get(config.boardChannelId);
     if (channel) {
@@ -1076,7 +1074,6 @@ async function handleBooTarget(interaction) {
 }
 
 async function handleBuyItem(interaction) {
-    activeInteractionTokens.delete(interaction.user.id);
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const joueur = await Joueur.findByPk(interaction.user.id);
     let itemId = interaction.customId.replace('buy_', '').split('#')[0];
@@ -1109,7 +1106,8 @@ async function handleBuyItem(interaction) {
             joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
         }
         await joueur.save();
-        await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{}).catch(()=>{});
+        await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
+        activeInteractionTokens.delete(interaction.user.id);
         await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
     } else {
         if (joueur.inventaire.length >= 3) {
@@ -1147,7 +1145,8 @@ async function handleBuyItem(interaction) {
             joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
         }
         await joueur.save();
-        await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{}).catch(()=>{});
+        await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
+        activeInteractionTokens.delete(interaction.user.id);
         await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
     }
 }
@@ -1157,7 +1156,8 @@ async function handleBuyCancel(interaction) {
     if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (joueur) {
-        await interaction.editReply({ content: 'Tu as quitté la boutique' + (joueur.cases_restantes > 0 ? ', en route !' : '.'), components: [] }).catch(()=>{}).catch(()=>{});
+        await interaction.editReply({ content: 'Tu as quitté la boutique' + (joueur.cases_restantes > 0 ? ', en route !' : '.'), components: [] }).catch(()=>{});
+        activeInteractionTokens.delete(interaction.user.id);
         await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
     }
 }
@@ -1196,8 +1196,9 @@ async function handleReplaceBuy(interaction) {
 
     await joueur.save();
 
-    await interaction.editReply({ content: `🛒 Tu as jeté **${droppedItem}** et acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{}).catch(()=>{});
-    await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
+    await interaction.editReply({ content: `🛒 Tu as jeté **${droppedItem}** et acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
+    activeInteractionTokens.delete(interaction.user.id);
+        await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
 }
 
 async function handleReplaceChance(interaction) {
@@ -1222,7 +1223,7 @@ async function handleReplaceChance(interaction) {
 
     await joueur.save();
     
-    await interaction.editReply({ content: `🗑️ Tu as jeté **${droppedItem}** et gardé **${item.name}** !`, components: [] }).catch(()=>{}).catch(()=>{});
+    await interaction.editReply({ content: `🗑️ Tu as jeté **${droppedItem}** et gardé **${item.name}** !`, components: [] }).catch(()=>{});
 }
 
 async function handleUnblockFantome(interaction) {
@@ -1234,9 +1235,9 @@ async function handleUnblockFantome(interaction) {
         joueur.est_fantome = false;
         joueur.fantome_unblock_used = true;
         await joueur.save();
-        await interaction.editReply({ content: `🔓 Tu as utilisé ton déblocage unique pour cette partie de 30 tours ! Tu n'es plus en mode fantôme. Utilise à nouveau /jouer pour jouer.`, components: [] }).catch(()=>{}).catch(()=>{});
+        await interaction.editReply({ content: `🔓 Tu as utilisé ton déblocage unique pour cette partie de 30 tours ! Tu n'es plus en mode fantôme. Utilise à nouveau /jouer pour jouer.`, components: [] }).catch(()=>{});
     } else {
-         await interaction.editReply({ content: "Tu ne peux pas te débloquer.", components: [] }).catch(()=>{}).catch(()=>{});
+         await interaction.editReply({ content: "Tu ne peux pas te débloquer.", components: [] }).catch(()=>{});
     }
 }
 
