@@ -96,11 +96,11 @@ async function handleContinuerDeplacement(interaction, alreadyHandledOnStart = [
         return interaction.editReply({ content: 'Tu n\'as pas de déplacement en cours.' });
     }
 
-    // Sécurité supplémentaire : On vérifie si l'énigme du jour n'est pas "active" 
-    // Si c'est bloqué, alors on empêche tout déplacement (optionnel, mais efficace)
+    // On bypass le blocage énigme si le joueur a déjà commencé son tour (cases_restantes > 0)
+    // pour éviter qu'il ne reste bloqué en plein milieu du terrain le lendemain !
     const plateau = await Plateau.findByPk(1);
-    if (plateau && plateau.enigme_status === 'active') {
-        return interaction.editReply({ content: 'Le plateau est verrouillé ! Il faut d\'abord résoudre l\'énigme du jour.' });
+    if (plateau && plateau.enigme_status === 'active' && joueur.cases_restantes === 0) {
+        return interaction.editReply({ content: 'Le plateau est verrouillé ! Il faut d\'abord résoudre l\'énigme du jour.' }).catch(()=>{});
     }
 
     const de = joueur.cases_restantes;
@@ -753,7 +753,7 @@ const contentText = joueur.cases_restantes > 0
         await channel.send({ content: messageAction, files: [attachment] });
     }
 
-    if (caseArrivee.type === 'Boo') {
+    if (caseArrivee.type === 'Boo' && !alreadyHandledOnStart.includes('boo')) {
         const row = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
@@ -772,7 +772,11 @@ const contentText = joueur.cases_restantes > 0
             else await interaction.editReply(replyContent).catch(()=>{});
             createTimeout(interaction.user.id, 'boo', interaction);
     } else {
-        const replyContent = { content: `Tu as atterri sur la case ${caseArrivee.id} ! Regarde le salon <#${config.boardChannelId}> pour voir le résultat.` };
+        let text = `Tu as atterri sur la case ${caseArrivee.id} ! Regarde le salon <#${config.boardChannelId}> pour voir le résultat.`;
+        if (joueur.a_le_droit_de_jouer) {
+            text += `\n\n🎯 **Ton déplacement précédent est terminé !** Tu peux maintenant relancer la commande \`/jouer\` pour effectuer ton action d'aujourd'hui !`;
+        }
+        const replyContent = { content: text };
             if (isContinuation) await interaction.followUp({ ...replyContent, flags: 64 }).catch(()=>{});
             else await interaction.editReply(replyContent).catch(()=>{});
     }
