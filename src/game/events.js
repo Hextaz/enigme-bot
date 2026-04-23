@@ -1112,7 +1112,7 @@ async function handleBuyItem(interaction) {
         await joueur.save();
         await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
         activeInteractionTokens.delete(interaction.user.id);
-        await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
+        await handleContinuerDeplacement(interaction, ['boutique']);
     } else {
         if (joueur.inventaire.length >= 3) {
             const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -1151,7 +1151,7 @@ async function handleBuyItem(interaction) {
         await joueur.save();
         await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
         activeInteractionTokens.delete(interaction.user.id);
-        await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
+        await handleContinuerDeplacement(interaction, ['boutique']);
     }
 }
 
@@ -1162,7 +1162,7 @@ async function handleBuyCancel(interaction) {
     if (joueur) {
         await interaction.editReply({ content: 'Tu as quitté la boutique' + (joueur.cases_restantes > 0 ? ', en route !' : '.'), components: [] }).catch(()=>{});
         activeInteractionTokens.delete(interaction.user.id);
-        await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
+        await handleContinuerDeplacement(interaction, ['boutique']);
     }
 }
 
@@ -1202,7 +1202,7 @@ async function handleReplaceBuy(interaction) {
 
     await interaction.editReply({ content: `🛒 Tu as jeté **${droppedItem}** et acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
     activeInteractionTokens.delete(interaction.user.id);
-        await handleContinuerDeplacement(interaction, ['etoile', 'boutique']);
+        await handleContinuerDeplacement(interaction, ['boutique']);
 }
 
 async function handleReplaceChance(interaction) {
