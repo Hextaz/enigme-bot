@@ -31,7 +31,9 @@ function createTimeout(userId, type, interaction) {
                     }
                 } else if (type === 'intersection') {
                     if (channel) channel.send(`⏰ **<@${userId}>** a bêtement foncé tout droit à l'intersection !`);
-                    j.temp_choix_direction = getCase(j.position).next[0];
+                    const defaultPath = getCase(j.position).next[0];
+    console.log(`[TIMEOUT INTERSECTION] ${userId} sur case ${j.position} -> chemin par défaut ${defaultPath}`);
+    j.temp_choix_direction = defaultPath;
                     await j.save();
                     if (j.cases_restantes >= 0) {
                         const mockInt = { user: { id: userId, username: 'Joueur' }, client: interaction.client, editReply: async () => {}, followUp: async () => {}, update: async () => {}, deferred: true, replied: true };
@@ -1247,7 +1249,9 @@ async function handleUnblockFantome(interaction) {
 
 async function handleDirectionChoice(interaction) {
     activeInteractionTokens.delete(interaction.user.id);
-    await interaction.deferUpdate().catch(()=>{});
+    await interaction.deferUpdate().catch(err => {
+    console.error(`[INTERACTION FAIL] deferUpdate échoué pour ${interaction.user.id} (${interaction.customId}):`, err);
+  });
     const { Joueur } = require('../db/models');
     const joueur = await Joueur.findOne({ where: { discord_id: interaction.user.id } });
     if (!joueur) {
@@ -1267,6 +1271,7 @@ async function handleDirectionChoice(interaction) {
     }
 
     joueur.temp_choix_direction = pathChoisi;
+  console.log(`[CHOIX DIRECTION] ${joueur.discord_id} choisit le chemin ${pathChoisi} depuis la case ${joueur.position}`);
     await joueur.save();
 
     if (global.timeouts && global.timeouts[interaction.user.id]) {

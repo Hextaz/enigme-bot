@@ -102,6 +102,7 @@ client.once(Events.ClientReady, async c => {
 const processingUsers = new Set();
 
 client.on(Events.InteractionCreate, async interaction => {
+  console.log(`[INTERACTION] ${interaction.user?.id} - ${interaction.customId || interaction.commandName} - ${new Date().toISOString()}`);
     // --- L'ACCES SE FAIT ICI POUR LE MUTEX GLOBAL ---
     const isGameCommand = interaction.isChatInputCommand() && ['jouer'].includes(interaction.commandName);
     
