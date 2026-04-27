@@ -311,8 +311,7 @@ client.on(Events.InteractionCreate, async interaction => {
                 trancheLabel = '19h-20h';
               }
 
-              // Enregistrer la réponse et le gagnant
-              plateau.enigme_reponse = mot;
+              // Enregistrer le gagnant (la réponse est déjà définie lors de la programmation)
               const gagnants = [...(plateau.enigme_gagnants || [])];
               if (!gagnants.find(g => g.discord_id === userId)) {
                 gagnants.push({ discord_id: userId, pieces: reward, tranche: trancheLabel });
