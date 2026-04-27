@@ -95,10 +95,12 @@ async execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
   const publicSubcommands = ['start', 'lancer_enigme', 'stop', 'tour', 'give', 'remove', 'set_position'];
 
-  if (publicSubcommands.includes(subcommand)) {
-    await interaction.deferReply();
-  } else {
-    await interaction.deferReply({ flags: 64 });
+  if (subcommand !== 'programmer_enigme') {
+    if (publicSubcommands.includes(subcommand)) {
+      await interaction.deferReply();
+    } else {
+      await interaction.deferReply({ flags: 64 });
+    }
   }
 
   if (subcommand === 'start') {
