@@ -438,13 +438,15 @@ async function handleProgrammerEnigmeModal(interaction) {
   const reponse = decodeURIComponent(encodedReponse);
 
   const enigmeText = interaction.fields.getTextInputValue('enigme_text');
-  const indicesText = interaction.fields.getTextInputValue('indices_text');
-
-  // Parser les indices (un par ligne)
-  const lines = indicesText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  const indice1 = lines[0] || null;
-  const indice2 = lines[1] || null;
-  const indice3 = lines[2] || null;
+  
+  let indice1 = interaction.fields.getTextInputValue('indice_1');
+  indice1 = indice1.trim().length > 0 ? indice1.trim() : null;
+  
+  let indice2 = interaction.fields.getTextInputValue('indice_2');
+  indice2 = indice2.trim().length > 0 ? indice2.trim() : null;
+  
+  let indice3 = interaction.fields.getTextInputValue('indice_3');
+  indice3 = indice3.trim().length > 0 ? indice3.trim() : null;
 
   const plateau = await Plateau.findByPk(1);
   if (!plateau) {

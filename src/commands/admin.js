@@ -144,16 +144,29 @@ async execute(interaction) {
       .setRequired(true)
       .setPlaceholder('Entrez le texte de l\'énigme...');
 
-    const indicesInput = new TextInputBuilder()
-      .setCustomId('indices_text')
-      .setLabel('Indices (un par ligne : 18h / 19h / 20h)')
+    const indice1Input = new TextInputBuilder()
+      .setCustomId('indice_1')
+      .setLabel('Indice 18h')
       .setStyle(TextInputStyle.Paragraph)
-      .setRequired(true)
-      .setPlaceholder('Indice à 18h\nIndice à 19h\nIndice à 20h');
+      .setRequired(false);
+
+    const indice2Input = new TextInputBuilder()
+      .setCustomId('indice_2')
+      .setLabel('Indice 19h')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(false);
+
+    const indice3Input = new TextInputBuilder()
+      .setCustomId('indice_3')
+      .setLabel('Indice 20h')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(false);
 
     const firstRow = new ActionRowBuilder().addComponents(enigmeInput);
-    const secondRow = new ActionRowBuilder().addComponents(indicesInput);
-    modal.addComponents(firstRow, secondRow);
+    const secondRow = new ActionRowBuilder().addComponents(indice1Input);
+    const thirdRow = new ActionRowBuilder().addComponents(indice2Input);
+    const fourthRow = new ActionRowBuilder().addComponents(indice3Input);
+    modal.addComponents(firstRow, secondRow, thirdRow, fourthRow);
 
     await interaction.showModal(modal);
 
