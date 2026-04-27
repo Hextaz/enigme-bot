@@ -105,18 +105,19 @@ client.once(Events.ClientReady, async c => {
       const enigmaChannel = client.channels.cache.get(config.enigmaChannelId);
 
       if (enigmaChannel) {
+        const roleMention = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
         if (hourParis >= 18 && p.enigme_indice1 && !p.indice1_publie) {
-          await enigmaChannel.send(`💡 **Indice 1 (18h) :** ${p.enigme_indice1}`);
+          await enigmaChannel.send(`${roleMention}💡 **Indice 1 (18h) :** ${p.enigme_indice1}`);
           p.indice1_publie = true;
           await p.save();
         }
         if (hourParis >= 19 && p.enigme_indice2 && !p.indice2_publie) {
-          await enigmaChannel.send(`💡 **Indice 2 (19h) :** ${p.enigme_indice2}`);
+          await enigmaChannel.send(`${roleMention}💡 **Indice 2 (19h) :** ${p.enigme_indice2}`);
           p.indice2_publie = true;
           await p.save();
         }
         if (hourParis >= 20 && p.enigme_indice3 && !p.indice3_publie) {
-          await enigmaChannel.send(`💡 **Indice 3 (20h) :** ${p.enigme_indice3}`);
+          await enigmaChannel.send(`${roleMention}💡 **Indice 3 (20h) :** ${p.enigme_indice3}`);
           p.indice3_publie = true;
           await p.save();
         }

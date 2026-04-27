@@ -185,7 +185,8 @@ function initCronJobs(client) {
     if (plateau && plateau.enigme_status === 'active' && plateau.enigme_indice1 && !plateau.indice1_publie) {
       const enigmaChannel = client.channels.cache.get(config.enigmaChannelId);
       if (enigmaChannel) {
-        await enigmaChannel.send(`💡 **Indice 1 (18h) :** ${plateau.enigme_indice1}`);
+        const roleMention = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
+        await enigmaChannel.send(`${roleMention}💡 **Indice 1 (18h) :** ${plateau.enigme_indice1}`);
       }
       plateau.indice1_publie = true;
       await plateau.save();
@@ -201,7 +202,8 @@ function initCronJobs(client) {
     if (plateau && plateau.enigme_status === 'active' && plateau.enigme_indice2 && !plateau.indice2_publie) {
       const enigmaChannel = client.channels.cache.get(config.enigmaChannelId);
       if (enigmaChannel) {
-        await enigmaChannel.send(`💡 **Indice 2 (19h) :** ${plateau.enigme_indice2}`);
+        const roleMention = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
+        await enigmaChannel.send(`${roleMention}💡 **Indice 2 (19h) :** ${plateau.enigme_indice2}`);
       }
       plateau.indice2_publie = true;
       await plateau.save();
@@ -217,7 +219,8 @@ function initCronJobs(client) {
     if (plateau && plateau.enigme_status === 'active' && plateau.enigme_indice3 && !plateau.indice3_publie) {
       const enigmaChannel = client.channels.cache.get(config.enigmaChannelId);
       if (enigmaChannel) {
-        await enigmaChannel.send(`💡 **Indice 3 (20h) :** ${plateau.enigme_indice3}`);
+        const roleMention = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
+        await enigmaChannel.send(`${roleMention}💡 **Indice 3 (20h) :** ${plateau.enigme_indice3}`);
       }
       plateau.indice3_publie = true;
       await plateau.save();
