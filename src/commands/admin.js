@@ -148,19 +148,19 @@ async execute(interaction) {
       .setCustomId('indice_1')
       .setLabel('Indice 18h')
       .setStyle(TextInputStyle.Paragraph)
-      .setRequired(false);
+      .setRequired(true);
 
     const indice2Input = new TextInputBuilder()
       .setCustomId('indice_2')
       .setLabel('Indice 19h')
       .setStyle(TextInputStyle.Paragraph)
-      .setRequired(false);
+      .setRequired(true);
 
     const indice3Input = new TextInputBuilder()
       .setCustomId('indice_3')
       .setLabel('Indice 20h')
       .setStyle(TextInputStyle.Paragraph)
-      .setRequired(false);
+      .setRequired(true);
 
     const firstRow = new ActionRowBuilder().addComponents(enigmeInput);
     const secondRow = new ActionRowBuilder().addComponents(indice1Input);

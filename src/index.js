@@ -394,9 +394,13 @@ client.on(Events.InteractionCreate, async interaction => {
         }
       } catch (error) {
         if (error.code === 10062) console.warn('[Timeout] Interaction (SelectMenu) a expiré avant réponse (10062).');
-        else console.error(error);
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: 'Erreur lors de la sélection.', flags: 64 }).catch(e => {
+        else console.error('Erreur lors du ModalSubmit :', error);
+        
+        const errorMsg = 'Erreur lors du traitement. Regarde les logs pour plus de détails.';
+        if (interaction.replied || interaction.deferred) {
+          await interaction.editReply({ content: errorMsg, flags: 64 }).catch(()=>{});
+        } else {
+          await interaction.reply({ content: errorMsg, flags: 64 }).catch(e => {
             if (e.code !== 10062) console.error("Impossible de répondre SelectMenu:", e);
           });
         }
@@ -413,7 +417,9 @@ client.on(Events.InteractionCreate, async interaction => {
       } catch (error) {
         if (error.code === 10062) console.warn('[Timeout] Interaction (Modal) a expiré avant réponse (10062).');
         else console.error(error);
-        if (!interaction.replied && !interaction.deferred) {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.editReply({ content: 'Erreur lors de l\'enregistrement de l\'énigme. Vérifie que tu as bien rempli les champs ou regarde les logs du bot.', flags: 64 }).catch(()=>{});
+        } else {
           await interaction.reply({ content: 'Erreur lors de l\'enregistrement.', flags: 64 }).catch(e => {
             if (e.code !== 10062) console.error("Impossible de répondre Modal:", e);
           });
@@ -438,16 +444,26 @@ async function handleProgrammerEnigmeModal(interaction) {
   const encodedReponse = interaction.customId.replace('modal_programmer_enigme_', '');
   const reponse = decodeURIComponent(encodedReponse);
 
-  const enigmeText = interaction.fields.getTextInputValue('enigme_text');
+  let enigmeText = "Énigme";
+  try { enigmeText = interaction.fields.getTextInputValue('enigme_text'); } catch(e) {}
   
-  let indice1 = interaction.fields.getTextInputValue('indice_1');
-  indice1 = indice1.trim().length > 0 ? indice1.trim() : null;
+  let indice1 = null;
+  try {
+    const val = interaction.fields.getTextInputValue('indice_1');
+    if (val && val.trim().length > 0) indice1 = val.trim();
+  } catch(e) {}
   
-  let indice2 = interaction.fields.getTextInputValue('indice_2');
-  indice2 = indice2.trim().length > 0 ? indice2.trim() : null;
+  let indice2 = null;
+  try {
+    const val = interaction.fields.getTextInputValue('indice_2');
+    if (val && val.trim().length > 0) indice2 = val.trim();
+  } catch(e) {}
   
-  let indice3 = interaction.fields.getTextInputValue('indice_3');
-  indice3 = indice3.trim().length > 0 ? indice3.trim() : null;
+  let indice3 = null;
+  try {
+    const val = interaction.fields.getTextInputValue('indice_3');
+    if (val && val.trim().length > 0) indice3 = val.trim();
+  } catch(e) {}
 
   const plateau = await Plateau.findByPk(1);
   if (!plateau) {
