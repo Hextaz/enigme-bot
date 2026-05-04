@@ -1,7 +1,8 @@
 const cron = require('node-cron');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
-const { Joueur, Plateau } = require('../db/models');
+const { Joueur, Plateau, TourSnapshot } = require('../db/models');
+const { Op } = require('sequelize');
 
 // Variables globales pour les paris
 let parisActifs = false;
@@ -442,6 +443,30 @@ function initCronJobs(client) {
       }
 
       await channel.send(msg);
+    }
+  }, {
+    timezone: "Europe/Paris"
+  });
+
+  // Nettoyer les snapshots anciens tous les jours à minuit
+  cron.schedule('0 0 * * *', async () => {
+    try {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const deletedCount = await TourSnapshot.destroy({
+        where: {
+          timestamp: {
+            [Op.lt]: sevenDaysAgo
+          }
+        }
+      });
+
+      if (deletedCount > 0) {
+        console.log(`[CLEANUP] ${deletedCount} anciens snapshots de tours supprimés.`);
+      }
+    } catch (error) {
+      console.error('[CLEANUP] Erreur lors du nettoyage des snapshots:', error);
     }
   }, {
     timezone: "Europe/Paris"

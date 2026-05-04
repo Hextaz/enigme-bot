@@ -203,4 +203,48 @@ const Plateau = sequelize.define('Plateau', {
   timestamps: false
 });
 
-module.exports = { Joueur, Plateau, sequelize };
+const TourSnapshot = sequelize.define('TourSnapshot', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  discord_id: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  tour: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  timestamp: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  },
+  // État du joueur
+  position: DataTypes.INTEGER,
+  pieces: DataTypes.INTEGER,
+  etoiles: DataTypes.INTEGER,
+  inventaire: DataTypes.JSON,
+  a_le_droit_de_jouer: DataTypes.BOOLEAN,
+  a_joue_ce_tour: DataTypes.BOOLEAN,
+  cases_restantes: DataTypes.INTEGER,
+  jours_inactifs: DataTypes.INTEGER,
+  est_fantome: DataTypes.BOOLEAN,
+  fantome_unblock_used: DataTypes.BOOLEAN,
+  bonus_prochain_lancer: DataTypes.INTEGER,
+  de_limite: DataTypes.BOOLEAN,
+  type_de: DataTypes.STRING,
+  de_pipe_valeur: DataTypes.INTEGER,
+  // État global affecté
+  plateau_position_etoile: DataTypes.INTEGER,
+  plateau_pieges_actifs: DataTypes.JSON,
+  plateau_blocs_caches: DataTypes.JSON,
+  // Snapshot des autres joueurs (pour les vols/échanges)
+  autres_joueurs_snapshot: DataTypes.JSON
+}, {
+  tableName: 'tour_snapshots',
+  timestamps: false
+});
+
+module.exports = { Joueur, Plateau, TourSnapshot, sequelize };

@@ -90,6 +90,12 @@ data: new SlashCommandBuilder()
   subcommand
     .setName('open_black_market')
     .setDescription('Force l\'ouverture du Marché Noir (utile si le cron a planté le dimanche).')
+)
+.addSubcommand(subcommand =>
+  subcommand
+    .setName('annuler_tour')
+    .setDescription('Annule le tour en cours d\'un joueur et le remet à son état initial.')
+    .addUserOption(option => option.setName('joueur').setDescription('Le joueur concerné').setRequired(true))
 ),
 async execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
@@ -316,6 +322,100 @@ async execute(interaction) {
     }
 
     await interaction.editReply({ content: '✅ Le Marché Noir a été ouvert manuellement avec succès et tous les joueurs ont été débloqués.', flags: 64 });
+
+  } else if (subcommand === 'annuler_tour') {
+    const { TourSnapshot } = require('../db/models');
+    const { getLockedUser, forceUnlock } = require('../game/transaction');
+    const targetUser = interaction.options.getUser('joueur');
+
+    // Vérifier si le joueur est actuellement verrouillé
+    const lockedUser = getLockedUser();
+
+    if (lockedUser === targetUser.id) {
+      // Forcer le déverrouillage
+      forceUnlock();
+      console.log(`[ADMIN] Force unlock for user ${targetUser.id} during tour cancellation`);
+    }
+
+    const joueur = await Joueur.findByPk(targetUser.id);
+    if (!joueur) {
+      return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", flags: 64 });
+    }
+
+    const plateau = await Plateau.findByPk(1);
+
+    // Trouver le snapshot le plus récent pour ce joueur et ce tour
+    const snapshot = await TourSnapshot.findOne({
+      where: {
+        discord_id: targetUser.id,
+        tour: plateau.tour
+      },
+      order: [['timestamp', 'DESC']]
+    });
+
+    if (!snapshot) {
+      return interaction.editReply({ content: `Aucun snapshot trouvé pour <@${targetUser.id}> au tour ${plateau.tour}.`, flags: 64 });
+    }
+
+    // Restaurer l'état du joueur
+    joueur.position = snapshot.position;
+    joueur.pieces = snapshot.pieces;
+    joueur.etoiles = snapshot.etoiles;
+    joueur.inventaire = snapshot.inventaire;
+    joueur.a_le_droit_de_jouer = true; // Débloquer le joueur
+    joueur.a_joue_ce_tour = false;
+    joueur.cases_restantes = 0;
+    joueur.jours_inactifs = snapshot.jours_inactifs;
+    joueur.est_fantome = snapshot.est_fantome;
+    joueur.fantome_unblock_used = snapshot.fantome_unblock_used;
+    joueur.bonus_prochain_lancer = snapshot.bonus_prochain_lancer;
+    joueur.de_limite = snapshot.de_limite;
+    joueur.type_de = snapshot.type_de;
+    joueur.de_pipe_valeur = snapshot.de_pipe_valeur;
+
+    await joueur.save();
+
+    // Restaurer l'état global si nécessaire
+    if (snapshot.plateau_position_etoile !== plateau.position_etoile) {
+      plateau.position_etoile = snapshot.plateau_position_etoile;
+      await plateau.save();
+    }
+
+    if (JSON.stringify(snapshot.plateau_pieges_actifs) !== JSON.stringify(plateau.pieges_actifs)) {
+      plateau.pieges_actifs = snapshot.plateau_pieges_actifs;
+      await plateau.save();
+    }
+
+    if (JSON.stringify(snapshot.plateau_blocs_caches) !== JSON.stringify(plateau.blocs_caches)) {
+      plateau.blocs_caches = snapshot.plateau_blocs_caches;
+      await plateau.save();
+    }
+
+    // Restaurer les autres joueurs si nécessaire
+    if (snapshot.autres_joueurs_snapshot && snapshot.autres_joueurs_snapshot.length > 0) {
+      for (const otherSnapshot of snapshot.autres_joueurs_snapshot) {
+        const otherJoueur = await Joueur.findByPk(otherSnapshot.discord_id);
+        if (otherJoueur) {
+          otherJoueur.pieces = otherSnapshot.pieces;
+          otherJoueur.etoiles = otherSnapshot.etoiles;
+          otherJoueur.inventaire = otherSnapshot.inventaire;
+          otherJoueur.position = otherSnapshot.position;
+          await otherJoueur.save();
+        }
+      }
+    }
+
+    // Supprimer le snapshot après restauration
+    await snapshot.destroy();
+
+    await interaction.editReply(`🔄 **Tour annulé !** <@${targetUser.id}> a été remis dans son état initial du tour ${plateau.tour}. Il peut maintenant rejouer.`);
+
+    // Notifier sur le canal du plateau
+    const config = require('../config');
+    const channel = interaction.client.channels.cache.get(config.boardChannelId);
+    if (channel) {
+      await channel.send(`🔄 **ANNULATION DE TOUR** : Le tour de <@${targetUser.id}> a été annulé par un admin. Il a été remis dans son état initial.`);
+    }
   }
 },
 };

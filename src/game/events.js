@@ -1,5 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
-const { Joueur, Plateau } = require('../db/models');
+const { Joueur, Plateau, TourSnapshot } = require('../db/models');
 const { getCase } = require('./board');
 const { generateBoardImage } = require('../utils/canvas');
 const config = require('../config');
@@ -46,12 +46,52 @@ function createTimeout(userId, type, interaction) {
 }
 
 
+async function createTourSnapshot(joueur, plateau, tousLesJoueurs) {
+    const autresJoueurs = tousLesJoueurs
+        .filter(j => j.discord_id !== joueur.discord_id)
+        .map(j => ({
+            discord_id: j.discord_id,
+            pieces: j.pieces,
+            etoiles: j.etoiles,
+            inventaire: j.inventaire,
+            position: j.position
+        }));
+
+    await TourSnapshot.create({
+        discord_id: joueur.discord_id,
+        tour: plateau.tour,
+        position: joueur.position,
+        pieces: joueur.pieces,
+        etoiles: joueur.etoiles,
+        inventaire: joueur.inventaire,
+        a_le_droit_de_jouer: joueur.a_le_droit_de_jouer,
+        a_joue_ce_tour: joueur.a_joue_ce_tour,
+        cases_restantes: joueur.cases_restantes,
+        jours_inactifs: joueur.jours_inactifs,
+        est_fantome: joueur.est_fantome,
+        fantome_unblock_used: joueur.fantome_unblock_used,
+        bonus_prochain_lancer: joueur.bonus_prochain_lancer,
+        de_limite: joueur.de_limite,
+        type_de: joueur.type_de,
+        de_pipe_valeur: joueur.de_pipe_valeur,
+        plateau_position_etoile: plateau.position_etoile,
+        plateau_pieges_actifs: plateau.pieges_actifs,
+        plateau_blocs_caches: plateau.blocs_caches,
+        autres_joueurs_snapshot: autresJoueurs
+    });
+}
+
 async function handleLancerDe(interaction) {
     await interaction.deferReply({ flags: 64 });
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (!joueur || !joueur.a_le_droit_de_jouer) {
         return interaction.editReply({ content: 'Tu n\'as pas le droit de jouer.' });
     }
+
+    // Créer un snapshot avant le tour
+    const plateau = await Plateau.findByPk(1);
+    const tousLesJoueurs = await Joueur.findAll();
+    await createTourSnapshot(joueur, plateau, tousLesJoueurs);
 
     // Lancer le dé
     let de = 0;
