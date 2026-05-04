@@ -37,6 +37,46 @@ const client = new Client({
   rest: { timeout: 60000 },
 });
 
+// Connection status tracking for health checks
+let isReady = false;
+
+// Handle WebSocket errors
+client.on(Events.Error, error => {
+  console.error('Discord client error:', error);
+});
+
+client.on(Events.ShardError, error => {
+  console.error('Discord shard error:', error);
+});
+
+// Handle disconnection
+client.on(Events.Disconnect, () => {
+  isReady = false;
+  console.warn('Discord client disconnected. Attempting to reconnect...');
+});
+
+// Handle reconnection
+client.on(Events.Reconnecting, () => {
+  console.warn('Discord client reconnecting...');
+});
+
+// Handle successful resume
+client.on(Events.Resume, () => {
+  isReady = true;
+  console.log('Discord client resumed connection.');
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Received SIGINT, shutting down gracefully...');
+  client.destroy().then(() => process.exit(0));
+});
+
+process.on('SIGTERM', () => {
+  console.log('Received SIGTERM, shutting down gracefully...');
+  client.destroy().then(() => process.exit(0));
+});
+
 client.commands = new Collection();
 
 // Charger les commandes
@@ -58,6 +98,7 @@ for (const file of commandFiles) {
 
 client.once(Events.ClientReady, async c => {
   console.log(`Prêt ! Connecté en tant que ${c.user.tag}`);
+  isReady = true;
 
   try {
     const guild = await c.guilds.fetch(config.guildId).catch(() => null);
@@ -236,8 +277,12 @@ client.on(Events.InteractionCreate, async interaction => {
             return interaction.reply({ content: "Ce bouton n'est pas pour toi.", flags: 64 });
           }
 
+          await interaction.deferReply({ flags: 64 });
+
           const joueur = await Joueur.findByPk(userId);
-          if (!joueur || !joueur.last_deviner_time) return interaction.reply({ content: "Erreur lors de la récupération du cooldown.", flags: 64 });
+          if (!joueur || !joueur.last_deviner_time) {
+            return interaction.editReply({ content: "Erreur lors de la récupération du cooldown." });
+          }
 
           const COOLDOWN_MINUTES = 30;
           const now = new Date();
@@ -246,7 +291,7 @@ client.on(Events.InteractionCreate, async interaction => {
           const remainingMins = COOLDOWN_MINUTES - diffMins;
 
           if (remainingMins > 0) {
-            await interaction.reply({ content: `D'accord ! Je t'enverrai un MP dans environ ${remainingMins} minute(s).`, flags: 64 });
+            await interaction.editReply({ content: `D'accord ! Je t'enverrai un MP dans environ ${remainingMins} minute(s).` });
 
             setTimeout(async () => {
               try {
@@ -256,7 +301,7 @@ client.on(Events.InteractionCreate, async interaction => {
               }
             }, remainingMins * 60000);
           } else {
-            await interaction.reply({ content: "Ton cooldown est déjà terminé, tu peux jouer !", flags: 64 });
+            await interaction.editReply({ content: "Ton cooldown est déjà terminé, tu peux jouer !" });
           }
         } else if (interaction.customId.startsWith('reponse_')) {
           await interaction.deferReply({ flags: 64 });
@@ -507,3 +552,6 @@ async function handleProgrammerEnigmeModal(interaction) {
 }
 
 client.login(config.token);
+
+// Export for health checks
+module.exports.isReady = () => isReady;

@@ -8,8 +8,9 @@ function lockUser(userId) {
     activeLock = userId;
     if (lockTimeout) clearTimeout(lockTimeout);
     lockTimeout = setTimeout(() => {
+        console.warn(`Lock timeout for user ${activeLock} - releasing lock`);
         activeLock = null;
-    }, 90000); // 90 seconds max per turn
+    }, 120000); // 120 seconds max per turn
     return true; // Successfully acquired or already owned
 }
 
