@@ -435,6 +435,10 @@ client.on(Events.InteractionCreate, async interaction => {
         } else if (interaction.customId.startsWith('replace_chance_')) {
           const { handleReplaceChance } = require('./game/events');
           await handleReplaceChance(interaction);
+        } else if (interaction.customId.startsWith('admin_give_objet_')) {
+          await handleAdminGiveObjet(interaction);
+        } else if (interaction.customId.startsWith('admin_remove_objet_')) {
+          await handleAdminRemoveObjet(interaction);
         }
       } catch (error) {
         if (error.code === 10062) console.warn('[Timeout] Interaction (SelectMenu) a expiré avant réponse (10062).');
@@ -549,6 +553,73 @@ async function handleProgrammerEnigmeModal(interaction) {
   confirmMsg += `\n📣 L'énigme sera publiée automatiquement à **17h** dans le salon énigme.`;
 
   await interaction.editReply({ content: confirmMsg, flags: 64 });
+}
+
+async function handleAdminGiveObjet(interaction) {
+  const customId = interaction.customId;
+  const userId = customId.replace('admin_give_objet_', '');
+
+  const joueur = await Joueur.findByPk(userId);
+
+  if (!joueur) {
+    return interaction.update({
+      content: "Le joueur n'existe plus dans la base de données.",
+      components: []
+    });
+  }
+
+  const selectedItem = interaction.values[0];
+  const inventaire = [...joueur.inventaire];
+
+  if (inventaire.length >= 3) {
+    return interaction.update({
+      content: `L'inventaire de <@${userId}> est plein (max 3).`,
+      components: []
+    });
+  }
+
+  inventaire.push(selectedItem);
+  joueur.inventaire = inventaire;
+  await joueur.save();
+
+  await interaction.update({
+    content: `✅ L'objet "${selectedItem}" a été donné à <@${userId}>.`,
+    components: []
+  });
+}
+
+async function handleAdminRemoveObjet(interaction) {
+  const customId = interaction.customId;
+  const userId = customId.replace('admin_remove_objet_', '');
+
+  const joueur = await Joueur.findByPk(userId);
+
+  if (!joueur) {
+    return interaction.update({
+      content: "Le joueur n'existe plus dans la base de données.",
+      components: []
+    });
+  }
+
+  const selectedItem = interaction.values[0];
+  const inventaire = [...joueur.inventaire];
+  const index = inventaire.indexOf(selectedItem);
+
+  if (index === -1) {
+    return interaction.update({
+      content: `Erreur: l'objet "${selectedItem}" n'est pas dans l'inventaire.`,
+      components: []
+    });
+  }
+
+  inventaire.splice(index, 1);
+  joueur.inventaire = inventaire;
+  await joueur.save();
+
+  await interaction.update({
+    content: `✅ L'objet "${selectedItem}" a été retiré à <@${userId}>.`,
+    components: []
+  });
 }
 
 client.login(config.token);

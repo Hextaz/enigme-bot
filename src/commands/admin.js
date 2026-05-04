@@ -42,7 +42,7 @@ data: new SlashCommandBuilder()
           { name: 'Objet', value: 'objet' }
         )
     )
-    .addStringOption(option => option.setName('valeur').setDescription('Quantité (nombre) ou Nom de l\'objet').setRequired(true))
+    .addIntegerOption(option => option.setName('quantite').setDescription('Quantité (pour pièces/étoiles)').setMinValue(1))
 )
 .addSubcommand(subcommand =>
   subcommand
@@ -59,7 +59,7 @@ data: new SlashCommandBuilder()
           { name: 'Objet', value: 'objet' }
         )
     )
-    .addStringOption(option => option.setName('valeur').setDescription('Quantité (nombre) ou Nom de l\'objet').setRequired(true))
+    .addIntegerOption(option => option.setName('quantite').setDescription('Quantité (pour pièces/étoiles)').setMinValue(1))
 )
 .addSubcommand(subcommand =>
   subcommand
@@ -190,7 +190,6 @@ async execute(interaction) {
   } else if (subcommand === 'give' || subcommand === 'remove') {
     const targetUser = interaction.options.getUser('joueur');
     const ressource = interaction.options.getString('ressource');
-    const valeur = interaction.options.getString('valeur');
 
     let joueur = await Joueur.findByPk(targetUser.id);
     if (!joueur) {
@@ -199,8 +198,10 @@ async execute(interaction) {
     }
 
     if (ressource === 'pieces' || ressource === 'etoiles') {
-      const quantite = parseInt(valeur);
-      if (isNaN(quantite) || quantite <= 0) return interaction.editReply({ content: "Veuillez entrer un nombre valide et positif.", flags: 64 });
+      const quantite = interaction.options.getInteger('quantite');
+      if (!quantite || quantite <= 0) {
+        return interaction.editReply({ content: "Veuillez entrer une quantité valide et positive.", flags: 64 });
+      }
 
       if (subcommand === 'give') {
         joueur[ressource] += quantite;
@@ -213,26 +214,24 @@ async execute(interaction) {
       }
     } else if (ressource === 'objet') {
       if (subcommand === 'give') {
-        const inventaire = [...joueur.inventaire];
-        if (inventaire.length < 3) {
-          inventaire.push(valeur);
-          joueur.inventaire = inventaire;
-          await joueur.save();
-          await interaction.editReply(`✅ L'objet "${valeur}" a été donné à <@${targetUser.id}>.`);
-        } else {
-          return interaction.editReply({ content: 'L\'inventaire du joueur est plein (max 3).', flags: 64 });
-        }
+        const row = generateGiveObjetSelectMenu(targetUser.id);
+        await interaction.editReply({
+          content: `Quel objet veux-tu donner à <@${targetUser.id}> ?`,
+          components: [row]
+        });
       } else {
-        const inventaire = [...joueur.inventaire];
-        const index = inventaire.indexOf(valeur);
-        if (index !== -1) {
-          inventaire.splice(index, 1);
-          joueur.inventaire = inventaire;
-          await joueur.save();
-          await interaction.editReply(`✅ L'objet "${valeur}" a été retiré à <@${targetUser.id}>.`);
-        } else {
-          return interaction.editReply({ content: `Le joueur ne possède pas l'objet "${valeur}".`, flags: 64 });
+        if (joueur.inventaire.length === 0) {
+          return interaction.editReply({
+            content: `<@${targetUser.id}> n'a aucun objet dans son inventaire.`,
+            flags: 64
+          });
         }
+
+        const row = generateRemoveObjetSelectMenu(targetUser.id, joueur.inventaire);
+        await interaction.editReply({
+          content: `Quel objet veux-tu retirer à <@${targetUser.id}> ?`,
+          components: [row]
+        });
       }
     }
 
@@ -320,3 +319,36 @@ async execute(interaction) {
   }
 },
 };
+
+function generateGiveObjetSelectMenu(userId) {
+  const { ITEMS } = require('../game/items');
+  const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+
+  const options = Object.values(ITEMS).map(item => ({
+    label: item.name,
+    value: item.name
+  }));
+
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`admin_give_objet_${userId}`)
+    .setPlaceholder('Choisis un objet à donner')
+    .addOptions(options);
+
+  return new ActionRowBuilder().addComponents(select);
+}
+
+function generateRemoveObjetSelectMenu(userId, inventory) {
+  const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+
+  const options = inventory.map((itemName, index) => ({
+    label: `${index + 1}. ${itemName}`,
+    value: itemName
+  }));
+
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`admin_remove_objet_${userId}`)
+    .setPlaceholder('Choisis un objet à retirer')
+    .addOptions(options);
+
+  return new ActionRowBuilder().addComponents(select);
+}

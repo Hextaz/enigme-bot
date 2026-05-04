@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(grep -E \"\\\\.js$|\\\\.json$\")",
-      "Bash(npm audit *)"
+      "Bash(npm audit *)",
+      "Bash(node *)"
     ]
   }
 }
