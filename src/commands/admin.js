@@ -136,7 +136,6 @@ async execute(interaction) {
 
   } else if (subcommand === 'programmer_enigme') {
     const reponse = interaction.options.getString('reponse');
-    const plateau = await Plateau.findByPk(1);
 
     // Ouvrir le modal pour saisir l'énigme et les indices
     const modal = new ModalBuilder()
