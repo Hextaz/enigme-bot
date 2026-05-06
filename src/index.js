@@ -1,7 +1,7 @@
 const { Client, GatewayIntentBits, Collection, Events, Partials, Options } = require('discord.js');
 const config = require('./config');
 const { sequelize, Joueur, Plateau } = require('./db/models');
-const { lockUser, unlockUser, getLockedUser } = require('./game/transaction');
+const { lockUser, unlockUser, getLockedUser, getLockInfo } = require('./game/transaction');
 const { triggerEnigmaEnd } = require('./game/enigma');
 const { activeInteractionTokens } = require('./game/events');
 const fs = require('fs');
@@ -187,11 +187,26 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   if (isGameCommand || isGameAction) {
-    if (processingUsers.has(interaction.user.id)) return interaction.reply({ content: "? Ton action précédente est en cours de traitement !", flags: 64 }).catch(()=>{});
+    if (processingUsers.has(interaction.user.id)) {
+      console.log(`[LOCK] Utilisateur ${interaction.user.id} déjà en cours de traitement`);
+      return interaction.reply({ content: "? Ton action précédente est en cours de traitement !", flags: 64 }).catch(()=>{});
+    }
+
     const lockedId = getLockedUser();
-    if (lockedId && lockedId !== interaction.user.id) return interaction.reply({ content: "? Un autre joueur effectue actuellement son action !", flags: 64 }).catch(()=>{});
+    if (lockedId && lockedId !== interaction.user.id) {
+      const lockInfo = getLockInfo();
+      const lockAge = lockInfo ? Math.floor(lockInfo.duration / 1000) : 'inconnu';
+      console.log(`[LOCK] Action refusée pour ${interaction.user.id} - verrou détenu par ${lockedId} (depuis ${lockAge}s)`);
+      return interaction.reply({ content: "? Un autre joueur effectue actuellement son action !", flags: 64 }).catch(()=>{});
+    }
+
     processingUsers.add(interaction.user.id);
-    lockUser(interaction.user.id);
+    const lockAcquired = lockUser(interaction.user.id);
+    if (!lockAcquired) {
+      console.error(`[LOCK] Échec de l'acquisition du verrou pour ${interaction.user.id}`);
+      processingUsers.delete(interaction.user.id);
+      return interaction.reply({ content: "? Erreur de verrouillage. Veuillez réessayer.", flags: 64 }).catch(()=>{});
+    }
   }
 
   try {
@@ -206,8 +221,11 @@ client.on(Events.InteractionCreate, async interaction => {
       try {
         await command.execute(interaction);
       } catch (error) {
-        if (error.code === 10062) console.warn('[Timeout] Interaction (ChatInputCommand) a expiré avant réponse (10062).');
-        else console.error(error);
+        if (error.code === 10062) {
+          console.warn('[Timeout] Interaction (ChatInputCommand) a expiré avant réponse (10062).');
+        } else {
+          console.error('[ERROR] Erreur lors de l\'exécution de la commande:', error);
+        }
         try {
           if (interaction.replied || interaction.deferred) {
             await interaction.followUp({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', flags: 64 });
@@ -215,7 +233,11 @@ client.on(Events.InteractionCreate, async interaction => {
             await interaction.reply({ content: 'Il y a eu une erreur lors de l\'exécution de cette commande !', flags: 64 });
           }
         } catch (e) {
-          if (e.code !== 10062) console.error("Impossible de répondre à l'interaction qui a échoué.", e);
+          if (e.code !== 10062) {
+            console.error("[ERROR] Impossible de répondre à l'interaction qui a échoué:", e);
+          } else {
+            console.warn('[Timeout] Impossible de répondre - interaction déjà expirée (10062).');
+          }
         }
       }
     } else if (interaction.isButton()) {
@@ -409,8 +431,11 @@ client.on(Events.InteractionCreate, async interaction => {
           await interaction.update({ content: `❌ L'exclusion a été annulée.`, components: [] });
         }
       } catch (error) {
-        if (error.code === 10062) console.warn('[Timeout] Interaction (Button) a expiré avant réponse (10062).');
-        else console.error(error);
+        if (error.code === 10062) {
+          console.warn('[Timeout] Interaction (Button) a expiré avant réponse (10062).');
+        } else {
+          console.error('[ERROR] Erreur lors du traitement du bouton:', error);
+        }
         try {
           if (interaction.replied || interaction.deferred) {
             await interaction.followUp({ content: 'Une erreur est survenue lors de l\'action.', flags: 64 });
@@ -418,7 +443,11 @@ client.on(Events.InteractionCreate, async interaction => {
             await interaction.reply({ content: 'Une erreur est survenue lors de l\'action.', flags: 64 });
           }
         } catch (e) {
-          if (e.code !== 10062) console.error("Impossible de répondre à l'interaction Button.", e);
+          if (e.code !== 10062) {
+            console.error("[ERROR] Impossible de répondre à l'interaction Button:", e);
+          } else {
+            console.warn('[Timeout] Impossible de répondre - interaction Button déjà expirée (10062).');
+          }
         }
       }
     } else if (interaction.isStringSelectMenu()) {
@@ -441,16 +470,29 @@ client.on(Events.InteractionCreate, async interaction => {
           await handleAdminRemoveObjet(interaction);
         }
       } catch (error) {
-        if (error.code === 10062) console.warn('[Timeout] Interaction (SelectMenu) a expiré avant réponse (10062).');
-        else console.error('Erreur lors du ModalSubmit :', error);
-        
-        const errorMsg = 'Erreur lors du traitement. Regarde les logs pour plus de détails.';
-        if (interaction.replied || interaction.deferred) {
-          await interaction.editReply({ content: errorMsg, flags: 64 }).catch(()=>{});
+        if (error.code === 10062) {
+          console.warn('[Timeout] Interaction (SelectMenu) a expiré avant réponse (10062).');
         } else {
-          await interaction.reply({ content: errorMsg, flags: 64 }).catch(e => {
-            if (e.code !== 10062) console.error("Impossible de répondre SelectMenu:", e);
-          });
+          console.error('[ERROR] Erreur lors du traitement du SelectMenu:', error);
+        }
+
+        const errorMsg = 'Erreur lors du traitement. Regarde les logs pour plus de détails.';
+        try {
+          if (interaction.replied || interaction.deferred) {
+            await interaction.editReply({ content: errorMsg, flags: 64 }).catch(()=>{});
+          } else {
+            await interaction.reply({ content: errorMsg, flags: 64 }).catch(e => {
+              if (e.code !== 10062) {
+                console.error("[ERROR] Impossible de répondre SelectMenu:", e);
+              } else {
+                console.warn('[Timeout] Impossible de répondre - interaction SelectMenu déjà expirée (10062).');
+              }
+            });
+          }
+        } catch (e) {
+          if (e.code !== 10062) {
+            console.error("[ERROR] Impossible de répondre à l'erreur SelectMenu:", e);
+          }
         }
       }
     } else if (interaction.isModalSubmit()) {
@@ -463,22 +505,38 @@ client.on(Events.InteractionCreate, async interaction => {
           await handleProgrammerEnigmeModal(interaction);
         }
       } catch (error) {
-        if (error.code === 10062) console.warn('[Timeout] Interaction (Modal) a expiré avant réponse (10062).');
-        else console.error(error);
-        if (interaction.replied || interaction.deferred) {
-          await interaction.editReply({ content: 'Erreur lors de l\'enregistrement de l\'énigme. Vérifie que tu as bien rempli les champs ou regarde les logs du bot.', flags: 64 }).catch(()=>{});
+        if (error.code === 10062) {
+          console.warn('[Timeout] Interaction (Modal) a expiré avant réponse (10062).');
         } else {
-          await interaction.reply({ content: 'Erreur lors de l\'enregistrement.', flags: 64 }).catch(e => {
-            if (e.code !== 10062) console.error("Impossible de répondre Modal:", e);
-          });
+          console.error('[ERROR] Erreur lors du traitement du Modal:', error);
+        }
+        try {
+          if (interaction.replied || interaction.deferred) {
+            await interaction.editReply({ content: 'Erreur lors de l\'enregistrement de l\'énigme. Vérifie que tu as bien rempli les champs ou regarde les logs du bot.', flags: 64 }).catch(()=>{});
+          } else {
+            await interaction.reply({ content: 'Erreur lors de l\'enregistrement.', flags: 64 }).catch(e => {
+              if (e.code !== 10062) {
+                console.error("[ERROR] Impossible de répondre Modal:", e);
+              } else {
+                console.warn('[Timeout] Impossible de répondre - interaction Modal déjà expirée (10062).');
+              }
+            });
+          }
+        } catch (e) {
+          if (e.code !== 10062) {
+            console.error("[ERROR] Impossible de répondre à l'erreur Modal:", e);
+          }
         }
       }
     }
   } finally {
     if (isGameCommand || isGameAction) {
       processingUsers.delete(interaction.user.id);
+      // Libérer le verrou seulement si l'utilisateur n'a plus d'interactions actives
       if (!activeInteractionTokens || !activeInteractionTokens.has(interaction.user.id)) {
         unlockUser(interaction.user.id);
+      } else {
+        console.log(`[LOCK] Verrou maintenu pour ${interaction.user.id} - interaction toujours active`);
       }
     }
   }

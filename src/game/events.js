@@ -1293,13 +1293,29 @@ async function handleUnblockFantome(interaction) {
 
 async function handleDirectionChoice(interaction) {
     activeInteractionTokens.delete(interaction.user.id);
-    await interaction.deferUpdate().catch(err => {
-    console.error(`[INTERACTION FAIL] deferUpdate échoué pour ${interaction.user.id} (${interaction.customId}):`, err);
-  });
+
+    // Vérifier si l'interaction est toujours valide avant de tenter deferUpdate
+    try {
+        if (!interaction.deferred && !interaction.replied) {
+            await interaction.deferUpdate();
+        }
+    } catch (err) {
+        console.error(`[INTERACTION FAIL] deferUpdate échoué pour ${interaction.user.id} (${interaction.customId}):`, err);
+        // Si l'interaction a expiré, on continue quand même avec les données disponibles
+        if (err.code === 10062) {
+            console.log(`[INTERACTION EXPIRÉE] L'interaction pour ${interaction.user.id} a expiré, tentative de récupération...`);
+        }
+    }
+
     const { Joueur } = require('../db/models');
     const joueur = await Joueur.findOne({ where: { discord_id: interaction.user.id } });
     if (!joueur) {
-        return interaction.followUp({ content: '❌ Joueur introuvable.', flags: 64 });
+        try {
+            return interaction.followUp({ content: '❌ Joueur introuvable.', flags: 64 });
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+            return;
+        }
     }
     const pathChoisi = parseInt(interaction.customId.split('_').pop(), 10);
 
@@ -1310,7 +1326,12 @@ async function handleDirectionChoice(interaction) {
             inv.splice(keyIndex, 1);
             joueur.inventaire = inv;
         } else {
-            return interaction.followUp({ content: '❌ Tu n\'as pas la clé pour entrer dans cette zone !', flags: 64 });
+            try {
+                return interaction.followUp({ content: '❌ Tu n\'as pas la clé pour entrer dans cette zone !', flags: 64 });
+            } catch (e) {
+                console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+                return;
+            }
         }
     }
 
@@ -1323,7 +1344,19 @@ async function handleDirectionChoice(interaction) {
         delete global.timeouts[interaction.user.id];
     }
 
-    await processMovement(interaction, joueur, 0, true, ['choix_direction']);
+    try {
+        await processMovement(interaction, joueur, 0, true, ['choix_direction']);
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors du traitement du mouvement pour ${interaction.user.id}:`, err);
+        // Tenter de notifier l'utilisateur si possible
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue lors du déplacement. Veuillez réessayer.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
+    }
 }
 
 module.exports = {
