@@ -1498,7 +1498,6 @@ async function handleReplaceChance(interaction) {
         }
     }
 }
-}
 
 async function handleUnblockFantome(interaction) {
     try {
