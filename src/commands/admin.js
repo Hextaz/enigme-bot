@@ -98,55 +98,71 @@ data: new SlashCommandBuilder()
     .addUserOption(option => option.setName('joueur').setDescription('Le joueur concerné').setRequired(true))
 ),
 async execute(interaction) {
-  const subcommand = interaction.options.getSubcommand();
-  const publicSubcommands = ['start', 'lancer_enigme', 'stop', 'tour', 'give', 'remove', 'set_position'];
+  try {
+    const subcommand = interaction.options.getSubcommand();
+    const publicSubcommands = ['start', 'lancer_enigme', 'stop', 'tour', 'give', 'remove', 'set_position'];
 
-  if (subcommand !== 'programmer_enigme') {
-    if (publicSubcommands.includes(subcommand)) {
-      await interaction.deferReply();
-    } else {
-      await interaction.deferReply({ flags: 64 });
-    }
-  }
-
-  if (subcommand === 'start') {
-    await Joueur.destroy({ where: {} });
-    const randomStarPos = Math.floor(Math.random() * 33) + 10;
-
-    let blocs_pos = [];
-    while(blocs_pos.length < 4) {
-      let r = Math.floor(Math.random() * 41) + 2;
-      if(!blocs_pos.includes(r)) blocs_pos.push(r);
-    }
-    const blocs_caches = {
-      etoile: blocs_pos[0],
-      pieces_20: blocs_pos[1],
-      pieces_10: blocs_pos[2],
-      pieces_5: blocs_pos[3]
-    };
-
-    let plateau = await Plateau.findByPk(1);
-    if (!plateau) {
-      await Plateau.create({ id: 1, position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches });
-    } else {
-      await Plateau.update({ position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches }, { where: { id: 1 } });
+    if (subcommand !== 'programmer_enigme') {
+      if (publicSubcommands.includes(subcommand)) {
+        await interaction.deferReply().catch((err) => {
+          console.error(`[ADMIN] deferReply failed for ${subcommand}:`, err);
+          if (err.code === 10062) {
+            console.log(`[ADMIN] Interaction expired for ${subcommand}, attempting to continue...`);
+          }
+        });
+      } else {
+        await interaction.deferReply({ flags: 64 }).catch((err) => {
+          console.error(`[ADMIN] deferReply failed for ${subcommand}:`, err);
+          if (err.code === 10062) {
+            console.log(`[ADMIN] Interaction expired for ${subcommand}, attempting to continue...`);
+          }
+        });
+      }
     }
 
-    await interaction.editReply(`La saison a été réinitialisée et lancée ! L'Étoile est apparue sur la case ${randomStarPos}. 4 blocs cachés ont été placés secrètement. Utilisez \`/admin programmer_enigme\` pour le **Tour 1**.`);
+    if (subcommand === 'start') {
+      await Joueur.destroy({ where: {} });
+      const randomStarPos = Math.floor(Math.random() * 33) + 10;
 
-  } else if (subcommand === 'programmer_enigme') {
-    const reponse = interaction.options.getString('reponse');
+      let blocs_pos = [];
+      while(blocs_pos.length < 4) {
+        let r = Math.floor(Math.random() * 41) + 2;
+        if(!blocs_pos.includes(r)) blocs_pos.push(r);
+      }
+      const blocs_caches = {
+        etoile: blocs_pos[0],
+        pieces_20: blocs_pos[1],
+        pieces_10: blocs_pos[2],
+        pieces_5: blocs_pos[3]
+      };
 
-    // Ouvrir le modal pour saisir l'énigme et les indices
-    const modal = new ModalBuilder()
-      .setCustomId(`modal_programmer_enigme_${encodeURIComponent(reponse)}`)
-      .setTitle('Programmer l\'énigme du jour');
+      let plateau = await Plateau.findByPk(1);
+      if (!plateau) {
+        await Plateau.create({ id: 1, position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches });
+      } else {
+        await Plateau.update({ position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches }, { where: { id: 1 } });
+      }
 
-    const enigmeInput = new TextInputBuilder()
-      .setCustomId('enigme_text')
-      .setLabel('Énigme du jour')
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(true)
+      await interaction.editReply(`La saison a été réinitialisée et lancée ! L'Étoile est apparue sur la case ${randomStarPos}. 4 blocs cachés ont été placés secrètement. Utilisez \`/admin programmer_enigme\` pour le **Tour 1**.`).catch((err) => {
+        console.error(`[ADMIN] editReply failed for start:`, err);
+        if (err.code === 10062) {
+          console.log(`[ADMIN] Interaction expired for start command`);
+        }
+      });
+
+    } else if (subcommand === 'programmer_enigme') {
+      const reponse = interaction.options.getString('reponse');
+
+      // Ouvrir le modal pour saisir l'énigme et les indices
+      const modal = new ModalBuilder()
+        .setCustomId(`modal_programmer_enigme_${encodeURIComponent(reponse)}`)
+        .setTitle('Programmer l\'énigme du jour');
+
+      const enigmeInput = new TextInputBuilder()
+        .setCustomId('enigme_text')
+        .setLabel('Énigme du jour')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
       .setPlaceholder('Entrez le texte de l\'énigme...');
 
     const indice1Input = new TextInputBuilder()
@@ -185,12 +201,22 @@ async execute(interaction) {
     plateau.enigme_status = 'programmee';
     await plateau.save();
 
-    return interaction.editReply({ content: `📣 **Tour ${plateau.tour}/30** : Le tour a été incrémenté. Utilisez \`/admin programmer_enigme\` pour programmer l'énigme.` });
+    return interaction.editReply({ content: `📣 **Tour ${plateau.tour}/30** : Le tour a été incrémenté. Utilisez \`/admin programmer_enigme\` pour programmer l'énigme.` }).catch((err) => {
+      console.error(`[ADMIN] editReply failed for lancer_enigme:`, err);
+      if (err.code === 10062) {
+        console.log(`[ADMIN] Interaction expired for lancer_enigme command`);
+      }
+    });
 
   } else if (subcommand === 'stop') {
     const { endSeason } = require('../game/endgame');
     await endSeason(interaction.client);
-    return interaction.editReply("La saison a été arrêtée manuellement. L'annonce finale a été postée sur le canal du plateau.");
+    return interaction.editReply("La saison a été arrêtée manuellement. L'annonce finale a été postée sur le canal du plateau.").catch((err) => {
+      console.error(`[ADMIN] editReply failed for stop:`, err);
+      if (err.code === 10062) {
+        console.log(`[ADMIN] Interaction expired for stop command`);
+      }
+    });
 
   } else if (subcommand === 'give' || subcommand === 'remove') {
     const targetUser = interaction.options.getUser('joueur');
@@ -198,14 +224,24 @@ async execute(interaction) {
 
     let joueur = await Joueur.findByPk(targetUser.id);
     if (!joueur) {
-      if (subcommand === 'remove') return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", flags: 64 });
+      if (subcommand === 'remove') return interaction.editReply({ content: "Ce joueur n'existe pas dans la base de données.", flags: 64 }).catch((err) => {
+        console.error(`[ADMIN] editReply failed for remove (player not found):`, err);
+        if (err.code === 10062) {
+          console.log(`[ADMIN] Interaction expired for remove command`);
+        }
+      });
       joueur = await Joueur.create({ discord_id: targetUser.id });
     }
 
     if (ressource === 'pieces' || ressource === 'etoiles') {
       const quantite = interaction.options.getInteger('quantite');
       if (!quantite || quantite <= 0) {
-        return interaction.editReply({ content: "Veuillez entrer une quantité valide et positive.", flags: 64 });
+        return interaction.editReply({ content: "Veuillez entrer une quantité valide et positive.", flags: 64 }).catch((err) => {
+          console.error(`[ADMIN] editReply failed for invalid quantity:`, err);
+          if (err.code === 10062) {
+            console.log(`[ADMIN] Interaction expired for invalid quantity`);
+          }
+        });
       }
 
       if (subcommand === 'give') {
@@ -407,13 +443,38 @@ async execute(interaction) {
     // Supprimer le snapshot après restauration
     await snapshot.destroy();
 
-    await interaction.editReply(`🔄 **Tour annulé !** <@${targetUser.id}> a été remis dans son état initial du tour ${plateau.tour}. Il peut maintenant rejouer.`);
+    await interaction.editReply(`🔄 **Tour annulé !** <@${targetUser.id}> a été remis dans son état initial du tour ${plateau.tour}. Il peut maintenant rejouer.`).catch((err) => {
+      console.error(`[ADMIN] editReply failed for annuler_tour:`, err);
+      if (err.code === 10062) {
+        console.log(`[ADMIN] Interaction expired for annuler_tour command`);
+      }
+    });
 
     // Notifier sur le canal du plateau
     const config = require('../config');
     const channel = interaction.client.channels.cache.get(config.boardChannelId);
     if (channel) {
-      await channel.send(`🔄 **ANNULATION DE TOUR** : Le tour de <@${targetUser.id}> a été annulé par un admin. Il a été remis dans son état initial.`);
+      await channel.send(`🔄 **ANNULATION DE TOUR** : Le tour de <@${targetUser.id}> a été annulé par un admin. Il a été remis dans son état initial.`).catch((err) => {
+        console.error(`[ADMIN] Failed to send tour cancellation notification:`, err);
+      });
+    }
+    }
+  } catch (err) {
+    console.error(`[ADMIN] Error in admin command ${interaction.options.getSubcommand()}:`, err);
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({
+          content: '❌ Une erreur est survenue lors de l\'exécution de la commande admin.',
+          flags: 64
+        }).catch((e) => {
+          console.error(`[ADMIN] Failed to send error follow-up:`, e);
+          if (e.code === 10062) {
+            console.log(`[ADMIN] Interaction expired when trying to send error message`);
+          }
+        });
+      }
+    } catch (e) {
+      console.error(`[ADMIN] Critical error - could not notify user of failure:`, e);
     }
   }
 },

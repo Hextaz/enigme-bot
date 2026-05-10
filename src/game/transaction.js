@@ -13,10 +13,10 @@ function lockUser(userId) {
         // Renouveler le timeout si le même utilisateur acquiert à nouveau le verrou
         if (lockTimeout) clearTimeout(lockTimeout);
         lockTimeout = setTimeout(() => {
-            console.warn(`[LOCK TIMEOUT] Verrou expiré pour l'utilisateur ${activeLock} après 120s - libération automatique`);
+            console.warn(`[LOCK TIMEOUT] Verrou expiré pour l'utilisateur ${activeLock} après 50s - libération automatique`);
             activeLock = null;
             lockStartTime = null;
-        }, 120000); // 120 seconds max per turn
+        }, 50000); // 50 seconds max per turn (under Discord's 60s limit)
         console.log(`[LOCK] Verrou renouvelé pour ${userId}`);
         return true;
     }
@@ -25,10 +25,10 @@ function lockUser(userId) {
     activeLock = userId;
     lockStartTime = Date.now();
     lockTimeout = setTimeout(() => {
-        console.warn(`[LOCK TIMEOUT] Verrou expiré pour l'utilisateur ${activeLock} après 120s - libération automatique`);
+        console.warn(`[LOCK TIMEOUT] Verrou expiré pour l'utilisateur ${activeLock} après 50s - libération automatique`);
         activeLock = null;
         lockStartTime = null;
-    }, 120000); // 120 seconds max per turn
+    }, 50000); // 50 seconds max per turn (under Discord's 60s limit)
     console.log(`[LOCK] Verrou acquis pour ${userId}`);
     return true;
 }
@@ -63,7 +63,7 @@ function getLockInfo() {
     return {
         userId: activeLock,
         duration: Date.now() - lockStartTime,
-        remaining: 120000 - (Date.now() - lockStartTime)
+        remaining: 50000 - (Date.now() - lockStartTime)
     };
 }
 

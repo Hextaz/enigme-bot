@@ -82,70 +82,94 @@ async function createTourSnapshot(joueur, plateau, tousLesJoueurs) {
 }
 
 async function handleLancerDe(interaction) {
-    await interaction.deferReply({ flags: 64 });
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    if (!joueur || !joueur.a_le_droit_de_jouer) {
-        return interaction.editReply({ content: 'Tu n\'as pas le droit de jouer.' });
+    try {
+        await interaction.deferReply({ flags: 64 });
+        const joueur = await Joueur.findByPk(interaction.user.id);
+        if (!joueur || !joueur.a_le_droit_de_jouer) {
+            return interaction.editReply({ content: 'Tu n\'as pas le droit de jouer.' });
+        }
+
+        // Créer un snapshot avant le tour
+        const plateau = await Plateau.findByPk(1);
+        const tousLesJoueurs = await Joueur.findAll();
+        await createTourSnapshot(joueur, plateau, tousLesJoueurs);
+
+        // Lancer le dé
+        let de = 0;
+        if (joueur.type_de === 'double') {
+            de = Math.floor(Math.random() * 19) + 2; // 2 à 20
+            joueur.type_de = 'normal';
+        } else if (joueur.type_de === 'triple') {
+            de = Math.floor(Math.random() * 28) + 3; // 3 à 30
+            joueur.type_de = 'normal';
+        } else if (joueur.type_de === 'pipe') {
+            de = joueur.de_pipe_valeur;
+            joueur.type_de = 'normal';
+        } else {
+            de = Math.floor(Math.random() * 10) + 1; // 1 à 10
+        }
+
+        if (joueur.de_limite) {
+            de = Math.min(de, 3);
+            joueur.de_limite = false;
+        }
+
+        if (joueur.bonus_prochain_lancer > 0) {
+            de += joueur.bonus_prochain_lancer;
+            joueur.bonus_prochain_lancer = 0;
+        }
+
+        joueur.a_le_droit_de_jouer = false; // Il a joué pour aujourd'hui
+        joueur.a_joue_ce_tour = true;
+        joueur.jours_inactifs = 0;
+        joueur.stat_cases_avancees = (joueur.stat_cases_avancees || 0) + de;
+        await joueur.save();
+
+        await processMovement(interaction, joueur, de, false);
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors du lancer de dé pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue lors du lancer de dé.', flags: 64 });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue lors du lancer de dé.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
     }
-
-    // Créer un snapshot avant le tour
-    const plateau = await Plateau.findByPk(1);
-    const tousLesJoueurs = await Joueur.findAll();
-    await createTourSnapshot(joueur, plateau, tousLesJoueurs);
-
-    // Lancer le dé
-    let de = 0;
-    if (joueur.type_de === 'double') {
-        de = Math.floor(Math.random() * 19) + 2; // 2 à 20
-        joueur.type_de = 'normal';
-    } else if (joueur.type_de === 'triple') {
-        de = Math.floor(Math.random() * 28) + 3; // 3 à 30
-        joueur.type_de = 'normal';
-    } else if (joueur.type_de === 'pipe') {
-        de = joueur.de_pipe_valeur;
-        joueur.type_de = 'normal';
-    } else {
-        de = Math.floor(Math.random() * 10) + 1; // 1 à 10
-    }
-    
-    if (joueur.de_limite) {
-        de = Math.min(de, 3);
-        joueur.de_limite = false;
-    }
-
-    if (joueur.bonus_prochain_lancer > 0) {
-        de += joueur.bonus_prochain_lancer;
-        joueur.bonus_prochain_lancer = 0;
-    }
-
-    joueur.a_le_droit_de_jouer = false; // Il a joué pour aujourd'hui
-    joueur.a_joue_ce_tour = true;
-    joueur.jours_inactifs = 0;
-    joueur.stat_cases_avancees = (joueur.stat_cases_avancees || 0) + de;
-    await joueur.save();
-
-    await processMovement(interaction, joueur, de, false);
 }
 
 async function handleContinuerDeplacement(interaction, alreadyHandledOnStart = []) {
+    console.log(`[CONTINUER DEPLACEMENT] User ${interaction.user.id} continuing movement, alreadyHandled: ${alreadyHandledOnStart.join(', ')}`);
     activeInteractionTokens.delete(interaction.user.id);
     if (!interaction.deferred && !interaction.replied) {
         // Enlève les boutons de l'ancien message (Shop, Etoile, /jouer) pour éviter les clics multiples
-        await interaction.update({ components: [] }).catch(() => {});
+        await interaction.update({ components: [] }).catch((e) => {
+            console.error(`[ERREUR] Impossible de mettre à jour l'interaction pour ${interaction.user.id}:`, e);
+        });
     }
     const joueur = await Joueur.findByPk(interaction.user.id);
     if (!joueur || (joueur.cases_restantes <= 0 && alreadyHandledOnStart.length === 0)) {
-        return interaction.editReply({ content: 'Tu n\'as pas de déplacement en cours.' });
+        console.log(`[CONTINUER DEPLACEMENT] User ${interaction.user.id} has no movement in progress or invalid state`);
+        return interaction.editReply({ content: 'Tu n\'as pas de déplacement en cours.' }).catch((e) => {
+            console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+        });
     }
 
     // On bypass le blocage énigme si le joueur a déjà commencé son tour (cases_restantes > 0)
     // pour éviter qu'il ne reste bloqué en plein milieu du terrain le lendemain !
     const plateau = await Plateau.findByPk(1);
     if (plateau && plateau.enigme_status === 'active' && joueur.cases_restantes === 0) {
-        return interaction.editReply({ content: 'Le plateau est verrouillé ! Il faut d\'abord résoudre l\'énigme du jour.' }).catch(()=>{});
+        console.log(`[CONTINUER DEPLACEMENT] User ${interaction.user.id} blocked by active enigma`);
+        return interaction.editReply({ content: 'Le plateau est verrouillé ! Il faut d\'abord résoudre l\'énigme du jour.' }).catch((e) => {
+            console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+        });
     }
 
     const de = joueur.cases_restantes;
+    console.log(`[CONTINUER DEPLACEMENT] User ${interaction.user.id} has ${de} cases remaining, starting processMovement`);
     await processMovement(interaction, joueur, de, true, alreadyHandledOnStart);
 }
 
@@ -824,534 +848,769 @@ const contentText = joueur.cases_restantes > 0
     }
 }
 async function handleAcheterEtoile(interaction) {
-    activeInteractionTokens.delete(interaction.user.id);
-    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const plateau = await Plateau.findByPk(1);
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    
-    if (!joueur || joueur.pieces < 20) {
-        return interaction.followUp({ content: 'Tu n\'as pas assez de pièces ou une erreur est survenue.', flags: 64 });
+    try {
+        activeInteractionTokens.delete(interaction.user.id);
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+        const plateau = await Plateau.findByPk(1);
+        const joueur = await Joueur.findByPk(interaction.user.id);
+
+        if (!joueur || joueur.pieces < 20) {
+            return interaction.followUp({ content: 'Tu n\'as pas assez de pièces ou une erreur est survenue.', flags: 64 });
+        }
+
+        if (joueur.position !== plateau.position_etoile) {
+            return interaction.followUp({ content: 'Trop tard ! Quelqu\'un d\'autre vient d\'acheter cette étoile ou tu ne te trouves plus dessus.', flags: 64 });
+        }
+
+        joueur.pieces -= 20;
+        joueur.etoiles += 1;
+        await joueur.save();
+
+        const oldPosition = plateau.position_etoile;
+
+        do {
+            plateau.position_etoile = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
+        } while (plateau.position_etoile === oldPosition);
+        await plateau.save();
+
+        const successMsg = `⭐ **Bravo !** <@${interaction.user.id}> a acheté une Étoile ! 🌟 L'Étoile s'envole vers la case ${plateau.position_etoile} !`;
+        const boardChannel = await interaction.client.channels.fetch(config.boardChannelId).catch(() => null);
+        if (boardChannel) {
+            await boardChannel.send(successMsg);
+        } else {
+            await interaction.channel.send(successMsg);
+        }
+
+        await interaction.editReply({ content: '⭐ **Bravo !** Tu as acheté une Étoile !', components: [] }).catch(()=>{});
+        await handleContinuerDeplacement(interaction, ['etoile']);
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors de l'achat d'étoile pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue lors de l\'achat d\'étoile.', flags: 64 });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue lors de l\'achat d\'étoile.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
     }
-
-    if (joueur.position !== plateau.position_etoile) {
-        return interaction.followUp({ content: 'Trop tard ! Quelqu\'un d\'autre vient d\'acheter cette étoile ou tu ne te trouves plus dessus.', flags: 64 });
-    }
-
-    joueur.pieces -= 20;
-    joueur.etoiles += 1;
-    await joueur.save();
-
-    const oldPosition = plateau.position_etoile;
-
-    do {
-        plateau.position_etoile = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
-    } while (plateau.position_etoile === oldPosition);
-    await plateau.save();
-
-    const successMsg = `⭐ **Bravo !** <@${interaction.user.id}> a acheté une Étoile ! 🌟 L'Étoile s'envole vers la case ${plateau.position_etoile} !`;
-    const boardChannel = await interaction.client.channels.fetch(config.boardChannelId).catch(() => null);
-    if (boardChannel) {
-        await boardChannel.send(successMsg);
-    } else {
-        await interaction.channel.send(successMsg);
-    }
-
-    await interaction.editReply({ content: '⭐ **Bravo !** Tu as acheté une Étoile !', components: [] }).catch(()=>{});
-    await handleContinuerDeplacement(interaction, ['etoile']);
 }
 
 async function handlePasserEtoile(interaction) {
-    activeInteractionTokens.delete(interaction.user.id);
-    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    if (joueur) {
-        await interaction.editReply({ content: "Tu as passé ton tour pour l'Étoile.", components: [] }).catch(() => {});
-        await handleContinuerDeplacement(interaction, ['etoile']);
+    try {
+        activeInteractionTokens.delete(interaction.user.id);
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+        const joueur = await Joueur.findByPk(interaction.user.id);
+        if (joueur) {
+            await interaction.editReply({ content: "Tu as passé ton tour pour l'Étoile.", components: [] }).catch(() => {});
+            await handleContinuerDeplacement(interaction, ['etoile']);
+        }
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors du passage de l'étoile pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue.', flags: 64 });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
     }
 }
 
 async function handleUtiliserObjet(interaction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ flags: 64 }).catch(()=>{});
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    if (!joueur || !joueur.inventaire || joueur.inventaire.length === 0) {
-        return interaction.editReply({ content: 'Ton inventaire est vide.', flags: 64 });
-    }
-
-    const plateau = await Plateau.findByPk(1);
-    if (plateau && plateau.enigme_status === 'active') {
-        return interaction.editReply({ content: "Le plateau est verrouillé ! Il faut d'abord résoudre l'énigme du jour.", flags: 64 });
-    }
-    
-    // Si c'est pas son tour ou s'il a déjà joué
-    const isSaturday = new Date().getDay() === 6;
-    if (!joueur.a_le_droit_de_jouer || isSaturday) {
-        return interaction.editReply({ content: "Tu ne peux pas utiliser d'objet pour le moment (tu as déjà joué ou c'est bloqué).", flags: 64 });
-    }
-
-    const { ITEMS } = require('./items');
-    const row = new ActionRowBuilder();
-    
-    // On crée un bouton pour chaque objet de l'inventaire
-    // Attention aux doublons, on utilise l'index
-    joueur.inventaire.forEach((itemName, index) => {
-        const itemKey = Object.keys(ITEMS).find(key => ITEMS[key].name === itemName);
-        if (itemKey) {
-            row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`use_${itemKey}_${index}`)
-                    .setLabel(itemName)
-                    .setStyle(ButtonStyle.Primary)
-            );
+    try {
+        if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ flags: 64 }).catch(()=>{});
+        const joueur = await Joueur.findByPk(interaction.user.id);
+        if (!joueur || !joueur.inventaire || joueur.inventaire.length === 0) {
+            return interaction.editReply({ content: 'Ton inventaire est vide.', flags: 64 });
         }
-    });
 
-    await interaction.editReply({ 
-        content: `**Ton inventaire :**\nTu es sur la case **${joueur.position}**. L'Étoile est sur la case **${plateau.position_etoile}**.\nQuel objet veux-tu utiliser ?`, 
-        components: [row], 
-        flags: 64 
-    }).catch(()=>{});
+        const plateau = await Plateau.findByPk(1);
+        if (plateau && plateau.enigme_status === 'active') {
+            return interaction.editReply({ content: "Le plateau est verrouillé ! Il faut d'abord résoudre l'énigme du jour.", flags: 64 });
+        }
+
+        // Si c'est pas son tour ou s'il a déjà joué
+        const isSaturday = new Date().getDay() === 6;
+        if (!joueur.a_le_droit_de_jouer || isSaturday) {
+            return interaction.editReply({ content: "Tu ne peux pas utiliser d'objet pour le moment (tu as déjà joué ou c'est bloqué).", flags: 64 });
+        }
+
+        const { ITEMS } = require('./items');
+        const row = new ActionRowBuilder();
+
+        // On crée un bouton pour chaque objet de l'inventaire
+        // Attention aux doublons, on utilise l'index
+        joueur.inventaire.forEach((itemName, index) => {
+            const itemKey = Object.keys(ITEMS).find(key => ITEMS[key].name === itemName);
+            if (itemKey) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`use_${itemKey}_${index}`)
+                        .setLabel(itemName)
+                        .setStyle(ButtonStyle.Primary)
+                );
+            }
+        });
+
+        await interaction.editReply({
+            content: `**Ton inventaire :**\nTu es sur la case **${joueur.position}**. L'Étoile est sur la case **${plateau.position_etoile}**.\nQuel objet veux-tu utiliser ?`,
+            components: [row],
+            flags: 64
+        }).catch(()=>{});
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors de l'utilisation d'objet pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue.', flags: 64 });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
+    }
 }
 
 async function handleUseItem(interaction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const parts = interaction.customId.split('_');
-    const itemIndexStr = parts.pop(); // extracts the last part (e.g. '0')
-    const itemKey = parts.slice(1).join('_'); // recombines the rest (e.g. 'PIEGE_PIECES')
-    const itemIndex = parseInt(itemIndexStr);
+    try {
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+        const parts = interaction.customId.split('_');
+        const itemIndexStr = parts.pop(); // extracts the last part (e.g. '0')
+        const itemKey = parts.slice(1).join('_'); // recombines the rest (e.g. 'PIEGE_PIECES')
+        const itemIndex = parseInt(itemIndexStr);
 
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    if (!joueur) return interaction.followUp({ content: 'Erreur avec ton joueur.', flags: 64 });
+        const joueur = await Joueur.findByPk(interaction.user.id);
+        if (!joueur) return interaction.followUp({ content: 'Erreur avec ton joueur.', flags: 64 });
 
-    await joueur.reload();
+        await joueur.reload();
 
-    if (!joueur.inventaire || joueur.inventaire.length <= itemIndex) {
-        return interaction.followUp({ content: 'Erreur avec ton inventaire.', flags: 64 });
-    }
-
-    const { ITEMS } = require('./items');
-    const item = ITEMS[itemKey];
-    if (!item) return interaction.followUp({ content: 'Objet inconnu.', flags: 64 });
-
-    // Retirer l'objet de l'inventaire
-    const newInv = [...joueur.inventaire];
-    newInv.splice(itemIndex, 1);
-    joueur.inventaire = newInv;
-    joueur.stat_objets_utilises = (joueur.stat_objets_utilises || 0) + 1;
-
-    let message = `Tu as utilisé **${item.name}** ! `;
-    const channel = interaction.client.channels.cache.get(config.boardChannelId);
-
-    // Appliquer l'effet de l'objet
-    if (item.id === 'champignon') {
-        joueur.bonus_prochain_lancer = 3;
-        message += 'Ton prochain lancer aura +3 !';
-    } else if (item.id === 'piege_pieces') {
-        const plateau = await Plateau.findByPk(1);
-        const pieges = [...plateau.pieges_actifs];
-        pieges.push({ position: joueur.position, type: 'pieces', poseur: joueur.discord_id });
-        plateau.pieges_actifs = pieges;
-        await plateau.save();
-        message += `Un piège à pièces a été posé sur la case ${joueur.position} !`;
-    } else if (item.id === 'tuyau') {
-        joueur.position = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
-        message += `Tu as été téléporté sur la case ${joueur.position} !`;
-        if (channel) channel.send(`🧪 <@${joueur.discord_id}> a utilisé un Tuyau et atterrit sur la case ${joueur.position} !`);
-    } else if (item.id === 'miroir') {
-        const tousLesJoueurs = await Joueur.findAll();
-        const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && !j.est_fantome);
-        if (autresJoueurs.length > 0) {
-            const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
-            const tempPos = joueur.position;
-            joueur.position = cible.position;
-            cible.position = tempPos;
-            await cible.save();
-            message += `Tu as échangé ta position avec <@${cible.discord_id}> !`;
-            if (channel) channel.send(`🪞 <@${joueur.discord_id}> a utilisé un Miroir et échangé sa place avec <@${cible.discord_id}> !`);
-        } else {
-            message += `Mais il n'y a personne avec qui échanger !`;
+        if (!joueur.inventaire || joueur.inventaire.length <= itemIndex) {
+            return interaction.followUp({ content: 'Erreur avec ton inventaire.', flags: 64 });
         }
-    } else if (item.id === 'sifflet') {
-        const plateau = await Plateau.findByPk(1);
-        let nouvellePositionEtoile;
-        do {
-            nouvellePositionEtoile = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
-        } while (nouvellePositionEtoile === plateau.position_etoile);
-        plateau.position_etoile = nouvellePositionEtoile;
-        await plateau.save();
-        message += `L'Étoile s'est déplacée !`;
-        if (channel) channel.send(`🎺 <@${joueur.discord_id}> a utilisé un Sifflet ! L'Étoile se déplace sur la case ${nouvellePositionEtoile} !`);
-    } else if (item.id === 'double_de') {
-        joueur.type_de = 'double';
-        message += `Ton prochain lancer sera entre 2 et 12 !`;
-    } else if (item.id === 'de_triple') {
-        joueur.type_de = 'triple';
-        message += `Ton prochain lancer sera entre 3 et 18 !`;
-    } else if (item.id === 'piege_etoile') {
-        const plateau = await Plateau.findByPk(1);
-        const pieges = [...plateau.pieges_actifs];
-        pieges.push({ position: joueur.position, type: 'etoile', poseur: joueur.discord_id });
-        plateau.pieges_actifs = pieges;
-        await plateau.save();
-        message += `Un piège à Étoile a été posé sur la case ${joueur.position} !`;
-    } else if (item.id === 'tuyau_dore') {
-        const plateau = await Plateau.findByPk(1);
-        const boardDef = require('./board').BOARD_CASES;
-        const findDevant = boardDef.find(ca => ca.next.includes(plateau.position_etoile));
-        let posDevant = findDevant ? findDevant.id : 1;
-        joueur.position = posDevant;
-        message += `Tu as été téléporté juste devant l'Étoile (case ${posDevant}) !`;
-        if (channel) channel.send(`🏆 <@${joueur.discord_id}> a utilisé un Tuyau Doré et atterrit devant l'Étoile !`);
-    } else if (item.id === 'de_pipe') {
-        // Pour le dé pipé, on doit demander la valeur
-        const { StringSelectMenuBuilder } = require('discord.js');
-        const select = new StringSelectMenuBuilder()
-            .setCustomId('de_pipe_choix')
-            .setPlaceholder('Choisis la valeur de ton dé')
-            .addOptions([
-                { label: '1', value: '1' },
-                { label: '2', value: '2' },
-                { label: '3', value: '3' },
-                { label: '4', value: '4' },
-                { label: '5', value: '5' },
-                { label: '6', value: '6' },
-                { label: '7', value: '7' },
-                { label: '8', value: '8' },
-                { label: '9', value: '9' },
-                { label: '10', value: '10' }
-            ]);
-        const row = new ActionRowBuilder().addComponents(select);
-        await joueur.save();
-        return interaction.followUp({ content: `Tu as utilisé **Dé pipé** ! Quelle valeur veux-tu ?`, components: [row], flags: 64 });
-    } else {
-        message += `(Effet non implémenté pour le moment)`;
-    }
 
-    await joueur.save();
-    await interaction.followUp({ content: message, flags: 64 }).catch(()=>{});
+        const { ITEMS } = require('./items');
+        const item = ITEMS[itemKey];
+        if (!item) return interaction.followUp({ content: 'Objet inconnu.', flags: 64 });
+
+        // Retirer l'objet de l'inventaire
+        const newInv = [...joueur.inventaire];
+        newInv.splice(itemIndex, 1);
+        joueur.inventaire = newInv;
+        joueur.stat_objets_utilises = (joueur.stat_objets_utilises || 0) + 1;
+
+        let message = `Tu as utilisé **${item.name}** ! `;
+        const channel = interaction.client.channels.cache.get(config.boardChannelId);
+
+        // Appliquer l'effet de l'objet
+        if (item.id === 'champignon') {
+            joueur.bonus_prochain_lancer = 3;
+            message += 'Ton prochain lancer aura +3 !';
+        } else if (item.id === 'piege_pieces') {
+            const plateau = await Plateau.findByPk(1);
+            const pieges = [...plateau.pieges_actifs];
+            pieges.push({ position: joueur.position, type: 'pieces', poseur: joueur.discord_id });
+            plateau.pieges_actifs = pieges;
+            await plateau.save();
+            message += `Un piège à pièces a été posé sur la case ${joueur.position} !`;
+        } else if (item.id === 'tuyau') {
+            joueur.position = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
+            message += `Tu as été téléporté sur la case ${joueur.position} !`;
+            if (channel) channel.send(`🧪 <@${joueur.discord_id}> a utilisé un Tuyau et atterrit sur la case ${joueur.position} !`);
+        } else if (item.id === 'miroir') {
+            const tousLesJoueurs = await Joueur.findAll();
+            const autresJoueurs = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && !j.est_fantome);
+            if (autresJoueurs.length > 0) {
+                const cible = autresJoueurs[Math.floor(Math.random() * autresJoueurs.length)];
+                const tempPos = joueur.position;
+                joueur.position = cible.position;
+                cible.position = tempPos;
+                await cible.save();
+                message += `Tu as échangé ta position avec <@${cible.discord_id}> !`;
+                if (channel) channel.send(`🪞 <@${joueur.discord_id}> a utilisé un Miroir et échangé sa place avec <@${cible.discord_id}> !`);
+            } else {
+                message += `Mais il n'y a personne avec qui échanger !`;
+            }
+        } else if (item.id === 'sifflet') {
+            const plateau = await Plateau.findByPk(1);
+            let nouvellePositionEtoile;
+            do {
+                nouvellePositionEtoile = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
+            } while (nouvellePositionEtoile === plateau.position_etoile);
+            plateau.position_etoile = nouvellePositionEtoile;
+            await plateau.save();
+            message += `L'Étoile s'est déplacée !`;
+            if (channel) channel.send(`🎺 <@${joueur.discord_id}> a utilisé un Sifflet ! L'Étoile se déplace sur la case ${nouvellePositionEtoile} !`);
+        } else if (item.id === 'double_de') {
+            joueur.type_de = 'double';
+            message += `Ton prochain lancer sera entre 2 et 12 !`;
+        } else if (item.id === 'de_triple') {
+            joueur.type_de = 'triple';
+            message += `Ton prochain lancer sera entre 3 et 18 !`;
+        } else if (item.id === 'piege_etoile') {
+            const plateau = await Plateau.findByPk(1);
+            const pieges = [...plateau.pieges_actifs];
+            pieges.push({ position: joueur.position, type: 'etoile', poseur: joueur.discord_id });
+            plateau.pieges_actifs = pieges;
+            await plateau.save();
+            message += `Un piège à Étoile a été posé sur la case ${joueur.position} !`;
+        } else if (item.id === 'tuyau_dore') {
+            const plateau = await Plateau.findByPk(1);
+            const boardDef = require('./board').BOARD_CASES;
+            const findDevant = boardDef.find(ca => ca.next.includes(plateau.position_etoile));
+            let posDevant = findDevant ? findDevant.id : 1;
+            joueur.position = posDevant;
+            message += `Tu as été téléporté juste devant l'Étoile (case ${posDevant}) !`;
+            if (channel) channel.send(`🏆 <@${joueur.discord_id}> a utilisé un Tuyau Doré et atterrit devant l'Étoile !`);
+        } else if (item.id === 'de_pipe') {
+            // Pour le dé pipé, on doit demander la valeur
+            const { StringSelectMenuBuilder } = require('discord.js');
+            const select = new StringSelectMenuBuilder()
+                .setCustomId('de_pipe_choix')
+                .setPlaceholder('Choisis la valeur de ton dé')
+                .addOptions([
+                    { label: '1', value: '1' },
+                    { label: '2', value: '2' },
+                    { label: '3', value: '3' },
+                    { label: '4', value: '4' },
+                    { label: '5', value: '5' },
+                    { label: '6', value: '6' },
+                    { label: '7', value: '7' },
+                    { label: '8', value: '8' },
+                    { label: '9', value: '9' },
+                    { label: '10', value: '10' }
+                ]);
+            const row = new ActionRowBuilder().addComponents(select);
+            await joueur.save();
+            return interaction.followUp({ content: `Tu as utilisé **Dé pipé** ! Quelle valeur veux-tu ?`, components: [row], flags: 64 });
+        } else {
+            message += `(Effet non implémenté pour le moment)`;
+        }
+
+        await joueur.save();
+        await interaction.followUp({ content: message, flags: 64 }).catch(()=>{});
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors de l'utilisation de l'objet pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue lors de l\'utilisation de l\'objet.', flags: 64 });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue lors de l\'utilisation de l\'objet.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
+    }
 }
 
 async function handleDePipeChoix(interaction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const valeur = parseInt(interaction.values[0]);
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    joueur.type_de = 'pipe';
-    joueur.de_pipe_valeur = valeur;
-    await joueur.save();
-    await interaction.followUp({ content: `Ton prochain lancer fera exactement ${valeur} !`, flags: 64 }).catch(()=>{});
+    try {
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+        const valeur = parseInt(interaction.values[0]);
+        const joueur = await Joueur.findByPk(interaction.user.id);
+        joueur.type_de = 'pipe';
+        joueur.de_pipe_valeur = valeur;
+        await joueur.save();
+        await interaction.followUp({ content: `Ton prochain lancer fera exactement ${valeur} !`, flags: 64 }).catch(()=>{});
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors du choix du dé pipé pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue.', flags: 64 });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
+    }
 }
 
 async function handleBooChoice(interaction) {
-    activeInteractionTokens.delete(interaction.user.id);
-    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const type = interaction.customId.split('_')[1]; // 'pieces' ou 'etoile' ou 'annuler'
-    
-    const channel = interaction.client.channels.cache.get(require('../config').boardChannelId);
-    if (type === 'annuler') {
-        if (channel) await channel.send(`👻 <@${interaction.user.id}> a ignoré l'invitation de Boo... le fantôme s'en va, déçu.`);
-        return interaction.followUp({ content: 'Interaction expiré, Boo s\'en est allé.', components: [], flags: 64 });
+    try {
+        activeInteractionTokens.delete(interaction.user.id);
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+        const type = interaction.customId.split('_')[1]; // 'pieces' ou 'etoile' ou 'annuler'
+
+        const channel = interaction.client.channels.cache.get(require('../config').boardChannelId);
+        if (type === 'annuler') {
+            if (channel) await channel.send(`👻 <@${interaction.user.id}> a ignoré l'invitation de Boo... le fantôme s'en va, déçu.`);
+            return interaction.followUp({ content: 'Interaction expiré, Boo s\'en est allé.', components: [], flags: 64 });
+        }
+
+        const joueur = await Joueur.findByPk(interaction.user.id);
+
+        if (type === 'etoile' && joueur.pieces < 50) {
+            return interaction.followUp({ content: 'Tu n\'as pas assez de pièces pour voler une étoile.', flags: 64 });
+        }
+
+        const tousLesJoueurs = await Joueur.findAll();
+        const ciblesPotentielles = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && (type === 'pieces' ? j.pieces > 0 : j.etoiles > 0) && !j.est_fantome);
+
+        if (ciblesPotentielles.length === 0) {
+            return interaction.followUp({ content: `Personne n'a de ${type} à voler !`, flags: 64 });
+        }
+
+        const { StringSelectMenuBuilder } = require('discord.js');
+
+        const options = await Promise.all(ciblesPotentielles.map(async j => {
+            const user = await interaction.client.users.fetch(j.discord_id).catch(() => null);
+            const username = user ? user.username : `Joueur ${j.discord_id.substring(0, 5)}`;
+            return {
+                label: `${username} (${type === 'pieces' ? j.pieces + ' pièces' : j.etoiles + ' étoiles'})`,
+                value: j.discord_id
+            };
+        }));
+
+        const select = new StringSelectMenuBuilder()
+            .setCustomId(`boo_target_${type}`)
+            .setPlaceholder('Choisis ta cible')
+            .addOptions(options);
+
+        const row = new ActionRowBuilder().addComponents(select);
+        await interaction.followUp({ content: `Qui veux-tu voler ?`, components: [row], flags: 64 }).catch(()=>{});
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors du choix Boo pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue.', flags: 64 });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
     }
-
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    
-    if (type === 'etoile' && joueur.pieces < 50) {
-        return interaction.followUp({ content: 'Tu n\'as pas assez de pièces pour voler une étoile.', flags: 64 });
-    }
-
-    const tousLesJoueurs = await Joueur.findAll();
-    const ciblesPotentielles = tousLesJoueurs.filter(j => j.discord_id !== joueur.discord_id && (type === 'pieces' ? j.pieces > 0 : j.etoiles > 0) && !j.est_fantome);
-
-    if (ciblesPotentielles.length === 0) {
-        return interaction.followUp({ content: `Personne n'a de ${type} à voler !`, flags: 64 });
-    }
-
-    const { StringSelectMenuBuilder } = require('discord.js');
-    
-    const options = await Promise.all(ciblesPotentielles.map(async j => {
-        const user = await interaction.client.users.fetch(j.discord_id).catch(() => null);
-        const username = user ? user.username : `Joueur ${j.discord_id.substring(0, 5)}`;
-        return {
-            label: `${username} (${type === 'pieces' ? j.pieces + ' pièces' : j.etoiles + ' étoiles'})`,
-            value: j.discord_id
-        };
-    }));
-
-    const select = new StringSelectMenuBuilder()
-        .setCustomId(`boo_target_${type}`)
-        .setPlaceholder('Choisis ta cible')
-        .addOptions(options);
-
-    const row = new ActionRowBuilder().addComponents(select);
-    await interaction.followUp({ content: `Qui veux-tu voler ?`, components: [row], flags: 64 }).catch(()=>{});
 }
 
 async function handleBooTarget(interaction) {
-    activeInteractionTokens.delete(interaction.user.id);
-    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const type = interaction.customId.split('_')[2]; // 'pieces' ou 'etoile'
-    const cibleId = interaction.values[0];
-    
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    const cible = await Joueur.findByPk(cibleId);
+    try {
+        activeInteractionTokens.delete(interaction.user.id);
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+        const type = interaction.customId.split('_')[2]; // 'pieces' ou 'etoile'
+        const cibleId = interaction.values[0];
 
-    if (!cible) return interaction.followUp({ content: 'Cible introuvable.', flags: 64 });
+        const joueur = await Joueur.findByPk(interaction.user.id);
+        const cible = await Joueur.findByPk(cibleId);
 
-    let messageAction = '';
-    if (type === 'pieces') {
-        const montantVole = Math.floor(Math.random() * 10) + 3; // 3 à 12
-        const volReel = Math.min(montantVole, Math.max(0, cible.pieces));
-        cible.pieces -= volReel;
-        joueur.pieces += volReel;
-        messageAction = `👻 **Boo !** <@${joueur.discord_id}> a volé ${volReel} pièces à <@${cible.discord_id}> ! *(${interaction.user.username}: ${joueur.pieces} 🪙 | <@${cible.discord_id}>: ${cible.pieces} 🪙)*`;
-    } else if (type === 'etoile') {
-        if (joueur.pieces < 50) return interaction.followUp({ content: 'Tu n\'as plus assez de pièces.', flags: 64 });
-        if (cible.etoiles < 1) return interaction.followUp({ content: 'La cible n\'a plus d\'étoile.', flags: 64 });
-        
-        joueur.pieces -= 50;
-        cible.etoiles -= 1;
-        joueur.etoiles += 1;
-        messageAction = `👻 **Boo !** <@${joueur.discord_id}> a payé 50 pièces pour voler une Étoile à <@${cible.discord_id}> ! *(${interaction.user.username}: ${joueur.etoiles} ⭐ | <@${cible.discord_id}>: ${cible.etoiles} ⭐)*`;
-    }
+        if (!cible) return interaction.followUp({ content: 'Cible introuvable.', flags: 64 });
 
-    await joueur.save();
-    await cible.save();
+        let messageAction = '';
+        if (type === 'pieces') {
+            const montantVole = Math.floor(Math.random() * 10) + 3; // 3 à 12
+            const volReel = Math.min(montantVole, Math.max(0, cible.pieces));
+            cible.pieces -= volReel;
+            joueur.pieces += volReel;
+            messageAction = `👻 **Boo !** <@${joueur.discord_id}> a volé ${volReel} pièces à <@${cible.discord_id}> ! *(${interaction.user.username}: ${joueur.pieces} 🪙 | <@${cible.discord_id}>: ${cible.pieces} 🪙)*`;
+        } else if (type === 'etoile') {
+            if (joueur.pieces < 50) return interaction.followUp({ content: 'Tu n\'as plus assez de pièces.', flags: 64 });
+            if (cible.etoiles < 1) return interaction.followUp({ content: 'La cible n\'a plus d\'étoile.', flags: 64 });
 
-    await interaction.editReply({ content: 'Vol effectué !', components: [] }).catch(()=>{});
-    
-    const channel = interaction.client.channels.cache.get(config.boardChannelId);
-    if (channel) {
-        await channel.send(messageAction);
+            joueur.pieces -= 50;
+            cible.etoiles -= 1;
+            joueur.etoiles += 1;
+            messageAction = `👻 **Boo !** <@${joueur.discord_id}> a payé 50 pièces pour voler une Étoile à <@${cible.discord_id}> ! *(${interaction.user.username}: ${joueur.etoiles} ⭐ | <@${cible.discord_id}>: ${cible.etoiles} ⭐)*`;
+        }
+
+        await joueur.save();
+        await cible.save();
+
+        await interaction.editReply({ content: 'Vol effectué !', components: [] }).catch(()=>{});
+
+        const channel = interaction.client.channels.cache.get(config.boardChannelId);
+        if (channel) {
+            await channel.send(messageAction);
+        }
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors du vol Boo pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue.', flags: 64 });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
     }
 }
 
 async function handleBuyItem(interaction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    let itemId = interaction.customId.replace('buy_', '').split('#')[0];
+    try {
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+        const joueur = await Joueur.findByPk(interaction.user.id);
+        let itemId = interaction.customId.replace('buy_', '').split('#')[0];
 
-    if (!joueur) return interaction.followUp({ content: 'Erreur joueur.', flags: 64 });
-
-    await joueur.reload();
-
-    const { ITEMS } = require('./items');
-    const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
-    const item = ITEMS[itemKey];
-
-    if (!item) return interaction.followUp({ content: 'Objet inconnu.', flags: 64 });
-
-    if (joueur.pieces < item.price) {
-        return interaction.followUp({ content: 'Tu n\'as pas assez de pièces.', flags: 64 });
-    }
-
-    if (item.isPack) {
-        if (joueur.inventaire.length + item.contents.length > 3) {
-            return interaction.followUp({ content: `Ton inventaire est trop plein pour ce pack (il te faut ${item.contents.length} places libres).`, flags: 64 });
-        }
-        joueur.pieces -= item.price;
-        const newInv = [...joueur.inventaire];
-        for (const contentKey of item.contents) {
-            newInv.push(ITEMS[contentKey].name);
-        }
-        joueur.inventaire = newInv;
-        if (joueur.boutique_du_jour) {
-            joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
-        }
-        await joueur.save();
-        await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
-        activeInteractionTokens.delete(interaction.user.id);
-        await handleContinuerDeplacement(interaction, ['boutique']);
-    } else {
-        if (joueur.inventaire.length >= 3) {
-            const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-            const row = new ActionRowBuilder();
-            const options = joueur.inventaire.map((itemName, index) => {
-                return {
-                    label: `Jeter l'objet ${index + 1}: ${itemName}`,
-                    value: index.toString(),
-                };
+        if (!joueur) {
+            activeInteractionTokens.delete(interaction.user.id);
+            return interaction.followUp({ content: 'Erreur joueur.', flags: 64 }).catch((e) => {
+                console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
             });
-            const selectOptions = new StringSelectMenuBuilder()
-                .setCustomId(`replace_buy_${item.id}`)
-                .setPlaceholder('Choisir un objet à jeter')
-                .addOptions(options);
-
-            row.addComponents(selectOptions);
-
-            const row2 = new ActionRowBuilder();
-            row2.addComponents(
-                new ButtonBuilder()
-                    .setCustomId('buy_cancel')
-                    .setLabel('Annuler l\'achat')
-                    .setStyle(ButtonStyle.Danger)
-            );
-
-            return interaction.editReply({ 
-                content: `Ton inventaire est plein ! Quel objet veux-tu jeter pour acheter **${item.name}** (${item.price} pièces) ?`, 
-                components: [row, row2]
-            }).catch(()=>{});
         }
-        joueur.pieces -= item.price;
-        joueur.inventaire = [...joueur.inventaire, item.name];
-        if (joueur.boutique_du_jour) {
-            joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
+
+        await joueur.reload();
+
+        const { ITEMS } = require('./items');
+        const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
+        const item = ITEMS[itemKey];
+
+        if (!item) {
+            activeInteractionTokens.delete(interaction.user.id);
+            return interaction.followUp({ content: 'Objet inconnu.', flags: 64 }).catch((e) => {
+                console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+            });
         }
-        await joueur.save();
-        await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
+
+        if (joueur.pieces < item.price) {
+            activeInteractionTokens.delete(interaction.user.id);
+            return interaction.followUp({ content: 'Tu n\'as pas assez de pièces.', flags: 64 }).catch((e) => {
+                console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+            });
+        }
+
+        if (item.isPack) {
+            if (joueur.inventaire.length + item.contents.length > 3) {
+                activeInteractionTokens.delete(interaction.user.id);
+                return interaction.followUp({ content: `Ton inventaire est trop plein pour ce pack (il te faut ${item.contents.length} places libres).`, flags: 64 }).catch((e) => {
+                    console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+                });
+            }
+            joueur.pieces -= item.price;
+            const newInv = [...joueur.inventaire];
+            for (const contentKey of item.contents) {
+                newInv.push(ITEMS[contentKey].name);
+            }
+            joueur.inventaire = newInv;
+            if (joueur.boutique_du_jour) {
+                joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
+            }
+            await joueur.save();
+            await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch((e) => {
+                console.error(`[ERREUR] Impossible de confirmer l'achat au joueur ${interaction.user.id}:`, e);
+            });
+            activeInteractionTokens.delete(interaction.user.id);
+            await handleContinuerDeplacement(interaction, ['boutique']);
+        } else {
+            if (joueur.inventaire.length >= 3) {
+                const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+                const row = new ActionRowBuilder();
+                const options = joueur.inventaire.map((itemName, index) => {
+                    return {
+                        label: `Jeter l'objet ${index + 1}: ${itemName}`,
+                        value: index.toString(),
+                    };
+                });
+                const selectOptions = new StringSelectMenuBuilder()
+                    .setCustomId(`replace_buy_${item.id}`)
+                    .setPlaceholder('Choisir un objet à jeter')
+                    .addOptions(options);
+
+                row.addComponents(selectOptions);
+
+                const row2 = new ActionRowBuilder();
+                row2.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('buy_cancel')
+                        .setLabel('Annuler l\'achat')
+                        .setStyle(ButtonStyle.Danger)
+                );
+
+                return interaction.editReply({
+                    content: `Ton inventaire est plein ! Quel objet veux-tu jeter pour acheter **${item.name}** (${item.price} pièces) ?`,
+                    components: [row, row2]
+                }).catch((e) => {
+                    console.error(`[ERREUR] Impossible d'afficher le menu de remplacement au joueur ${interaction.user.id}:`, e);
+                });
+            }
+            joueur.pieces -= item.price;
+            joueur.inventaire = [...joueur.inventaire, item.name];
+            if (joueur.boutique_du_jour) {
+                joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
+            }
+            await joueur.save();
+            await interaction.editReply({ content: `🛒 Tu as acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch((e) => {
+                console.error(`[ERREUR] Impossible de confirmer l'achat au joueur ${interaction.user.id}:`, e);
+            });
+            activeInteractionTokens.delete(interaction.user.id);
+            await handleContinuerDeplacement(interaction, ['boutique']);
+        }
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors de l'achat pour ${interaction.user.id}:`, err);
         activeInteractionTokens.delete(interaction.user.id);
-        await handleContinuerDeplacement(interaction, ['boutique']);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue lors de l\'achat. Veuillez réessayer.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
     }
 }
 
 async function handleBuyCancel(interaction) {
-    activeInteractionTokens.delete(interaction.user.id);
-    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    if (joueur) {
-        await interaction.editReply({ content: 'Tu as quitté la boutique' + (joueur.cases_restantes > 0 ? ', en route !' : '.'), components: [] }).catch(()=>{});
+    try {
         activeInteractionTokens.delete(interaction.user.id);
-        await handleContinuerDeplacement(interaction, ['boutique']);
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+        const joueur = await Joueur.findByPk(interaction.user.id);
+        if (joueur) {
+            await interaction.editReply({ content: 'Tu as quitté la boutique' + (joueur.cases_restantes > 0 ? ', en route !' : '.'), components: [] }).catch(()=>{});
+            activeInteractionTokens.delete(interaction.user.id);
+            await handleContinuerDeplacement(interaction, ['boutique']);
+        }
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors de l'annulation d'achat pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue.', flags: 64 });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
     }
 }
 
 
 async function handleReplaceBuy(interaction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const itemId = interaction.customId.replace('replace_buy_', '');
-    const indexToDrop = parseInt(interaction.values[0]);
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    
-    if (!joueur) return interaction.followUp({ content: 'Erreur', flags: 64 });
+    try {
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+        const itemId = interaction.customId.replace('replace_buy_', '');
+        const indexToDrop = parseInt(interaction.values[0]);
+        const joueur = await Joueur.findByPk(interaction.user.id);
 
-    await joueur.reload();
+        if (!joueur) {
+            activeInteractionTokens.delete(interaction.user.id);
+            return interaction.followUp({ content: 'Erreur', flags: 64 }).catch((e) => {
+                console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+            });
+        }
 
-    const { ITEMS } = require('./items');
-    const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
-    const item = ITEMS[itemKey];
+        await joueur.reload();
 
-    if (!item) return interaction.followUp({ content: 'Objet inconnu.', flags: 64 });
+        const { ITEMS } = require('./items');
+        const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
+        const item = ITEMS[itemKey];
 
-    if (joueur.pieces < item.price) {
-        return interaction.editReply({ content: 'Tu n\'as plus assez de pièces.', components: [] }).catch(()=>{});
-    }
+        if (!item) {
+            activeInteractionTokens.delete(interaction.user.id);
+            return interaction.followUp({ content: 'Objet inconnu.', flags: 64 }).catch((e) => {
+                console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+            });
+        }
 
-    joueur.pieces -= item.price;
-    const droppedItem = joueur.inventaire[indexToDrop];
-    
-    const newInv = [...joueur.inventaire];
-    newInv[indexToDrop] = item.name;
-    joueur.inventaire = newInv;
+        if (joueur.pieces < item.price) {
+            activeInteractionTokens.delete(interaction.user.id);
+            return interaction.editReply({ content: 'Tu n\'as plus assez de pièces.', components: [] }).catch((e) => {
+                console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+            });
+        }
 
-    if (joueur.boutique_du_jour) {
-        joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
-    }
+        joueur.pieces -= item.price;
+        const droppedItem = joueur.inventaire[indexToDrop];
 
-    await joueur.save();
+        const newInv = [...joueur.inventaire];
+        newInv[indexToDrop] = item.name;
+        joueur.inventaire = newInv;
 
-    await interaction.editReply({ content: `🛒 Tu as jeté **${droppedItem}** et acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch(()=>{});
-    activeInteractionTokens.delete(interaction.user.id);
+        if (joueur.boutique_du_jour) {
+            joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== item.id);
+        }
+
+        await joueur.save();
+
+        await interaction.editReply({ content: `🛒 Tu as jeté **${droppedItem}** et acheté **${item.name}** !` + (joueur.cases_restantes <= 0 ? ` Il te reste **${joueur.pieces} pièces**.` : ''), components: [] }).catch((e) => {
+            console.error(`[ERREUR] Impossible de confirmer l'achat au joueur ${interaction.user.id}:`, e);
+        });
+        activeInteractionTokens.delete(interaction.user.id);
         await handleContinuerDeplacement(interaction, ['boutique']);
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors du remplacement d'achat pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue lors de l\'achat. Veuillez réessayer.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
+    }
 }
 
 async function handleReplaceChance(interaction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const itemId = interaction.customId.replace('replace_chance_', '');
-    const indexToDrop = parseInt(interaction.values[0]);
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    
-    if (!joueur) return interaction.followUp({ content: 'Erreur', flags: 64 });
+    try {
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+        const itemId = interaction.customId.replace('replace_chance_', '');
+        const indexToDrop = parseInt(interaction.values[0]);
+        const joueur = await Joueur.findByPk(interaction.user.id);
 
-    const { ITEMS } = require('./items');
-    const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
-    const item = ITEMS[itemKey];
+        if (!joueur) {
+            activeInteractionTokens.delete(interaction.user.id);
+            return interaction.followUp({ content: 'Erreur', flags: 64 }).catch((e) => {
+                console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+            });
+        }
 
-    if (!item) return interaction.followUp({ content: 'Objet inconnu.', flags: 64 });
+        const { ITEMS } = require('./items');
+        const itemKey = Object.keys(ITEMS).find(k => ITEMS[k].id === itemId);
+        const item = ITEMS[itemKey];
 
-    const droppedItem = joueur.inventaire[indexToDrop];
-    
-    const newInv = [...joueur.inventaire];
-    newInv[indexToDrop] = item.name;
-    joueur.inventaire = newInv;
+        if (!item) {
+            activeInteractionTokens.delete(interaction.user.id);
+            return interaction.followUp({ content: 'Objet inconnu.', flags: 64 }).catch((e) => {
+                console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+            });
+        }
 
-    await joueur.save();
-    
-    await interaction.editReply({ content: `🗑️ Tu as jeté **${droppedItem}** et gardé **${item.name}** !`, components: [] }).catch(()=>{});
+        const droppedItem = joueur.inventaire[indexToDrop];
+
+        const newInv = [...joueur.inventaire];
+        newInv[indexToDrop] = item.name;
+        joueur.inventaire = newInv;
+
+        await joueur.save();
+
+        await interaction.editReply({ content: `🗑️ Tu as jeté **${droppedItem}** et gardé **${item.name}** !`, components: [] }).catch((e) => {
+            console.error(`[ERREUR] Impossible de confirmer le remplacement au joueur ${interaction.user.id}:`, e);
+        });
+        activeInteractionTokens.delete(interaction.user.id);
+        await handleContinuerDeplacement(interaction, ['boutique']);
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors du remplacement de chance pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue lors de l\'opération. Veuillez réessayer.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
+    }
+}
 }
 
 async function handleUnblockFantome(interaction) {
-    if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
-    const joueur = await Joueur.findByPk(interaction.user.id);
-    if (!joueur) return interaction.followUp({ content: 'Erreur', flags: 64 });
+    try {
+        if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(()=>{});
+        const joueur = await Joueur.findByPk(interaction.user.id);
+        if (!joueur) return interaction.followUp({ content: 'Erreur', flags: 64 });
 
-    if (joueur.est_fantome && !joueur.fantome_unblock_used) {
-        joueur.est_fantome = false;
-        joueur.fantome_unblock_used = true;
-        await joueur.save();
-        await interaction.editReply({ content: `🔓 Tu as utilisé ton déblocage unique pour cette partie de 30 tours ! Tu n'es plus en mode fantôme. Utilise à nouveau /jouer pour jouer.`, components: [] }).catch(()=>{});
-    } else {
-         await interaction.editReply({ content: "Tu ne peux pas te débloquer.", components: [] }).catch(()=>{});
+        if (joueur.est_fantome && !joueur.fantome_unblock_used) {
+            joueur.est_fantome = false;
+            joueur.fantome_unblock_used = true;
+            await joueur.save();
+            await interaction.editReply({ content: `🔓 Tu as utilisé ton déblocage unique pour cette partie de 30 tours ! Tu n'es plus en mode fantôme. Utilise à nouveau /jouer pour jouer.`, components: [] }).catch(()=>{});
+        } else {
+             await interaction.editReply({ content: "Tu ne peux pas te débloquer.", components: [] }).catch(()=>{});
+        }
+    } catch (err) {
+        console.error(`[ERREUR] Erreur lors du déblocage fantôme pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '❌ Une erreur est survenue.', flags: 64 });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue.', flags: 64 });
+            }
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+        }
     }
 }
 
 async function handleDirectionChoice(interaction) {
-    activeInteractionTokens.delete(interaction.user.id);
-
-    // Vérifier si l'interaction est toujours valide avant de tenter deferUpdate
     try {
-        if (!interaction.deferred && !interaction.replied) {
-            await interaction.deferUpdate();
-        }
-    } catch (err) {
-        console.error(`[INTERACTION FAIL] deferUpdate échoué pour ${interaction.user.id} (${interaction.customId}):`, err);
-        // Si l'interaction a expiré, on continue quand même avec les données disponibles
-        if (err.code === 10062) {
-            console.log(`[INTERACTION EXPIRÉE] L'interaction pour ${interaction.user.id} a expiré, tentative de récupération...`);
-        }
-    }
+        activeInteractionTokens.delete(interaction.user.id);
 
-    const { Joueur } = require('../db/models');
-    const joueur = await Joueur.findOne({ where: { discord_id: interaction.user.id } });
-    if (!joueur) {
+        // Vérifier si l'interaction est toujours valide avant de tenter deferUpdate
         try {
-            return interaction.followUp({ content: '❌ Joueur introuvable.', flags: 64 });
-        } catch (e) {
-            console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
-            return;
+            if (!interaction.deferred && !interaction.replied) {
+                await interaction.deferUpdate();
+            }
+        } catch (err) {
+            console.error(`[INTERACTION FAIL] deferUpdate échoué pour ${interaction.user.id} (${interaction.customId}):`, err);
+            // Si l'interaction a expiré, on continue quand même avec les données disponibles
+            if (err.code === 10062) {
+                console.log(`[INTERACTION EXPIRÉE] L'interaction pour ${interaction.user.id} a expiré, tentative de récupération...`);
+            }
         }
-    }
-    const pathChoisi = parseInt(interaction.customId.split('_').pop(), 10);
 
-    if (pathChoisi === 46 || pathChoisi === 55) {
-        const inv = [...(joueur.inventaire || [])];
-        const keyIndex = inv.indexOf('🔑 Clé');
-        if (keyIndex > -1) {
-            inv.splice(keyIndex, 1);
-            joueur.inventaire = inv;
-        } else {
+        const { Joueur } = require('../db/models');
+        const joueur = await Joueur.findOne({ where: { discord_id: interaction.user.id } });
+        if (!joueur) {
             try {
-                return interaction.followUp({ content: '❌ Tu n\'as pas la clé pour entrer dans cette zone !', flags: 64 });
+                return interaction.followUp({ content: '❌ Joueur introuvable.', flags: 64 });
             } catch (e) {
                 console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
                 return;
             }
         }
-    }
+        const pathChoisi = parseInt(interaction.customId.split('_').pop(), 10);
 
-    joueur.temp_choix_direction = pathChoisi;
-  console.log(`[CHOIX DIRECTION] ${joueur.discord_id} choisit le chemin ${pathChoisi} depuis la case ${joueur.position}`);
-    await joueur.save();
+        if (pathChoisi === 46 || pathChoisi === 55) {
+            const inv = [...(joueur.inventaire || [])];
+            const keyIndex = inv.indexOf('🔑 Clé');
+            if (keyIndex > -1) {
+                inv.splice(keyIndex, 1);
+                joueur.inventaire = inv;
+            } else {
+                try {
+                    return interaction.followUp({ content: '❌ Tu n\'as pas la clé pour entrer dans cette zone !', flags: 64 });
+                } catch (e) {
+                    console.error(`[ERREUR] Impossible de répondre au joueur ${interaction.user.id}:`, e);
+                    return;
+                }
+            }
+        }
 
-    if (global.timeouts && global.timeouts[interaction.user.id]) {
-        clearTimeout(global.timeouts[interaction.user.id]);
-        delete global.timeouts[interaction.user.id];
-    }
+        joueur.temp_choix_direction = pathChoisi;
+      console.log(`[CHOIX DIRECTION] ${joueur.discord_id} choisit le chemin ${pathChoisi} depuis la case ${joueur.position}`);
+        await joueur.save();
 
-    try {
-        await processMovement(interaction, joueur, 0, true, ['choix_direction']);
+        // Add confirmation feedback for the user
+        try {
+            await interaction.editReply({ content: `✅ Tu as choisi le chemin ${pathChoisi} !` }).catch(()=>{});
+        } catch (e) {
+            console.error(`[ERREUR] Impossible de confirmer le choix de direction pour ${interaction.user.id}:`, e);
+        }
+
+        if (global.timeouts && global.timeouts[interaction.user.id]) {
+            clearTimeout(global.timeouts[interaction.user.id]);
+            delete global.timeouts[interaction.user.id];
+        }
+
+        try {
+            await processMovement(interaction, joueur, 0, true, ['choix_direction']);
+        } catch (err) {
+            console.error(`[ERREUR] Erreur lors du traitement du mouvement pour ${interaction.user.id}:`, err);
+            // Tenter de notifier l'utilisateur si possible
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ content: '❌ Une erreur est survenue lors du déplacement. Veuillez réessayer.', flags: 64 });
+                }
+            } catch (e) {
+                console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
+            }
+        }
     } catch (err) {
-        console.error(`[ERREUR] Erreur lors du traitement du mouvement pour ${interaction.user.id}:`, err);
-        // Tenter de notifier l'utilisateur si possible
+        console.error(`[ERREUR] Erreur lors du choix de direction pour ${interaction.user.id}:`, err);
+        activeInteractionTokens.delete(interaction.user.id);
         try {
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: '❌ Une erreur est survenue lors du déplacement. Veuillez réessayer.', flags: 64 });
+                await interaction.followUp({ content: '❌ Une erreur est survenue.', flags: 64 });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue.', flags: 64 });
             }
         } catch (e) {
             console.error(`[ERREUR] Impossible de notifier l'erreur au joueur ${interaction.user.id}:`, e);
