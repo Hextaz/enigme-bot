@@ -361,10 +361,10 @@ client.on(Events.InteractionCreate, async interaction => {
             await interaction.message.edit({ embeds: [newEmbed], components: [] });
 
           } else if (action === 'good') {
-            if (plateau.enigme_status === 'active') {
-              // Calculer la récompense selon la tranche horaire (heure de Paris)
-              const nowParis = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-              const hour = nowParis.getHours();
+            if (plateau.enigme_status === 'active' || plateau.enigme_status === 'finished') {
+              // Calculer la récompense selon la tranche horaire de la soumission (heure de Paris)
+              const submitParis = new Date(interaction.message.createdAt.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+              const hour = submitParis.getHours();
               let reward = 2;
               let trancheLabel = '20h-21h';
               if (hour < 18) {
@@ -378,7 +378,7 @@ client.on(Events.InteractionCreate, async interaction => {
                 trancheLabel = '19h-20h';
               }
 
-              // Enregistrer le gagnant (la réponse est déjà définie lors de la programmation)
+              // Enregistrer le gagnant
               const gagnants = [...(plateau.enigme_gagnants || [])];
               if (!gagnants.find(g => g.discord_id === userId)) {
                 gagnants.push({ discord_id: userId, pieces: reward, tranche: trancheLabel });
@@ -392,31 +392,27 @@ client.on(Events.InteractionCreate, async interaction => {
                 joueur.pieces += reward;
                 joueur.a_trouve_enigme = true;
                 joueur.stat_enigmes_trouvees = (joueur.stat_enigmes_trouvees || 0) + 1;
+                // Si validé après 21h, s'assurer que le joueur a le droit de jouer
+                if (plateau.enigme_status === 'finished') {
+                  joueur.a_le_droit_de_jouer = true;
+                }
                 await joueur.save();
               }
 
-              // Annoncer dans le channel énigme
-              await channel.send(`🎉 **<@${userId}> a trouvé l'énigme !** (+${reward} pièces — tranche ${trancheLabel})`);
-
-              // Confirmer au MJ
-              await interaction.editReply({ content: `Tu as validé la proposition de <@${userId}>. +${reward} pièces (tranche ${trancheLabel}). L'énigme reste ouverte pour les autres.` });
+              // Si l'énigme est toujours active, annoncer dans le channel
+              if (plateau.enigme_status === 'active') {
+                await channel.send(`🎉 **<@${userId}> a trouvé l'énigme !** (+${reward} pièces — tranche ${trancheLabel})`);
+                await interaction.editReply({ content: `Tu as validé la proposition de <@${userId}>. +${reward} pièces (tranche ${trancheLabel}). L'énigme reste ouverte pour les autres.` });
+              } else {
+                // Si validé en retard (après 21h)
+                await channel.send(`🎉 **<@${userId}> a trouvé l'énigme !** (Validé avec retard par le MJ, +${reward} pièces — tranche ${trancheLabel})`);
+                await interaction.editReply({ content: `Tu as validé tardivement la proposition de <@${userId}>. +${reward} pièces (tranche ${trancheLabel}).` });
+              }
 
               // Mettre à jour le message du MJ
               const embed = interaction.message.embeds[0];
-              const newEmbed = { ...embed.data, color: 0x2ecc71, title: `Proposition validée (+${reward}p — ${trancheLabel})` };
-              await interaction.message.edit({ embeds: [newEmbed], components: [] });
-
-            } else if (plateau.enigme_status === 'finished') {
-              // MJ valide en retard (après 21h)
-              const j = await Joueur.findByPk(userId);
-              if (j) {
-                j.pieces += 2;
-                j.a_le_droit_de_jouer = true;
-                j.stat_enigmes_trouvees = (j.stat_enigmes_trouvees || 0) + 1;
-                await j.save();
-              }
-              const embed = interaction.message.embeds[0];
-              const newEmbed = { ...embed.data, color: 0x2ecc71, title: 'Proposition validée (Retardataire)' };
+              const titleSuffix = plateau.enigme_status === 'finished' ? ' (Retardataire)' : '';
+              const newEmbed = { ...embed.data, color: 0x2ecc71, title: `Proposition validée (+${reward}p — ${trancheLabel})${titleSuffix}` };
               await interaction.message.edit({ embeds: [newEmbed], components: [] });
             } else {
               await interaction.editReply({ content: "L'énigme n'est pas active." });
