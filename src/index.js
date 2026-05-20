@@ -603,11 +603,9 @@ async function handleProgrammerEnigmeModal(interaction) {
 
   // Confirmation à l'admin
   let confirmMsg = `✅ **Énigme programmée avec succès !**\n\n`;
-  confirmMsg += `📝 **Énigme :** ${enigmeText}\n`;
+  confirmMsg += `📝 **Titre :** ${enigmeText.split('\n')[0] || 'Énigme du jour'}\n`;
   confirmMsg += `🔑 **Réponse :** ${reponse}\n`;
-  if (indice1) confirmMsg += `💡 **Indice 18h :** ${indice1}\n`;
-  if (indice2) confirmMsg += `💡 **Indice 19h :** ${indice2}\n`;
-  if (indice3) confirmMsg += `💡 **Indice 20h :** ${indice3}\n`;
+  confirmMsg += `💡 **Indices :** ${[indice1, indice2, indice3].filter(Boolean).length} indice(s) programmé(s)\n`;
   confirmMsg += `\n📣 L'énigme sera publiée automatiquement à **17h** dans le salon énigme.`;
 
   await interaction.editReply({ content: confirmMsg, flags: 64 });
