@@ -6,6 +6,33 @@ const config = require('../config');
 
 const activeInteractionTokens = new Map();
 
+async function getRandomStarPosition(currentStarPosition) {
+    const tousLesJoueurs = await Joueur.findAll();
+    const positionsOccupees = tousLesJoueurs.map(j => j.position);
+    
+    const { BOARD_CASES } = require('./board');
+    let casesValides = BOARD_CASES.filter(ca => 
+        ca.id <= 45 && 
+        ca.type !== 'Boutique' && 
+        ca.type !== 'Boo' && 
+        ca.id !== 1 &&
+        ca.id !== currentStarPosition &&
+        !positionsOccupees.includes(ca.id)
+    ).map(ca => ca.id);
+
+    if (casesValides.length === 0) {
+        casesValides = BOARD_CASES.filter(ca => 
+            ca.id <= 45 && 
+            ca.type !== 'Boutique' && 
+            ca.type !== 'Boo' && 
+            ca.id !== 1 &&
+            ca.id !== currentStarPosition
+        ).map(ca => ca.id);
+    }
+    
+    return casesValides[Math.floor(Math.random() * casesValides.length)];
+}
+
 function createTimeout(userId, type, interaction) {
     const token = Date.now().toString() + Math.random().toString();
     activeInteractionTokens.set(userId, token);
@@ -667,10 +694,7 @@ const contentText = joueur.cases_restantes > 0
                 await cible.save();
                 messageAction += `\n🎭 **Coup du Sort !** Grande Loterie : <@${cible.discord_id}> gagne 20 pièces ! *(Total: ${cible.pieces} 🪙)*`;
             } else if (evt.type === 'etoile_filante') {
-                let nouvellePositionEtoile;
-                do {
-                    nouvellePositionEtoile = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
-                } while (nouvellePositionEtoile === plateau.position_etoile);
+                const nouvellePositionEtoile = await getRandomStarPosition(plateau.position_etoile);
                 plateau.position_etoile = nouvellePositionEtoile;
                 await plateau.save();
                 messageAction += `\n🎭 **Coup du Sort !** Étoile Filante : L'Étoile se déplace sur la case ${nouvellePositionEtoile} !`;
@@ -866,11 +890,8 @@ async function handleAcheterEtoile(interaction) {
         joueur.etoiles += 1;
         await joueur.save();
 
-        const oldPosition = plateau.position_etoile;
-
-        do {
-            plateau.position_etoile = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
-        } while (plateau.position_etoile === oldPosition);
+        const nouvellePositionEtoile = await getRandomStarPosition(plateau.position_etoile);
+        plateau.position_etoile = nouvellePositionEtoile;
         await plateau.save();
 
         const successMsg = `⭐ **Bravo !** <@${interaction.user.id}> a acheté une Étoile ! 🌟 L'Étoile s'envole vers la case ${plateau.position_etoile} !`;
@@ -1039,10 +1060,7 @@ async function handleUseItem(interaction) {
             }
         } else if (item.id === 'sifflet') {
             const plateau = await Plateau.findByPk(1);
-            let nouvellePositionEtoile;
-            do {
-                nouvellePositionEtoile = (() => { const v = require('./board').BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id); return v[Math.floor(Math.random() * v.length)]; })();
-            } while (nouvellePositionEtoile === plateau.position_etoile);
+            const nouvellePositionEtoile = await getRandomStarPosition(plateau.position_etoile);
             plateau.position_etoile = nouvellePositionEtoile;
             await plateau.save();
             message += `L'Étoile s'est déplacée !`;

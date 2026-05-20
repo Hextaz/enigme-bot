@@ -122,7 +122,9 @@ async execute(interaction) {
 
     if (subcommand === 'start') {
       await Joueur.destroy({ where: {} });
-      const randomStarPos = Math.floor(Math.random() * 33) + 10;
+      const { BOARD_CASES } = require('../game/board');
+      const validCases = BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id);
+      const randomStarPos = validCases[Math.floor(Math.random() * validCases.length)];
 
       let blocs_pos = [];
       while(blocs_pos.length < 4) {
@@ -138,9 +140,9 @@ async execute(interaction) {
 
       let plateau = await Plateau.findByPk(1);
       if (!plateau) {
-        await Plateau.create({ id: 1, position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches });
+        await Plateau.create({ id: 1, position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches, enigme_status: 'active' });
       } else {
-        await Plateau.update({ position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches }, { where: { id: 1 } });
+        await Plateau.update({ position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches, enigme_status: 'active' }, { where: { id: 1 } });
       }
 
       await interaction.editReply(`La saison a été réinitialisée et lancée ! L'Étoile est apparue sur la case ${randomStarPos}. 4 blocs cachés ont été placés secrètement. Utilisez \`/admin programmer_enigme\` pour le **Tour 1**.`).catch((err) => {

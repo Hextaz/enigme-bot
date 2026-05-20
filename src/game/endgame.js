@@ -3,15 +3,15 @@ const config = require('../config');
 
 // Annoncer le podium, attribuer le rôle Vainqueur et clore la partie
 async function endSeason(client) {
+    let plateau = await Plateau.findByPk(1);
+    if (!plateau || plateau.enigme_status === 'season_ended') return;
+
     const channel = client.channels.cache.get(config.boardChannelId);
     if (!channel) return;
 
-    let plateau = await Plateau.findByPk(1);
-    if (plateau) {
-        plateau.enigme_resolue = true;
-        plateau.enigme_status = 'finished'; // On verrouille le plateau
-        await plateau.save();
-    }
+    plateau.enigme_resolue = true;
+    plateau.enigme_status = 'season_ended'; // On verrouille le plateau et signale la fin de saison
+    await plateau.save();
 
     // Récupérer le podium
 

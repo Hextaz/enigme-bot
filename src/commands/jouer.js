@@ -82,7 +82,16 @@ module.exports = {
 
         let contentMsg = `**Tour ${tourActuel}/30**\n**Tes statistiques :**\n⭐ Étoiles : **${joueur.etoiles}** | 🪙 Pièces : **${joueur.pieces}** | 🏆 Classement : **${rank}/${tousLesJoueurs.length}**\n\nTu es sur la case **${joueur.position}**. Que veux-tu faire ?`;
 
-        if (joueur.est_fantome) {
+        if (plateau && plateau.enigme_status === 'season_ended') {
+            contentMsg = `🏆 **LA SAISON EST TERMINÉE !** 🏆\n\nLe podium final a été annoncé et les vainqueurs ont été récompensés. Merci à tous pour votre participation ! 🎉`;
+            row.components.length = 0;
+            row.addComponents(
+                new ButtonBuilder()
+                    .setCustomId('voir_plateau')
+                    .setLabel('🗺️ Voir le plateau')
+                    .setStyle(ButtonStyle.Success)
+            );
+        } else if (joueur.est_fantome) {
             contentMsg = `**Tour ${tourActuel}/30**\n\n👻 **MODE FANTÔME ACTIVÉ** 👻\nTu n'as pas joué pendant 3 jours. Tu es en mode fantôme et ton personnage est bloqué.\n`;
             
             // Vider les boutons
