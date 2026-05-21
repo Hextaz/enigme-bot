@@ -97,8 +97,10 @@ function initCronJobs(client) {
   cron.schedule('0 17 * * 1-5', async () => {
     const plateau = await Plateau.findByPk(1);
     if (plateau && plateau.tour >= 30) {
-      const { endSeason } = require('./endgame');
-      await endSeason(client);
+      if (plateau.enigme_status !== 'season_ended') {
+        const { endSeason } = require('./endgame');
+        await endSeason(client);
+      }
       return;
     }
 
@@ -248,8 +250,10 @@ function initCronJobs(client) {
   cron.schedule('0 11 * * 0', async () => {
     const plateauCheck = await Plateau.findByPk(1);
     if (plateauCheck && plateauCheck.tour >= 30) {
-      const { endSeason } = require('./endgame');
-      await endSeason(client);
+      if (plateauCheck.enigme_status !== 'season_ended') {
+        const { endSeason } = require('./endgame');
+        await endSeason(client);
+      }
       return;
     }
 
@@ -282,8 +286,10 @@ function initCronJobs(client) {
   cron.schedule('0 10 * * 6', async () => {
     const plateauCheck = await Plateau.findByPk(1);
     if (plateauCheck && plateauCheck.tour >= 30) {
-      const { endSeason } = require('./endgame');
-      await endSeason(client);
+      if (plateauCheck.enigme_status !== 'season_ended') {
+        const { endSeason } = require('./endgame');
+        await endSeason(client);
+      }
       return;
     }
 
