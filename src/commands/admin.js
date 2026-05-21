@@ -121,35 +121,47 @@ async execute(interaction) {
     }
 
     if (subcommand === 'start') {
-      await Joueur.destroy({ where: {} });
-      const { BOARD_CASES } = require('../game/board');
-      const validCases = BOARD_CASES.filter(ca => ca.id <= 45 && ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id);
-      const randomStarPos = validCases[Math.floor(Math.random() * validCases.length)];
-
-      let blocs_pos = [];
-      while(blocs_pos.length < 4) {
-        let r = Math.floor(Math.random() * 41) + 2;
-        if(!blocs_pos.includes(r)) blocs_pos.push(r);
-      }
-      const blocs_caches = {
-        etoile: blocs_pos[0],
-        pieces_20: blocs_pos[1],
-        pieces_10: blocs_pos[2],
-        pieces_5: blocs_pos[3]
-      };
-
-      let plateau = await Plateau.findByPk(1);
-      if (!plateau) {
-        await Plateau.create({ id: 1, position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches, enigme_status: 'active' });
-      } else {
-        await Plateau.update({ position_etoile: randomStarPos, pieges_actifs: [], tour: 0, enigme_resolue: true, blocs_caches: blocs_caches, enigme_status: 'active' }, { where: { id: 1 } });
+      const registry = require('../gamemodes/registry');
+      const { EmbedBuilder, StringSelectMenuBuilder } = require('discord.js');
+      
+      const modes = registry.getAllModes();
+      if (modes.length === 0) {
+        return interaction.editReply("❌ Aucun mode de jeu n'a été détecté dans `src/gamemodes/` ! Vérifiez l'arborescence.").catch(()=>{});
       }
 
-      await interaction.editReply(`La saison a été réinitialisée et lancée ! L'Étoile est apparue sur la case ${randomStarPos}. 4 blocs cachés ont été placés secrètement. Utilisez \`/admin programmer_enigme\` pour le **Tour 1**.`).catch((err) => {
-        console.error(`[ADMIN] editReply failed for start:`, err);
-        if (err.code === 10062) {
-          console.log(`[ADMIN] Interaction expired for start command`);
-        }
+      const embed = new EmbedBuilder()
+        .setTitle('🎮 Initialisation du Plateau - Étape 1/3')
+        .setDescription('Sélectionnez le **mode de jeu** à lancer pour cette nouvelle partie. Chaque mode propose ses propres règles et sa propre logique d\'événements.')
+        .setColor('#5865F2')
+        .setFooter({ text: 'Étape 1 sur 3 — Sélection du Mode' });
+
+      modes.forEach(mode => {
+        embed.addFields({
+          name: `${mode.emoji} ${mode.name}`,
+          value: `${mode.description}\n*(Nombre de tours max : ${mode.maxTours})*`
+        });
+      });
+
+      const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('admin_start_mode')
+        .setPlaceholder('Sélectionnez le mode de jeu...')
+        .addOptions(
+          modes.map(mode => ({
+            label: mode.name,
+            value: mode.id,
+            description: mode.description.slice(0, 100),
+            emoji: mode.emoji
+          }))
+        );
+
+      const row = new ActionRowBuilder().addComponents(selectMenu);
+
+      await interaction.editReply({
+        content: null,
+        embeds: [embed],
+        components: [row]
+      }).catch((err) => {
+        console.error(`[ADMIN] start subcommand reply failed:`, err);
       });
 
     } else if (subcommand === 'programmer_enigme') {

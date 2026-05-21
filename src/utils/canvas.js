@@ -1,5 +1,5 @@
 const { createCanvas, loadImage } = require('canvas');
-const { BOARD_CASES, getCase } = require('../game/board');
+const { getCase } = require('../game/board');
 const path = require('path');
 
 const CASE_SIZE = 90;
@@ -64,6 +64,8 @@ const globalAvatarCache = {};
 const globalUserCache = {};
 
 async function generateBoardImage(joueurs, plateau, client) {
+    const { loadBoardCases } = require('../game/board');
+    const cases = await loadBoardCases();
     const userCache = globalUserCache;
     const avatarCache = globalAvatarCache;
     const canvas = createCanvas(BOARD_WIDTH, BOARD_HEIGHT);
@@ -71,13 +73,23 @@ async function generateBoardImage(joueurs, plateau, client) {
 
     // Charger l'image de fond
     try {
-        if (!global.cachedBg) {
-            global.cachedBg = await loadImage(path.join(__dirname, '../../assets/plateau.png'));
+        const registry = require('../gamemodes/registry');
+        const modeId = plateau?.game_mode || 'mario_party';
+        const mapId = plateau?.game_map || 'night_sky';
+        
+        global.cachedBgs = global.cachedBgs || {};
+        const cacheKey = `${modeId}_${mapId}`;
+        
+        if (!global.cachedBgs[cacheKey]) {
+            const mode = registry.getMode(modeId);
+            const bgPath = mode ? mode.getBoardImagePath(mapId) : path.join(__dirname, '../../assets/plateau.png');
+            global.cachedBgs[cacheKey] = await loadImage(bgPath);
         }
-        const bgImage = global.cachedBg;
+        
+        const bgImage = global.cachedBgs[cacheKey];
         ctx.drawImage(bgImage, 0, 0, BOARD_WIDTH, BOARD_HEIGHT);
     } catch (error) {
-        console.error("Image de fond non trouvée, utilisation d'un fond uni.");
+        console.error("Image de fond non trouvée, utilisation d'un fond uni :", error);
         ctx.fillStyle = '#2C2F33';
         ctx.fillRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
     }
@@ -98,7 +110,7 @@ async function generateBoardImage(joueurs, plateau, client) {
         const etoileCase = getCase(plateau.position_etoile);
         if (etoileCase) {
             const posId = parseInt(plateau.position_etoile);
-            const prevCase = BOARD_CASES.find(c => c.next.includes(posId)) || etoileCase;
+            const prevCase = cases.find(c => c.next.includes(posId)) || etoileCase;
             const nextCase = getCase(etoileCase.next[0]) || etoileCase;
 
             // Vecteur tangent (direction du chemin)
@@ -156,7 +168,7 @@ async function generateBoardImage(joueurs, plateau, client) {
 
             // Calculer l'angle parfait vers l'extérieur en utilisant les cases adjacentes
             const posId = parseInt(position);
-            const prevCase = BOARD_CASES.find(cas => cas.next.includes(posId)) || c;
+            const prevCase = cases.find(cas => cas.next.includes(posId)) || c;
             const nextCase = getCase(c.next[0]) || c;
             
             // Vecteur tangent (direction du chemin)
@@ -327,6 +339,8 @@ let user = userCache[joueur.discord_id] || null;
 }
 
 async function generateZoomedBoardImage(joueur, tousLesJoueurs, plateau, client) {
+    const { loadBoardCases } = require('../game/board');
+    await loadBoardCases();
     const canvas = createCanvas(800, 200);
     const ctx = canvas.getContext('2d');
 

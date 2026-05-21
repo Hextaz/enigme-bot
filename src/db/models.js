@@ -114,6 +114,10 @@ const Joueur = sequelize.define('Joueur', {
   stat_objets_utilises: {
     type: DataTypes.INTEGER,
     defaultValue: 0,
+  },
+  mode_data: {
+    type: DataTypes.JSON,
+    defaultValue: {},
   }
 }, {
   tableName: 'joueurs',
@@ -197,6 +201,18 @@ const Plateau = sequelize.define('Plateau', {
   blocs_caches: {
     type: DataTypes.JSON,
     defaultValue: {},
+  },
+  game_mode: {
+    type: DataTypes.STRING,
+    defaultValue: 'mario_party',
+  },
+  game_variant: {
+    type: DataTypes.STRING,
+    defaultValue: 'standard',
+  },
+  game_map: {
+    type: DataTypes.STRING,
+    defaultValue: 'night_sky',
   }
 }, {
   tableName: 'plateau',

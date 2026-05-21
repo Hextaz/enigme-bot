@@ -183,7 +183,8 @@ client.on(Events.InteractionCreate, async interaction => {
     const id = interaction.customId;
     isGameAction = (!id || (!id.startsWith('rappel_') && !id.startsWith('pari_') && !id.startsWith('reponse_') && !id.startsWith('admin_')));
   } else if (interaction.isStringSelectMenu() || interaction.isModalSubmit()) {
-    isGameAction = true;
+    const id = interaction.customId;
+    isGameAction = (!id || (!id.startsWith('admin_') && !id.startsWith('modal_programmer_enigme_')));
   }
 
   if (isGameCommand || isGameAction) {
@@ -244,7 +245,11 @@ client.on(Events.InteractionCreate, async interaction => {
       const { handleLancerDe, handleContinuerDeplacement, handleAcheterEtoile, handlePasserEtoile, handleUnblockFantome } = require('./game/events');
 
       try {
-        if (interaction.customId === 'unblock_fantome') {
+        if (interaction.customId.startsWith('admin_start_confirm::')) {
+          await handleAdminStartConfirm(interaction);
+        } else if (interaction.customId === 'admin_start_cancel') {
+          await handleAdminStartCancel(interaction);
+        } else if (interaction.customId === 'unblock_fantome') {
           await handleUnblockFantome(interaction);
         } else if (interaction.customId === 'lancer_de') {
           await handleLancerDe(interaction);
@@ -448,7 +453,13 @@ client.on(Events.InteractionCreate, async interaction => {
       }
     } else if (interaction.isStringSelectMenu()) {
       try {
-        if (interaction.customId.startsWith('boo_target_')) {
+        if (interaction.customId === 'admin_start_mode') {
+          await handleAdminStartMode(interaction);
+        } else if (interaction.customId.startsWith('admin_start_variant_')) {
+          await handleAdminStartVariant(interaction);
+        } else if (interaction.customId.startsWith('admin_start_map::')) {
+          await handleAdminStartMap(interaction);
+        } else if (interaction.customId.startsWith('boo_target_')) {
           const { handleBooTarget } = require('./game/events');
           await handleBooTarget(interaction);
         } else if (interaction.customId === 'de_pipe_choix') {
@@ -672,6 +683,253 @@ async function handleAdminRemoveObjet(interaction) {
     content: `✅ L'objet "${selectedItem}" a été retiré à <@${userId}>.`,
     components: []
   });
+}
+
+async function handleAdminStartMode(interaction) {
+  const { EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+  const registry = require('./gamemodes/registry');
+  
+  const selectedMode = interaction.values[0];
+  const mode = registry.getMode(selectedMode);
+  
+  if (!mode) {
+    return interaction.update({ content: "❌ Mode de jeu introuvable !", components: [] }).catch(()=>{});
+  }
+
+  const variants = registry.getVariantsForMode(selectedMode);
+  if (variants.length === 0) {
+    return interaction.update({ content: `❌ Aucune variante trouvée pour le mode **${mode.name}** !`, components: [] }).catch(()=>{});
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('🎮 Initialisation du Plateau - Étape 2/3')
+    .setDescription(`Vous avez choisi le mode **${mode.name}**.\n\nSélectionnez maintenant la **variante de règles** à appliquer. Les variantes définissent les paramètres par défaut comme les gains, les prix ou d'autres comportements.`)
+    .setColor('#5865F2')
+    .setFooter({ text: 'Étape 2 sur 3 — Sélection de la Variante' });
+
+  variants.forEach(v => {
+    embed.addFields({
+      name: `📜 ${v.name}`,
+      value: `Variante de jeu disponible pour le mode ${mode.name}.`
+    });
+  });
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`admin_start_variant_${selectedMode}`)
+    .setPlaceholder('Sélectionnez la variante...')
+    .addOptions(
+      variants.map(v => ({
+        label: v.name,
+        value: v.id,
+        description: `Lancer la variante ${v.name}`
+      }))
+    );
+
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+
+  await interaction.update({
+    embeds: [embed],
+    components: [row]
+  }).catch((err) => {
+    console.error(`[ADMIN] handleAdminStartMode failed:`, err);
+  });
+}
+
+async function handleAdminStartVariant(interaction) {
+  const { EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+  const registry = require('./gamemodes/registry');
+
+  const modeId = interaction.customId.replace('admin_start_variant_', '');
+  const selectedVariant = interaction.values[0];
+
+  const mode = registry.getMode(modeId);
+  const variants = registry.getVariantsForMode(modeId);
+  const variant = variants.find(v => v.id === selectedVariant);
+
+  if (!mode || !variant) {
+    return interaction.update({ content: "❌ Mode ou variante introuvable !", components: [] }).catch(()=>{});
+  }
+
+  const maps = registry.getMapsForMode(modeId);
+  if (maps.length === 0) {
+    return interaction.update({ content: `❌ Aucune map trouvée pour le mode **${mode.name}** !`, components: [] }).catch(()=>{});
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('🎮 Initialisation du Plateau - Étape 3/3')
+    .setDescription(`Mode : **${mode.name}** | Variante : **${variant.name}**\n\nSélectionnez maintenant la **map (plateau)** sur laquelle se déroulera la partie.`)
+    .setColor('#5865F2')
+    .setFooter({ text: 'Étape 3 sur 3 — Sélection de la Map' });
+
+  maps.forEach(m => {
+    embed.addFields({
+      name: `🗺️ ${m.name}`,
+      value: `Plateau de jeu "${m.name}" avec ses propres coordonnées de cases.`
+    });
+  });
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`admin_start_map::${modeId}::${selectedVariant}`)
+    .setPlaceholder('Sélectionnez la map...')
+    .addOptions(
+      maps.map(m => ({
+        label: m.name,
+        value: m.id,
+        description: `Charger la map ${m.name}`
+      }))
+    );
+
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+
+  await interaction.update({
+    embeds: [embed],
+    components: [row]
+  }).catch((err) => {
+    console.error(`[ADMIN] handleAdminStartVariant failed:`, err);
+  });
+}
+
+async function handleAdminStartMap(interaction) {
+  const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+  const registry = require('./gamemodes/registry');
+
+  // Format: admin_start_map::${modeId}::${variantId}
+  const suffix = interaction.customId.slice('admin_start_map::'.length);
+  const [modeId, variantId] = suffix.split('::');
+  const selectedMap = interaction.values[0];
+
+  const mode = registry.getMode(modeId);
+  const variant = registry.getVariantsForMode(modeId).find(v => v.id === variantId);
+  const map = registry.getMapsForMode(modeId).find(m => m.id === selectedMap);
+
+  if (!mode || !variant || !map) {
+    return interaction.update({ content: "❌ Paramètres d'initialisation invalides !", components: [] }).catch(()=>{});
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('⚠️ Confirmation de l\'initialisation')
+    .setDescription(`Veuillez confirmer le lancement de la saison avec les paramètres suivants :\n\n• **Mode de jeu :** ${mode.emoji} **${mode.name}**\n• **Variante :** 📜 **${variant.name}**\n• **Map / Plateau :** 🗺️ **${map.name}**\n\n🚨 **ATTENTION :** Confirmer lancera une réinitialisation complète de la base de données. Tous les joueurs inscrits seront supprimés et les scores remis à zéro !`)
+    .setColor('#FF9900');
+
+  const btnConfirm = new ButtonBuilder()
+    .setCustomId(`admin_start_confirm::${modeId}::${variantId}::${selectedMap}`)
+    .setLabel('Confirmer et lancer')
+    .setStyle(ButtonStyle.Success);
+
+  const btnCancel = new ButtonBuilder()
+    .setCustomId('admin_start_cancel')
+    .setLabel('Annuler')
+    .setStyle(ButtonStyle.Danger);
+
+  const row = new ActionRowBuilder().addComponents(btnConfirm, btnCancel);
+
+  await interaction.update({
+    embeds: [embed],
+    components: [row]
+  }).catch((err) => {
+    console.error(`[ADMIN] handleAdminStartMap failed:`, err);
+  });
+}
+
+async function handleAdminStartConfirm(interaction) {
+  // Format: admin_start_confirm::${modeId}::${variantId}::${mapId}
+  const suffix = interaction.customId.slice('admin_start_confirm::'.length);
+  const [modeId, variantId, mapId] = suffix.split('::');
+
+  const registry = require('./gamemodes/registry');
+  const mode = registry.getMode(modeId);
+
+  if (!mode) {
+    return interaction.update({ content: "❌ Impossible de démarrer : mode introuvable !", components: [], embeds: [] }).catch(()=>{});
+  }
+
+  const { TourSnapshot } = require('./db/models');
+
+  await interaction.deferUpdate().catch(()=>{});
+
+  try {
+    // 1. Reset de la base de données joueurs & snapshots
+    await Joueur.destroy({ where: {} });
+    await TourSnapshot.destroy({ where: {} });
+
+    // 2. Récupérer les cases de la map choisie pour placer l'étoile et les blocs cachés
+    const boardCases = mode.getBoardCases(mapId);
+    
+    // Placer l'étoile sur une case aléatoire valide (excluant départ, boutique, boo)
+    const validCases = boardCases.filter(ca => ca.type !== 'Boutique' && ca.type !== 'Boo' && ca.id !== 1).map(ca => ca.id);
+    const randomStarPos = validCases.length > 0 ? validCases[Math.floor(Math.random() * validCases.length)] : 10;
+
+    // Placer les 4 blocs cachés : pool = cases valides SANS la case de l'étoile pour éviter toute collision
+    let pool = validCases.filter(id => id !== randomStarPos);
+    pool.sort(() => Math.random() - 0.5);
+
+    const blocks = {
+      etoile: pool[0] || 12,
+      pieces_20: pool[1] || 16,
+      pieces_10: pool[2] || 22,
+      pieces_5: pool[3] || 28
+    };
+
+    // 3. Mettre à jour ou créer l'état global du plateau
+    let plateau = await Plateau.findByPk(1);
+    const plateauData = {
+      position_etoile: randomStarPos,
+      pieges_actifs: [],
+      tour: 0,
+      enigme_resolue: true,
+      blocs_caches: blocks,
+      enigme_status: 'finished', // 'finished' = plateau déverrouillé, les joueurs peuvent jouer
+      game_mode: modeId,
+      game_variant: variantId,
+      game_map: mapId
+    };
+
+    if (plateau) {
+      await plateau.update(plateauData);
+    } else {
+      await Plateau.create({ id: 1, ...plateauData });
+    }
+
+    // 4. Invalider les caches du canvas et du board pour forcer le rechargement de la nouvelle map
+    global.cachedBgs = {}; // Vider TOUT le cache d'images (pas seulement la nouvelle map)
+    global.cachedBg = null;
+    // Invalider le cache des cases du proxy board
+    const boardProxy = require('./game/board');
+    if (boardProxy._invalidateCache) boardProxy._invalidateCache();
+
+    // 5. Envoyer le message de confirmation finale sur l'interaction
+    await interaction.editReply({
+      content: `🎉 **La saison a été initialisée avec succès !**\n\n• **Mode :** ${mode.emoji} **${mode.name}**\n• **Variante :** 📜 **${variantId}**\n• **Map :** 🗺️ **${mapId}**\n\nL'étoile a été placée sur la case **${randomStarPos}**.\nLe plateau est prêt à accueillir les joueurs ! Utilisez \`/jouer\` pour rejoindre la partie.`,
+      embeds: [],
+      components: []
+    }).catch(()=>{});
+
+    // 6. Notifier les joueurs dans le salon public du plateau
+    const config = require('./config');
+    const channel = interaction.client.channels.cache.get(config.boardChannelId);
+    if (channel) {
+      const mentionRole = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
+      await channel.send(`🏁 ${mentionRole}**UNE NOUVELLE SAISON COMMENCE !** 🏁\n\nLe plateau a été réinitialisé par un administrateur avec les configurations suivantes :\n• **Mode de jeu :** ${mode.emoji} **${mode.name}**\n• **Variante :** 📜 **${variantId}**\n• **Map / Plateau :** 🗺️ **${mapId}**\n\n🌟 L'étoile a atterri sur la case **${randomStarPos}** !\n\nTous les scores sont remis à zéro. Utilisez la commande \`/jouer\` pour lancer votre dé et faire partie de l'aventure ! Bonne chance à tous ! 🎲✨`).catch((err) => {
+        console.error(`[ADMIN] Failed to send startup notification to board channel:`, err);
+      });
+    }
+
+  } catch (error) {
+    console.error(`[ADMIN] Erreur lors de l'initialisation du plateau:`, error);
+    await interaction.editReply({
+      content: `❌ Une erreur technique est survenue lors de l'initialisation de la partie. Consultez les logs.`,
+      embeds: [],
+      components: []
+    }).catch(()=>{});
+  }
+}
+
+async function handleAdminStartCancel(interaction) {
+  await interaction.update({
+    content: '❌ **Initialisation annulée.** Le plateau actuel n\'a pas été modifié.',
+    embeds: [],
+    components: []
+  }).catch(()=>{});
 }
 
 client.login(config.token);
