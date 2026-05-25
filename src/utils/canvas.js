@@ -1,6 +1,19 @@
 const { createCanvas, loadImage } = require('canvas');
-const { getCase } = require('../game/board');
 const path = require('path');
+const fs = require('fs');
+
+const boardImageCache = {
+    plage: null,
+    volcan: null,
+    sommet: null
+};
+
+function invalidateBoardCache() {
+    boardImageCache.plage = null;
+    boardImageCache.volcan = null;
+    boardImageCache.sommet = null;
+    console.log("[CACHE] Cache des images du plateau de l'île aux défis invalidé !");
+}
 
 const CASE_SIZE = 90;
 const BOARD_WIDTH = 1920;
@@ -63,9 +76,29 @@ function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, fillColor, stro
 const globalAvatarCache = {};
 const globalUserCache = {};
 
-async function generateBoardImage(joueurs, plateau, client) {
-    const { loadBoardCases } = require('../game/board');
+async function generateBoardImage(joueurs, plateau, client, zoneId = null) {
+    const { loadBoardCases, getCase } = require('../game/board');
     const cases = await loadBoardCases();
+    
+    const modeId = plateau?.game_mode || 'mario_party';
+    const isIleDefis = modeId === 'ile_defis';
+    
+    let actualZone = 'plage';
+    if (isIleDefis) {
+        if (zoneId) {
+            actualZone = zoneId;
+        } else {
+            const activeJoueur = joueurs[0];
+            const activeCase = activeJoueur ? cases.find(c => c.id === activeJoueur.position) : null;
+            actualZone = activeCase ? (activeCase.zone || 'plage') : 'plage';
+        }
+        
+        // Renvoyer le cache RAM s'il est présent
+        if (boardImageCache[actualZone]) {
+            return Promise.resolve(boardImageCache[actualZone]);
+        }
+    }
+
     const userCache = globalUserCache;
     const avatarCache = globalAvatarCache;
     const canvas = createCanvas(BOARD_WIDTH, BOARD_HEIGHT);
@@ -74,19 +107,33 @@ async function generateBoardImage(joueurs, plateau, client) {
     // Charger l'image de fond
     try {
         const registry = require('../gamemodes/registry');
-        const modeId = plateau?.game_mode || 'mario_party';
         const mapId = plateau?.game_map || 'night_sky';
         
-        global.cachedBgs = global.cachedBgs || {};
-        const cacheKey = `${modeId}_${mapId}`;
-        
-        if (!global.cachedBgs[cacheKey]) {
-            const mode = registry.getMode(modeId);
-            const bgPath = mode ? mode.getBoardImagePath(mapId) : path.join(__dirname, '../../assets/plateau.png');
-            global.cachedBgs[cacheKey] = await loadImage(bgPath);
+        let bgImage;
+        if (isIleDefis) {
+            global.cachedBgs = global.cachedBgs || {};
+            const cacheKey = `${modeId}_${mapId}_${actualZone}`;
+            
+            if (!global.cachedBgs[cacheKey]) {
+                let bgPath = path.join(__dirname, `../gamemodes/${modeId}/maps/${mapId}/${actualZone}.png`);
+                if (!fs.existsSync(bgPath)) {
+                    bgPath = path.join(__dirname, `../gamemodes/${modeId}/maps/${mapId}/plateau.png`);
+                }
+                global.cachedBgs[cacheKey] = await loadImage(bgPath);
+            }
+            bgImage = global.cachedBgs[cacheKey];
+        } else {
+            global.cachedBgs = global.cachedBgs || {};
+            const cacheKey = `${modeId}_${mapId}`;
+            
+            if (!global.cachedBgs[cacheKey]) {
+                const mode = registry.getMode(modeId);
+                const bgPath = mode ? mode.getBoardImagePath(mapId) : path.join(__dirname, '../../assets/plateau.png');
+                global.cachedBgs[cacheKey] = await loadImage(bgPath);
+            }
+            
+            bgImage = global.cachedBgs[cacheKey];
         }
-        
-        const bgImage = global.cachedBgs[cacheKey];
         ctx.drawImage(bgImage, 0, 0, BOARD_WIDTH, BOARD_HEIGHT);
     } catch (error) {
         console.error("Image de fond non trouvée, utilisation d'un fond uni :", error);
@@ -105,8 +152,8 @@ async function generateBoardImage(joueurs, plateau, client) {
         ctx.fillText(`Tour ${plateau.tour}/30`, BOARD_WIDTH - 135, 50);
     }
 
-    // Dessiner l'étoile
-    if (plateau && plateau.position_etoile) {
+    // Dessiner l'étoile (uniquement hors île aux défis)
+    if (!isIleDefis && plateau && plateau.position_etoile) {
         const etoileCase = getCase(plateau.position_etoile);
         if (etoileCase) {
             const posId = parseInt(plateau.position_etoile);
@@ -151,11 +198,7 @@ async function generateBoardImage(joueurs, plateau, client) {
     for (const [position, joueursSurCase] of Object.entries(joueursParCase)) {
         const c = getCase(parseInt(position));
         if (!c) continue;
-
-        // Trier pour que le joueur actif (s'il y en a un) soit dessiné en dernier
-        // On suppose que le joueur actif a été passé en dernier dans le tableau 'joueurs'
-        // ou on peut juste garder l'ordre d'arrivée si on trie avant l'appel.
-        // Pour l'instant, on garde l'ordre du tableau 'joueurs' qui devrait être géré en amont.
+        if (isIleDefis && c.zone !== actualZone) continue; // NE DESSINER QUE LA ZONE ACTIVE
 
         for (let i = 0; i < joueursSurCase.length; i++) {
             const joueur = joueursSurCase[i];
@@ -169,7 +212,11 @@ async function generateBoardImage(joueurs, plateau, client) {
             // Calculer l'angle parfait vers l'extérieur en utilisant les cases adjacentes
             const posId = parseInt(position);
             const prevCase = cases.find(cas => cas.next.includes(posId)) || c;
-            const nextCase = getCase(c.next[0]) || c;
+            
+            let nextCase = c;
+            if (c.next && c.next.length > 0) {
+                nextCase = getCase(c.next[0]) || c;
+            }
             
             // Vecteur tangent (direction du chemin)
             let tangentX = nextCase.x - prevCase.x;
@@ -220,7 +267,7 @@ async function generateBoardImage(joueurs, plateau, client) {
                 }
             }
 
-let user = userCache[joueur.discord_id] || null;
+            let user = userCache[joueur.discord_id] || null;
             if (!user && client) {
                 user = await client.users.fetch(joueur.discord_id).catch(() => null);
                 if (user) userCache[joueur.discord_id] = user;
@@ -259,6 +306,10 @@ let user = userCache[joueur.discord_id] || null;
 
     // --- LEADERBOARD (Top 5) HORIZONTAL ---
     const sortedPlayers = [...joueurs].sort((a, b) => {
+        if (isIleDefis) {
+            // Classer par position sur le parcours (plus grand = plus avancé)
+            return b.position - a.position;
+        }
         if (b.etoiles !== a.etoiles) return b.etoiles - a.etoiles;
         return b.pieces - a.pieces;
     }).slice(0, 5);
@@ -307,24 +358,31 @@ let user = userCache[joueur.discord_id] || null;
         ctx.fillStyle = '#FFFFFF';
         ctx.fillText(uName.length > 10 ? uName.substring(0, 9)+'...' : uName, startX + 60, startY + 18);
 
-        // Stars
-        ctx.font = 'bold 15px Arial';
-        ctx.fillStyle = '#FFD700'; // Or
-        ctx.fillText('★ ' + (p.etoiles || 0), startX + 60, startY + 45);
-        
-        // Coins (P)
-        ctx.fillStyle = '#F1C40F'; // Jaune piece
-        ctx.fillText('P: ' + (p.pieces || 0), startX + 105, startY + 45); // Used unicode coin if supported by Discord, otherwise changed
-        
-        // Inventory
-        let inv = [];
-        try {
-            inv = typeof p.inventaire === 'string' ? JSON.parse(p.inventaire) : (p.inventaire || []);
-        } catch(e) {}
-        
-        ctx.fillStyle = '#AAB7B8';
-        ctx.font = '13px Arial';
-        ctx.fillText('Obj: ' + inv.length, startX + 180, startY + 45);
+        if (isIleDefis) {
+            // Affichage épuré sans pièces ni étoiles : position uniquement
+            ctx.font = 'bold 15px Arial';
+            ctx.fillStyle = '#FFD700';
+            ctx.fillText('Case: ' + p.position, startX + 60, startY + 45);
+        } else {
+            // Stars
+            ctx.font = 'bold 15px Arial';
+            ctx.fillStyle = '#FFD700'; // Or
+            ctx.fillText('★ ' + (p.etoiles || 0), startX + 60, startY + 45);
+            
+            // Coins (P)
+            ctx.fillStyle = '#F1C40F'; // Jaune piece
+            ctx.fillText('P: ' + (p.pieces || 0), startX + 105, startY + 45);
+            
+            // Inventory
+            let inv = [];
+            try {
+                inv = typeof p.inventaire === 'string' ? JSON.parse(p.inventaire) : (p.inventaire || []);
+            } catch(e) {}
+            
+            ctx.fillStyle = '#AAB7B8';
+            ctx.font = '13px Arial';
+            ctx.fillText('Obj: ' + inv.length, startX + 180, startY + 45);
+        }
 
         // Move to the right for the next card
         startX += cardWidth + padding;
@@ -332,14 +390,20 @@ let user = userCache[joueur.discord_id] || null;
 
     return new Promise((resolve, reject) => {
         canvas.toBuffer((err, buf) => {
-            if (err) reject(err);
-            else resolve(buf);
+            if (err) {
+                reject(err);
+            } else {
+                if (isIleDefis) {
+                    boardImageCache[actualZone] = buf;
+                }
+                resolve(buf);
+            }
         });
     });
 }
 
 async function generateZoomedBoardImage(joueur, tousLesJoueurs, plateau, client) {
-    const { loadBoardCases } = require('../game/board');
+    const { loadBoardCases, getCase } = require('../game/board');
     await loadBoardCases();
     const canvas = createCanvas(800, 200);
     const ctx = canvas.getContext('2d');
@@ -468,5 +532,6 @@ async function generateZoomedBoardImage(joueur, tousLesJoueurs, plateau, client)
 
 module.exports = {
     generateBoardImage,
-    generateZoomedBoardImage
+    generateZoomedBoardImage,
+    invalidateBoardCache
 };

@@ -16,11 +16,31 @@ async function triggerEnigmaEnd(client) {
 
     let finalMsg = '⏰ **FIN DE L\'ÉNIGME !** La bonne réponse était : **' + p.enigme_reponse + '**\n\n';
 
+    const isIleDefis = p.game_mode === 'ile_defis';
     const gagnants = p.enigme_gagnants || [];
     if (gagnants.length > 0) {
       finalMsg += '🏆 **Gagnants :**\n';
       for (const g of gagnants) {
-        finalMsg += `• <@${g.discord_id}> — **+${g.pieces} pièces** (${g.tranche})\n`;
+        if (isIleDefis) {
+          let diceType = 'none';
+          if (g.tranche === '17h-18h') diceType = 'gold';
+          else if (g.tranche === '18h-19h') diceType = 'silver';
+          else if (g.tranche === '19h-20h') diceType = 'bronze';
+          else if (g.tranche === '20h-21h') diceType = 'chocolat';
+          
+          finalMsg += `• <@${g.discord_id}> — **Dé ${diceType === 'gold' ? 'd\'Or 🎲✨' : diceType === 'silver' ? 'd\'Argent 🥈' : diceType === 'bronze' ? 'de Bronze 🥉' : 'en Chocolat 🍫'}** (${g.tranche})\n`;
+          
+          // Sauvegarder le dé bonus pour le joueur
+          const j = await Joueur.findByPk(g.discord_id);
+          if (j) {
+            let mData = j.mode_data || {};
+            mData.bonus_de = diceType;
+            j.mode_data = mData;
+            await j.save();
+          }
+        } else {
+          finalMsg += `• <@${g.discord_id}> — **+${g.pieces} pièces** (${g.tranche})\n`;
+        }
       }
     } else {
       finalMsg += '😢 *Personne n\'a trouvé la réponse aujourd\'hui...*\n';
@@ -35,6 +55,14 @@ async function triggerEnigmaEnd(client) {
     await channel.send(finalMsg);
 
     await Joueur.update({ a_le_droit_de_jouer: true }, { where: {} });
+
+    // S'assurer de vider les caches d'images de plateau lors du passage au tour suivant
+    try {
+      const canvasUtils = require('../utils/canvas');
+      if (typeof canvasUtils.invalidateBoardCache === 'function') {
+        canvasUtils.invalidateBoardCache();
+      }
+    } catch(e){}
 
     console.log('[ENIGME] Énigme terminée à 21h, plateau ouvert.');
   } catch (err) {

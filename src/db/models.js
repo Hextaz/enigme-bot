@@ -213,6 +213,10 @@ const Plateau = sequelize.define('Plateau', {
   game_map: {
     type: DataTypes.STRING,
     defaultValue: 'night_sky',
+  },
+  mode_data: {
+    type: DataTypes.JSON,
+    defaultValue: {},
   }
 }, {
   tableName: 'plateau',
