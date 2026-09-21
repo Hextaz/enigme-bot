@@ -118,6 +118,9 @@ async function handleLancerDe(interaction) {
 
         // Créer un snapshot avant le tour
         const plateau = await Plateau.findByPk(1);
+        if (plateau && plateau.enigme_status === 'season_ended') {
+            return interaction.editReply({ content: '🏆 La saison est terminée ! Les dés sont rangés.' });
+        }
         const tousLesJoueurs = await Joueur.findAll();
         await createTourSnapshot(joueur, plateau, tousLesJoueurs);
 
@@ -188,6 +191,9 @@ async function handleContinuerDeplacement(interaction, alreadyHandledOnStart = [
     // On bypass le blocage énigme si le joueur a déjà commencé son tour (cases_restantes > 0)
     // pour éviter qu'il ne reste bloqué en plein milieu du terrain le lendemain !
     const plateau = await Plateau.findByPk(1);
+    if (plateau && plateau.enigme_status === 'season_ended') {
+        return interaction.editReply({ content: '🏆 La saison est terminée !' }).catch(()=>{});
+    }
     if (plateau && plateau.enigme_status === 'active' && joueur.cases_restantes === 0) {
         console.log(`[CONTINUER DEPLACEMENT] User ${interaction.user.id} blocked by active enigma`);
         return interaction.editReply({ content: 'Le plateau est verrouillé ! Il faut d\'abord résoudre l\'énigme du jour.' }).catch((e) => {

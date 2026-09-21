@@ -136,6 +136,10 @@ async function handleLancerDe(interaction) {
         }
 
         const plateau = await Plateau.findByPk(1);
+        if (plateau && plateau.enigme_status === 'season_ended') {
+            unlockUser(userId);
+            return interaction.editReply({ content: "🏆 La saison est terminée ! Les dés sont rangés." });
+        }
         const tousLesJoueurs = await Joueur.findAll();
         
         // Snapshot avant le tour
@@ -214,6 +218,12 @@ async function handleContinuerDeplacement(interaction, alreadyHandledOnStart = [
         if (!joueur || joueur.cases_restantes <= 0) {
             unlockUser(userId);
             return;
+        }
+
+        const plateau = await Plateau.findByPk(1);
+        if (plateau && plateau.enigme_status === 'season_ended') {
+            unlockUser(userId);
+            return interaction.editReply({ content: "🏆 La saison est terminée !" });
         }
 
         const steps = joueur.cases_restantes;
