@@ -4,6 +4,7 @@ const { sequelize, Joueur, Plateau } = require('./db/models');
 const { lockUser, unlockUser, getLockedUser, getLockInfo } = require('./game/transaction');
 const { triggerEnigmaEnd } = require('./game/enigma');
 const { activeInteractionTokens } = require('./game/events');
+const { startKumaHeartbeat, stopKumaHeartbeat } = require('./utils/health');
 const fs = require('fs');
 const path = require('path');
 
@@ -69,11 +70,13 @@ client.on(Events.Resume, () => {
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('Received SIGINT, shutting down gracefully...');
+  stopKumaHeartbeat();
   client.destroy().then(() => process.exit(0));
 });
 
 process.on('SIGTERM', () => {
   console.log('Received SIGTERM, shutting down gracefully...');
+  stopKumaHeartbeat();
   client.destroy().then(() => process.exit(0));
 });
 
@@ -127,6 +130,9 @@ client.once(Events.ClientReady, async c => {
   // Initialiser les tâches planifiées (CRON)
   const { initCronJobs } = require('./game/cron');
   initCronJobs(client);
+
+  // Initialiser la surveillance de santé Uptime Kuma (Push Heartbeat + Auto-Healing)
+  startKumaHeartbeat(client);
 
   // Restart safety : reprendre les timers de l'énigme si le bot a redémarré
   const p = await Plateau.findByPk(1);
