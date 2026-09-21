@@ -18,8 +18,9 @@ const rest = new REST({ version: '10' }).setToken(config.token);
     try {
         console.log(`Début du rafraîchissement de ${commands.length} commandes (/) de l'application.`);
 
+        const clientId = config.clientId || process.env.CLIENT_ID || process.env.DISCORD_CLIENT_ID;
         const data = await rest.put(
-            Routes.applicationGuildCommands(process.env.CLIENT_ID, config.guildId),
+            Routes.applicationGuildCommands(clientId, config.guildId),
             { body: commands },
         );
 
