@@ -28,7 +28,7 @@ module.exports = {
     const plateau = await Plateau.findByPk(1);
 
     // Vérifications du statut de l'énigme
-    if (plateau.enigme_status === 'season_ended') {
+    if (!plateau || plateau.enigme_status === 'season_ended') {
       return interaction.editReply({ content: "🏆 La saison est terminée ! Le vainqueur a été couronné et les énigmes sont closes.", flags: 64 });
     }
     if (plateau.enigme_status === 'programmee') {

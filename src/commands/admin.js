@@ -211,11 +211,11 @@ async execute(interaction) {
       plateau = await Plateau.create({ id: 1 });
     }
     plateau.tour += 1;
-    plateau.enigme_resolue = false;
-    plateau.enigme_status = 'programmee';
+    plateau.enigme_resolue = true;
+    plateau.enigme_status = 'finished';
     await plateau.save();
 
-    return interaction.editReply({ content: `📣 **Tour ${plateau.tour}/30** : Le tour a été incrémenté. Utilisez \`/admin programmer_enigme\` pour programmer l'énigme.` }).catch((err) => {
+    return interaction.editReply({ content: `📣 **Tour ${plateau.tour}/30** : Le tour a été incrémenté exceptionnellement sans énigme. Le plateau est ouvert.` }).catch((err) => {
       console.error(`[ADMIN] editReply failed for lancer_enigme:`, err);
       if (err.code === 10062) {
         console.log(`[ADMIN] Interaction expired for lancer_enigme command`);
