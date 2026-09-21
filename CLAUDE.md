@@ -19,7 +19,7 @@
   * `mario_party/` : Mode de jeu standard Mario Party (cartes, variantes, boutique, événements).
   * `ile_defis/` : Mode alternatif défi.
 * **`src/db/`** : Couche de persistance SQLite via Sequelize :
-  * `database.js` : Connexion SQLite (local ou volume persistant `/app/data` sur Fly.io).
+  * `database.js` : Connexion SQLite (local ou via `DATA_DIR`).
   * `models.js` : Modèles `Joueur`, `Plateau`, `TourSnapshot`.
 * **`src/utils/canvas.js`** : Moteur de rendu graphique Canvas (génération d'image du plateau, placement des cases et avatars).
 * **`deploy-commands.js`** : Script d'enregistrement des commandes slash auprès de l'API Discord.

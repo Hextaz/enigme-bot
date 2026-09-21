@@ -24,8 +24,8 @@ COPY . .
 # Créer le dossier pour la base de données
 RUN mkdir -p /app/data
 
-# Configurer la mémoire limite de Node (très important pour les VM de 256MB comme Fly.io)
-ENV NODE_OPTIONS="--max-old-space-size=120"
+# Configurer le dossier de données par défaut pour le conteneur
+ENV DATA_DIR="/app/data"
 
 # Démarrer directement node pour ne pas gaspiller la mémoire avec l'interpréteur npm
 CMD ["node", "src/index.js"]
