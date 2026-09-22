@@ -60,6 +60,9 @@ Invocable via `/test-audit` avec les options suivantes :
   * Coup du Sort avec égalité parfaite de positions ou de pièces.
 * **Énigmes & Normalisation** :
   * Réponses insensibles aux majuscules, aux accents et aux espaces superflus.
+* **Alignement avec le Registre Vivant (`docs/EDGE_CASES.md`)** :
+  * Chaque invariant consigné dans `docs/EDGE_CASES.md` (crons, fantômes, salons absents, locks, boutiques) doit être testé avec des assertions strictes.
+  * Signaler tout cas limite présent dans `docs/EDGE_CASES.md` non testé (🔴 déficit de couverture), ou tout cas obsolète à purger du registre.
 
 ### 4. ⏱️ Déterminisme, Concurrence & Fake Timers (Note /20)
 * **Arrange-Act-Assert (AAA)** : Séparation limpide de la préparation des données, de l'action de jeu et des vérifications.
