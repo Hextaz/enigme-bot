@@ -46,6 +46,8 @@ Ce document consigne l'ensemble des **cas limites**, **invariants de sécurité*
 | **LOCK-03** | `lockUser` (Timeout) | Un verrou n'a pas été libéré après 120 secondes. | Expiration automatique du verrou pour éviter la famine de ressources d'un utilisateur. | `src/game/transaction.js` |
 | **DB-01** | Sequelize Multi-Entités | Échange de pièces ou vol d'étoile entre deux joueurs (ex: Boo). | Exécution sous transaction atomique `sequelize.transaction(...)` pour garantir la cohérence des deux soldes. | `src/gamemodes/mario_party/events.js` |
 | **DB-02** | Champs `DataTypes.JSON` | Modification en place d'un tableau/objet JSON (`inventaire`, `pieges_actifs`). | Appel obligatoire de `joueur.changed('inventaire', true)` avant `joueur.save()` pour forcer la détection de mutation par Sequelize. | `src/game/` |
+| **SEC-01** | `triggerEnigmaEnd` & `handleLancerDe` | Joueur fantôme (`est_fantome: true`) lors du déverrouillage de 21h ou tentative de lancer de dé. | Seuls les non-fantômes reçoivent `a_le_droit_de_jouer: true` à la fin d'énigme. `handleLancerDe` bloque et notifie tout fantôme sans mouvement. | `test/ghost_security_and_plateau_defaults.test.js` |
+| **DATA-01** | Modèle `Plateau` | Création ou réinitialisation d'un enregistrement `Plateau` en base. | Valeurs par défaut strictes : `tour = 0` (en attente) et `enigme_status = 'season_ended'` (fermé avant lancement officiel MJ). | `test/ghost_security_and_plateau_defaults.test.js` |
 
 ---
 

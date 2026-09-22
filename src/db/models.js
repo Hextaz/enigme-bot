@@ -140,7 +140,7 @@ const Plateau = sequelize.define('Plateau', {
   },
   tour: {
     type: DataTypes.INTEGER,
-    defaultValue: 1,
+    defaultValue: 0,
   },
   enigme_resolue: {
     type: DataTypes.BOOLEAN,
@@ -148,7 +148,7 @@ const Plateau = sequelize.define('Plateau', {
   },
   enigme_status: {
     type: DataTypes.STRING,
-    defaultValue: 'active',
+    defaultValue: 'season_ended',
   },
   enigme_reponse: {
     type: DataTypes.STRING,

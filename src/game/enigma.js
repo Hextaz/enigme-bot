@@ -54,7 +54,7 @@ async function triggerEnigmaEnd(client) {
 
     await channel.send(finalMsg);
 
-    await Joueur.update({ a_le_droit_de_jouer: true }, { where: {} });
+    await Joueur.update({ a_le_droit_de_jouer: true }, { where: { est_fantome: false } });
 
     // S'assurer de vider les caches d'images de plateau lors du passage au tour suivant
     try {
