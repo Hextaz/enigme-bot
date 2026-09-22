@@ -28,31 +28,85 @@
 
 ## 🌐 Environnement d'Hébergement & Services Homelab (24/7)
 
-Le bot est actuellement hébergé sur une **machine dédiée personnelle allumée 24h/24** ("Lordi" / homelab), connectée à un écosystème de services auto-hébergés et Cloud accessibles via **Cloudflare Zero Trust** sous le domaine `*.hextaz.dev`.
+Le bot est hébergé en production sur une **machine dédiée personnelle allumée 24h/24** ("Lordi" / homelab), connectée à un écosystème de services auto-hébergés et Cloud accessibles via **Cloudflare Zero Trust (`lordi-tunnel`)** sous le domaine `*.hextaz.dev`.
 
-### Inventaire des Services Disponibles
+### 🖥️ 1. Architecture Multi-Machines
 
-| Catégorie | Service | URL / Destination | Description & Opportunités pour Enigme Bot |
+```
+ [ PC Portable Ubuntu ]           [ PC Fixe Gamer ]
+   💻 Dev nomade & GitOps           🎮 Dev lourd & Gaming
+           │                                │
+           └──────────────┬─────────────────┘
+                          │ (git push)
+                          ▼
+                    [ GITHUB ]
+                          │ (webhook deploy)
+                          ▼
+            [ LORDI (HP ProBook x360) ]
+              🛡️ Serveur Local 24/7 (PM2)
+              📺 3ᵉ écran physique (Homepage)
+```
+
+| Machine | Système (OS) & Matériel | Rôle dans le setup |
+| :--- | :--- | :--- |
+| **PC Portable Dev** | **Ubuntu Linux** | **Machine de code nomade** : Développement, tests locaux (`node src/index.js`, `npm test`), commits et `git push`. |
+| **PC Fixe** | **Windows / Linux** | **Station fixe & Gaming** : Développement lourd à la maison, gaming, stream. |
+| **"Lordi"** | **Windows 11** *(HP ProBook x360, Celeron 1.1 GHz, 4 Go RAM)* | **Serveur de production 24/7 & écran physique** : Fait tourner tous les bots et outils légers avec **PM2** (`pm2-windows-startup`, `pm2-logrotate`), affiche le dashboard Homepage. |
+
+---
+
+### 🌐 2. Cartographie du domaine `hextaz.dev`
+
+Tous les flux externes passent par **Cloudflare Tunnel (`lordi-tunnel`)**, ce qui signifie qu'**aucun port n'est ouvert sur la box internet** (sécurité maximale et HTTPS automatique).
+
+| URL publique | Cible / Hébergement | Type de routage | Description |
 | :--- | :--- | :--- | :--- |
-| **CI/CD & Déploiement** | **Webhook Receiver (CD)** | `https://deploy.hextaz.dev` | Récepteur de webhooks GitHub sur Lordi. Déploie automatiquement le bot (`git pull`, `npm install`, redémarrage) à chaque push sur `main`. |
-| **Monitoring & Infra** | **Uptime Kuma** | `https://status.hextaz.dev` | Statut 24/7 des bots & sites. ➜ *Opportunité : Endpoint `/health` ou heartbeat périodique pour alerter immédiatement en cas de crash du bot ou de SQLite.* |
-| | **Tournament Bot API** | `https://bot.hextaz.dev` | API Express du bot tournoi hébergé sur la même machine. ➜ *Opportunité : synergie d'hébergement, partage de patterns Express ou webhooks.* |
-| **Productivité** | **MicroBin** | `https://bin.hextaz.dev` | Partage de code/texte éphémère (avec QR Code). ➜ *Opportunité : export de logs de crash, dumps de partie ou rapports MJ sans polluer Discord.* |
-| | **Memos** | `https://notes.hextaz.dev` | Notes, TODOs, journal de bord & micro-blog. ➜ *Opportunité : API REST pour stocker le backlog des énigmes ou noter les idées de gameplay.* |
-| **Projets Web** | **Portfolio** | `https://hextaz.dev` | Site personnel (GitHub Pages). |
-| | **TournamentHub** | `https://tournament.hextaz.dev` | Plateforme de tournois Splatoon (Vercel). |
-| | **Team Hotbodies** | `https://stock.teamhotbodies.com` | Boutique / plateforme Team Hotbodies. |
-| **Dev & Cloud** | **Cloudflare Zero Trust**| `https://one.dash.cloudflare.com` | Gestion du tunnel et sécurité. ➜ *Opportunité : exposer un dashboard web léger du plateau en direct sans ouvrir de port public.* |
-| | **Supabase** | `https://supabase.com` | Console base de données de production. |
-| | **GitHub** | `https://github.com/Hextaz` | Profil et dépôts de code (`Hextaz/enigme-bot`). |
-| | **Vercel** | `https://vercel.com` | Déploiements frontend Vercel. |
+| **`hextaz.dev`** / `www.hextaz.dev` | GitHub Pages (`Hextaz.github.io`) | DNS Direct (IPs GitHub) | Portfolio personnel et vitrine dev. |
+| **`tournament.hextaz.dev`** | Vercel | CNAME Vercel | Application web frontend TournamentHub (Next.js). |
+| **`home.hextaz.dev`** | Lordi ➔ `localhost:3000` | Cloudflare Tunnel + Access PIN | Tableau de bord Homepage (protégé par code email). |
+| **`status.hextaz.dev`** | Lordi ➔ `localhost:3001` | Cloudflare Tunnel | Uptime Kuma : Statut 24/7, alertes Discord & anti-AFK Supabase. |
+| **`notes.hextaz.dev`** | Lordi ➔ `localhost:5230` | Cloudflare Tunnel | Memos : Notes, TODOs, journal de dev (Go + SQLite). |
+| **`bin.hextaz.dev`** | Lordi ➔ `localhost:8082` | Cloudflare Tunnel | MicroBin : Partage de code/fichiers éphémères & QR Code (Rust). |
+| **`bot.hextaz.dev`** | Lordi ➔ `localhost:8080` | Cloudflare Tunnel | API Express du bot TournamentHub (pilotée par Vercel). |
+| **`deploy.hextaz.dev`** | Lordi ➔ `localhost:8081` | Cloudflare Tunnel | Récepteur GitOps (GitHub Webhooks) + Console de logs `/logs`. |
 
-### 🚀 Synergies & Cas d'Usage Potentiels pour Enigme Bot
-1. **CI/CD Automatisé via `deploy.hextaz.dev`** : Tout commit pushé sur la branche `main` déclenche le webhook GitHub vers `https://deploy.hextaz.dev`, qui exécute le pull et le redémarrage du bot sur Lordi en toute autonomie.
-2. **Healthcheck 24/7 & Uptime Kuma** : Implémenter un mini-serveur HTTP interne (ou endpoint léger) vérifiant la connexion WebSocket Discord et la santé de SQLite (`sequelize.authenticate()`), permettant à Uptime Kuma de surveiller le bot H24.
-3. **Export de Logs & Debug vers MicroBin** : Pour les commandes d'administration (ex: `/admin logs` ou en cas d'erreur non interceptée), pousser la stacktrace ou l'historique vers `bin.hextaz.dev` et renvoyer un lien propre en message éphémère au MJ.
-4. **Banque d'Énigmes via Memos** : Exploiter l'API de `notes.hextaz.dev` pour alimenter automatiquement les énigmes quotidiennes ou sauvegarder les propositions des joueurs.
-5. **Dashboard du Plateau via Cloudflare Tunnel** : Exposer une page web légère affichant le plateau de jeu Canvas et le classement en direct sous `https://enigme.hextaz.dev` via un tunnel Cloudflare sécurisé.
+---
+
+### ⚙️ 3. Processus PM2 sur Lordi
+
+| Service PM2 | Port | Techno | RAM | Rôle |
+| :--- | :--- | :--- | :--- | :--- |
+| **`enigme-bot`** | - | Node.js / Sequelize | ~35 Mo | **Notre bot Discord d'énigmes** (SQLite local). |
+| **`tournament-bot`** | `8080` | Node.js / TS | ~30 Mo | Bot Discord tournois + API Express reliée à Supabase Prod. |
+| **`splatoon-bot`** | - | Node.js | ~27 Mo | Bot Discord annonces festivals Splatoon 3. |
+| **`uptime-kuma`** | `3001` | Node.js / SQLite | ~125 Mo | Monitoring 24/7, alertes Discord et ping anti-veille Supabase. |
+| **`homepage`** | `3000` | Next.js | ~2 Mo | Hub de tuiles tactile affiché sur l'écran du Lordi. |
+| **`webhook-receiver`** | `8081` | Node.js pur | ~15 Mo | Reçoit les `git push` pour auto-déployer + sert la page `/logs`. |
+| **`memos`** | `5230` | Go (Binaire) | ~50 Mo | Serveur de notes personnel ultra-léger. |
+| **`microbin`** | `8082` | Rust (Binaire) | ~10 Mo | Pastebin personnel instantané. |
+
+---
+
+### 🔄 4. Le Cycle de Déploiement GitOps (CD Automatisé)
+
+1. Développer et valider les tests sur le **PC Portable Ubuntu** : `npm test`.
+2. Pousser les modifications sur `main` :
+   ```bash
+   git push origin main
+   ```
+3. GitHub notifie le webhook `https://deploy.hextaz.dev/webhook`.
+4. Le Lordi exécute en toute autonomie : `git pull` ➔ `npm install` ➔ `pm2 restart enigme-bot`.
+5. **Suivi des logs en direct** :
+   ```
+   https://deploy.hextaz.dev/logs?token=<TOKEN_DEPLOY>&app=enigme-bot
+   ```
+
+> [!WARNING]
+> **Sécurité du Dépôt Public GitHub :**
+> Ce dépôt étant public, **le token secret de déploiement ne doit JAMAIS être commité** dans `AGENTS.md`, `README.md` ou tout autre fichier suivi par git.
+> Le token réel et l'URL complète sont stockés localement sur la machine de dev dans `.env.local` (ignoré par Git) sous les variables :
+> - `DEPLOY_LOGS_TOKEN`
+> - `DEPLOY_LOGS_URL`
 
 ---
 
