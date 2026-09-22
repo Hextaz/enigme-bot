@@ -22,10 +22,28 @@ function isSeasonActive(plateau) {
 }
 
 /**
+ * Récupère un salon Discord via fetch sécurisé avec fallback sur le cache.
+ * @param {object} client Client Discord.js
+ * @param {string} channelId ID du salon Discord
+ * @returns {Promise<object|null>}
+ */
+async function getChannel(client, channelId) {
+  if (!client || !client.channels || !channelId) return null;
+  let channel = null;
+  if (typeof client.channels.fetch === 'function') {
+    channel = await client.channels.fetch(channelId).catch(() => null);
+  }
+  if (!channel && client.channels.cache && typeof client.channels.cache.get === 'function') {
+    channel = client.channels.cache.get(channelId);
+  }
+  return channel || null;
+}
+
+/**
  * Applique les règles de passage en mode fantôme pour les joueurs inactifs.
  */
 async function applyGhostRules(tousLesJoueurs, client) {
-  const channel = client && client.channels && client.channels.cache ? client.channels.cache.get(config.boardChannelId) : null;
+  const channel = await getChannel(client, config.boardChannelId);
   for (const j of tousLesJoueurs) {
     if (!j.a_joue_ce_tour) {
       j.jours_inactifs += 1;
@@ -157,7 +175,7 @@ async function handle17hTransition(client) {
     await plateau.save();
 
     // Poster l'énigme dans le salon dédié
-    const enigmaChannel = client && client.channels && client.channels.cache ? client.channels.cache.get(config.enigmaChannelId) : null;
+    const enigmaChannel = await getChannel(client, config.enigmaChannelId);
     if (enigmaChannel) {
       const roleMention = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
       let msg = `${roleMention}🧩 **ÉNIGME DU JOUR — Tour ${plateau.tour}/30**\n\n`;
@@ -170,7 +188,7 @@ async function handle17hTransition(client) {
     }
 
     // Annonce unique de fin de tour et de verrouillage dans le salon du plateau
-    const boardChannel = client && client.channels && client.channels.cache ? client.channels.cache.get(config.boardChannelId) : null;
+    const boardChannel = await getChannel(client, config.boardChannelId);
     if (boardChannel) {
       let lockMsg = `⏰ **Fin du tour de jeu !** Le plateau est maintenant verrouillé jusqu'à 21h (résolution de l'énigme).\n`;
       if (oublis.length > 0) {
@@ -201,6 +219,7 @@ async function handle17hTransition(client) {
 
     await applyGhostRules(tousLesJoueurs, client);
     for (const j of tousLesJoueurs) {
+      if (!j.est_fantome) j.a_le_droit_de_jouer = true;
       j.guess_du_jour = 0;
       j.boutique_du_jour = [];
       j.last_deviner_time = null;
@@ -213,15 +232,7 @@ async function handle17hTransition(client) {
     plateau.enigme_status = 'finished';
     await plateau.save();
 
-    let channel = null;
-    if (client && client.channels) {
-      if (typeof client.channels.fetch === 'function') {
-        channel = await client.channels.fetch(config.boardChannelId).catch(() => null);
-      }
-      if (!channel && client.channels.cache && typeof client.channels.cache.get === 'function') {
-        channel = client.channels.cache.get(config.boardChannelId);
-      }
-    }
+    const channel = await getChannel(client, config.boardChannelId);
 
     if (channel) {
       const roleMention = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
@@ -255,7 +266,7 @@ async function handleSaturday10hBets(client) {
     await j.save();
   }
 
-  const channel = client && client.channels && client.channels.cache ? client.channels.cache.get(config.boardChannelId) : null;
+  const channel = await getChannel(client, config.boardChannelId);
   if (!channel) return;
 
   parisActifs = true;
@@ -289,7 +300,7 @@ async function handleSaturday21hBetsResult(client) {
   if (!parisActifs) return;
   parisActifs = false;
 
-  const channel = client && client.channels && client.channels.cache ? client.channels.cache.get(config.boardChannelId) : null;
+  const channel = await getChannel(client, config.boardChannelId);
   if (!channel) return;
 
   await channel.send('🏁 **LA COURSE DE YOSHIS COMMENCE !** 🏁');
@@ -394,7 +405,7 @@ async function handleSunday11hBlackMarket(client) {
     return;
   }
 
-  const channel = client && client.channels && client.channels.cache ? client.channels.cache.get(config.boardChannelId) : null;
+  const channel = await getChannel(client, config.boardChannelId);
   if (channel) {
     let mentionRole = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
     await channel.send(`${mentionRole}🛍️ **LE MARCHÉ NOIR EST OUVERT !** 🛍️\nLe plateau est déverrouillé, aucune énigme aujourd'hui. Les boutiques proposent des objets dévastateurs exclusifs ! Utilisez \`/jouer\` pour en profiter !`);
@@ -442,7 +453,7 @@ function initCronJobs(client) {
   cron.schedule('0 18 * * 1-5', async () => {
     const plateau = await Plateau.findByPk(1);
     if (plateau && plateau.enigme_status === 'active' && plateau.enigme_indice1 && !plateau.indice1_publie) {
-      const enigmaChannel = client.channels.cache.get(config.enigmaChannelId);
+      const enigmaChannel = await getChannel(client, config.enigmaChannelId);
       if (enigmaChannel) {
         const roleMention = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
         await enigmaChannel.send(`${roleMention}💡 **Indice 1 (18h) :** ${plateau.enigme_indice1}`);
@@ -459,7 +470,7 @@ function initCronJobs(client) {
   cron.schedule('0 19 * * 1-5', async () => {
     const plateau = await Plateau.findByPk(1);
     if (plateau && plateau.enigme_status === 'active' && plateau.enigme_indice2 && !plateau.indice2_publie) {
-      const enigmaChannel = client.channels.cache.get(config.enigmaChannelId);
+      const enigmaChannel = await getChannel(client, config.enigmaChannelId);
       if (enigmaChannel) {
         const roleMention = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
         await enigmaChannel.send(`${roleMention}💡 **Indice 2 (19h) :** ${plateau.enigme_indice2}`);
@@ -476,7 +487,7 @@ function initCronJobs(client) {
   cron.schedule('0 20 * * 1-5', async () => {
     const plateau = await Plateau.findByPk(1);
     if (plateau && plateau.enigme_status === 'active' && plateau.enigme_indice3 && !plateau.indice3_publie) {
-      const enigmaChannel = client.channels.cache.get(config.enigmaChannelId);
+      const enigmaChannel = await getChannel(client, config.enigmaChannelId);
       if (enigmaChannel) {
         const roleMention = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
         await enigmaChannel.send(`${roleMention}💡 **Indice 3 (20h) :** ${plateau.enigme_indice3}`);
@@ -615,6 +626,7 @@ module.exports = {
   handlePari,
   handleModalPari,
   isSeasonActive,
+  getChannel,
   applyGhostRules,
   handle17hTransition,
   handle15hReminder,

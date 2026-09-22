@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isSeasonActive, handle17hTransition, handle15hReminder, handleSaturday8hReminder, handleSaturday10hBets, handleSunday11hBlackMarket } = require('../src/game/cron');
+const { isSeasonActive, handle17hTransition, handle15hReminder, handleSaturday8hReminder, handleSaturday10hBets, handleSunday11hBlackMarket, getChannel } = require('../src/game/cron');
 const { Plateau, Joueur, sequelize } = require('../src/db/models');
 
 test('Lifecycle & Crons Suite', async (t) => {
@@ -249,6 +249,92 @@ test('Lifecycle & Crons Suite', async (t) => {
 
     const refreshedPlayer = await Joueur.findByPk('123456789');
     assert.equal(refreshedPlayer.a_le_droit_de_jouer, false, 'Players must be locked on season end');
+  });
+
+  await t.test('handle17hTransition: resets a_le_droit_de_jouer for non-ghost players and preserves false for ghost players (GAME-01)', async () => {
+    await Joueur.destroy({ where: {} });
+    await Joueur.create({
+      discord_id: 'active_player',
+      a_le_droit_de_jouer: false,
+      est_fantome: false,
+      a_joue_ce_tour: true
+    });
+    await Joueur.create({
+      discord_id: 'ghost_player',
+      a_le_droit_de_jouer: false,
+      est_fantome: true,
+      a_joue_ce_tour: false
+    });
+
+    const plateau = await Plateau.findByPk(1);
+    await plateau.update({ tour: 5, enigme_status: 'finished', enigme_text: null });
+
+    const mockClient = {
+      channels: {
+        cache: {
+          get: () => ({ send: async () => {} })
+        }
+      }
+    };
+
+    await handle17hTransition(mockClient);
+
+    const refreshedActive = await Joueur.findByPk('active_player');
+    const refreshedGhost = await Joueur.findByPk('ghost_player');
+
+    assert.equal(refreshedActive.a_le_droit_de_jouer, true, 'Non-ghost active player must regain right to play');
+    assert.equal(refreshedGhost.a_le_droit_de_jouer, false, 'Ghost player must not regain right to play');
+  });
+
+  await t.test('getChannel: fetches channel via client.channels.fetch or falls back to cache (DISC-01)', async () => {
+    let fetchCalledWith = null;
+    const fetchedChannel = { id: 'chan_fetch', send: async () => {} };
+    const cachedChannel = { id: 'chan_cache', send: async () => {} };
+
+    // Case 1: channels.fetch succeeds
+    const clientWithFetch = {
+      channels: {
+        fetch: async (id) => {
+          fetchCalledWith = id;
+          return fetchedChannel;
+        },
+        cache: {
+          get: () => cachedChannel
+        }
+      }
+    };
+    const res1 = await getChannel(clientWithFetch, 'chan_123');
+    assert.equal(fetchCalledWith, 'chan_123');
+    assert.equal(res1, fetchedChannel, 'Should prioritize fetch over cache');
+
+    // Case 2: channels.fetch rejects/fails, fallback to cache
+    const clientWithFetchError = {
+      channels: {
+        fetch: async () => {
+          throw new Error('DiscordAPIError: Unknown Channel');
+        },
+        cache: {
+          get: (id) => (id === 'chan_cached' ? cachedChannel : null)
+        }
+      }
+    };
+    const res2 = await getChannel(clientWithFetchError, 'chan_cached');
+    assert.equal(res2, cachedChannel, 'Should fallback to cache if fetch fails');
+
+    // Case 3: only cache exists (no channels.fetch)
+    const clientOnlyCache = {
+      channels: {
+        cache: {
+          get: (id) => (id === 'chan_cached' ? cachedChannel : null)
+        }
+      }
+    };
+    const res3 = await getChannel(clientOnlyCache, 'chan_cached');
+    assert.equal(res3, cachedChannel, 'Should use cache when fetch is not a function');
+
+    // Case 4: client or channels is null/undefined
+    assert.equal(await getChannel(null, 'chan_id'), null);
+    assert.equal(await getChannel({}, 'chan_id'), null);
   });
 });
 
