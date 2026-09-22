@@ -73,6 +73,8 @@ gh issue view <NUMERO> --json number,title,body,labels
 3. **Vérité Logique de Jeu (`src/game/` et `src/gamemodes/`)** :
    * Vérifier comment les déplacements, achats et événements interagissent avec le plateau.
    * Vérifier les verrous dans `src/game/transaction.js`.
+4. **Registre des Cas Limites (`docs/EDGE_CASES.md`)** :
+   * Consulter systématiquement `docs/EDGE_CASES.md` pour vérifier les invariants et cas limites existants relatifs au domaine touché.
 
 ---
 
@@ -90,6 +92,7 @@ L'agent doit produire un bilan clair structuré comme suit :
    - Gestion du timeout de 3 secondes (`deferReply` / `deferUpdate`).
    - Verrouillage via `lockUser` et libération dans un bloc `finally`.
    - Cas limites de gameplay (soldes négatifs impossibles, inventaire plein, joueur fantôme, égalités).
+   - Impact sur `docs/EDGE_CASES.md` (nouveaux cas à consigner ou cas obsolètes à vider/ajuster).
 6. **🧪 Stratégie de tests & validation** : Tests unitaires de règles métier et vérifications syntaxiques.
 7. **❓ Questions / Arbitrages éventuels** (si ambiguïté subsistante).
 8. **Demande explicite** : *"Ce plan te convient-il ? Dois-je commencer l'implémentation ?"*
@@ -107,6 +110,7 @@ Appliquer les modifications dans l'ordre strict des dépendances du projet :
 4. src/commands/ / index.js  ➜ Commandes Discord et écouteurs d'interaction (boutons/menus)
 5. src/utils/canvas.js       ➜ Rendu visuel et génération d'images du plateau
 6. Tests                     ➜ Tests de règles et logique métier
+7. docs/EDGE_CASES.md        ➜ Synchronisation du registre des cas limites (ajout ou purge)
 ```
 
 ### 3.0 — Discipline d'Ingénierie & TDD Strict
@@ -124,6 +128,10 @@ Appliquer les modifications dans l'ordre strict des dépendances du projet :
     - Pas de `try/catch` vide qui étouffe les erreurs en silence sans rollback.
     - Pas de `?.` (optional chaining) sauvage qui camoufle un modèle `Joueur` introuvable en base.
     - Pas de fallback magique (`?? 0` ou `|| []`) masquant une corruption de données.
+
+- **Synchronisation Obligatoire du Registre des Cas Limites (`docs/EDGE_CASES.md`)** :
+  - **Compléter** : consigner systématiquement tout nouveau cas limite, comportement aux frontières ou bugfix critique (ex: GAME-01, DISC-01) avec ID, comportement attendu et test de non-régression associé.
+  - **Vider / Nettoyer** : si une règle de jeu change, est refactorée ou devient obsolète (suppression d'une mécanique, refonte de boutique, changement de mode), **supprimer ou actualiser immédiatement** les entrées obsolètes dans `docs/EDGE_CASES.md` pour éviter toute dette documentaire.
 
 ### 3.1 — Règles de Code & Garde-Fous Techniques Discord.js :
 
@@ -181,13 +189,13 @@ Si une commande échoue, corriger immédiatement à la racine avant de continuer
 git status
 git diff
 ```
-* **Nettoyage strict** : Aucun `console.log("DEBUG", ...)` résiduel, aucun fichier temporaire, aucun code mort.
+* **Nettoyage strict** : Aucun `console.log("DEBUG", ...)` résiduel, aucun fichier temporaire, aucun code mort, et synchronisation stricte de **`docs/EDGE_CASES.md`** (nouveaux cas limites documentés, cas obsolètes purgés).
 
 ### 5.2 Mini-Rapport de Clôture (5 lignes max)
 Terminer systématiquement par un rapport dense et percutant :
-1. **Fichiers modifiés** : Liste synthétique des fichiers code et schémas touchés.
+1. **Fichiers modifiés** : Liste synthétique des fichiers code, schémas et documentation touchés (`docs/EDGE_CASES.md`).
 2. **Preuves terminales validées** : Syntaxe `node -c` (Succès), tests unitaires (Succès).
-3. **Cas limites vérifiés** : Verrous libérés en `finally`, soldes insuffisants gérés, timeouts 3s sécurisés.
+3. **Cas limites vérifiés** : Verrous libérés en `finally`, soldes insuffisants gérés, timeouts 3s sécurisés, registre `docs/EDGE_CASES.md` à jour.
 4. **Test local & Déploiement Homelab** : Instructions pour démarrer le bot (`node src/index.js` ou `npm start`), surveillance du statut sur Uptime Kuma (`https://status.hextaz.dev`).
 5. **Commande de commit suggérée** :
    ```bash

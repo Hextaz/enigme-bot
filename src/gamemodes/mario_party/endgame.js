@@ -6,16 +6,29 @@ async function endSeason(client) {
     let plateau = await Plateau.findByPk(1);
     if (!plateau || plateau.enigme_status === 'season_ended') return;
 
-    const channel = client.channels.cache.get(config.boardChannelId);
-    if (!channel) return;
+    let channel = null;
+    if (client && client.channels) {
+        if (typeof client.channels.fetch === 'function') {
+            channel = await client.channels.fetch(config.boardChannelId).catch(() => null);
+        }
+        if (!channel && client.channels.cache && typeof client.channels.cache.get === 'function') {
+            channel = client.channels.cache.get(config.boardChannelId);
+        }
+    }
 
     plateau.enigme_resolue = true;
     plateau.enigme_status = 'season_ended'; // On verrouille le plateau et signale la fin de saison
     await plateau.save();
 
     // Récupérer le podium
-
     const tousLesJoueurs = await Joueur.findAll();
+    if (tousLesJoueurs.length === 0) {
+        if (channel) {
+            await channel.send("🏁 **FIN DE SAISON !** La saison a été clôturée par le Maître du Jeu. Aucun joueur n'a participé à cette session.");
+        }
+        return { playerCount: 0 };
+    }
+
     if (tousLesJoueurs.length > 0) {
         const bonusStars = [
             { id: 'chance', name: 'Étoile de la Chance 🍀', desc: 'pour avoir atterri sur le plus de cases Chance ou Bleues', getWinners: (js) => { const max = Math.max(...js.map(j => (j.stat_cases_chance || 0))); return max > 0 ? js.filter(j => (j.stat_cases_chance || 0) === max) : []; } },
@@ -46,7 +59,9 @@ async function endSeason(client) {
             }
         }
 
-        await channel.send(recapMsg);
+        if (channel) {
+            await channel.send(recapMsg);
+        }
     }
     const joueurs = await Joueur.findAll({
         order: [
@@ -56,7 +71,7 @@ async function endSeason(client) {
         limit: 3
     });
 
-    if (joueurs.length === 0) return;
+    if (joueurs.length === 0) return { playerCount: 0 };
 
     let podiumMsg = '🏆 **FIN DU PLATEAU 30 TOURS ! Voici le podium :** 🏆\n\n';
     const medailles = ['🥇', '🥈', '🥉'];
@@ -90,7 +105,9 @@ async function endSeason(client) {
         }
     }
 
-    await channel.send(podiumMsg);
+    if (channel) {
+        await channel.send(podiumMsg);
+    }
     
     // Bloquer tout le monde
     const tous = await Joueur.findAll();
@@ -98,6 +115,8 @@ async function endSeason(client) {
         j.a_le_droit_de_jouer = false;
         await j.save();
     }
+
+    return { playerCount: tousLesJoueurs.length };
 }
 
 module.exports = { endSeason };

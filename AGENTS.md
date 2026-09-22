@@ -22,6 +22,7 @@
   * `database.js` : Connexion SQLite (local ou via `DATA_DIR`).
   * `models.js` : Modèles `Joueur`, `Plateau`, `TourSnapshot`.
 * **`src/utils/canvas.js`** : Moteur de rendu graphique Canvas (génération d'image du plateau, placement des cases et avatars).
+* **`docs/EDGE_CASES.md`** : Registre vivant des cas limites, invariants de gameplay et règles de résilience réseau/concurrence.
 * **`deploy-commands.js`** : Script d'enregistrement des commandes slash auprès de l'API Discord.
 
 ---
@@ -67,13 +68,17 @@ Le bot est actuellement hébergé sur une **machine dédiée personnelle allumé
 1. **Phase 1 : Cadrage & Contexte Git (`gh issue view <NUMERO>`)** :
    * Vérifier la branche active (`git branch --show-current`), les commits de la branche (`git log main..HEAD --oneline`) et les modifs locales en cours (`git status --short`). Alerter si sur `main`.
    * Lire le ticket complet, cartographier les fichiers cibles et inspecter les modèles réels (`src/db/models.js`).
+   * Consulter systématiquement **`docs/EDGE_CASES.md`** pour vérifier les cas limites existants liés au domaine.
 2. **Phase 2 : 🛑 RÉCAPITULATIF & PLAN D'IMPLÉMENTATION (Point d'arrêt obligatoire)** :
-   * Présenter un récapitulatif clair : État Git, Objectif, Fichiers impactés, Évolution DB éventuelle, Cas limites (délai 3s, verrous, inventaire) et Stratégie de tests.
+   * Présenter un récapitulatif clair : État Git, Objectif, Fichiers impactés, Évolution DB éventuelle, Cas limites (délai 3s, verrous, inventaire, et impacts sur `docs/EDGE_CASES.md`) et Stratégie de tests.
    * **STOP** : Attendre la validation explicite de l'utilisateur avant d'écrire la moindre ligne de code.
 3. **Phase 3 : Implémentation Rigoureuse & Discipline d'Ingénierie** :
-   * Ordre : `1. DB (models.js)` ➔ `2. Gamemodes & Règles (src/gamemodes/, src/game/)` ➔ `3. Commandes Discord (src/commands/)` ➔ `4. Rendu Canvas (src/utils/canvas.js)` ➔ `5. Tests`.
+   * Ordre : `1. DB (models.js)` ➔ `2. Gamemodes & Règles (src/gamemodes/, src/game/)` ➔ `3. Commandes Discord (src/commands/)` ➔ `4. Rendu Canvas (src/utils/canvas.js)` ➔ `5. Tests & Registre Cas Limites`.
    * 🔴 **TDD strict avec Verify RED** : pour tout calcul de règle ou de déplacement, écrire le test d'abord, **constater l'échec terminal pour la raison attendue**, puis implémenter le code minimal pour passer au vert.
    * 🛡️ **Loi d'airain Anti-Symptôme (Anti-Band-Aids)** : interdiction formelle de poser une rustine pour faire taire une exception (`?.` sauvage, `try/catch` vide qui étouffe l'erreur sans rollback). Identifier et corriger la cause racine.
+   * 📝 **Gestion du Registre des Cas Limites (`docs/EDGE_CASES.md`)** :
+     - **Compléter** : consigner systématiquement tout nouveau cas limite, comportement aux frontières ou correction de bug critique (ex: GAME-01, DISC-01) avec son ID, son comportement attendu et le test de non-régression associé.
+     - **Vider / Mettre à jour** : si une règle de jeu change, est refactorée ou devient obsolète (suppression d'une mécanique, refonte de boutique, changement de mode), **purger ou actualiser immédiatement** les entrées obsolètes dans `docs/EDGE_CASES.md` pour éviter toute dette documentaire.
    * ⏱️ **Règles de Fiabilité Discord** :
      - Règle d'or des 3 secondes : `deferReply()` ou `deferUpdate()` systématique sur tout flux long (Canvas, DB).
      - Verrouillage obligatoire : `lockUser()` dans `try` et `unlockUser()` garanti dans `finally`.
@@ -83,7 +88,7 @@ Le bot est actuellement hébergé sur une **machine dédiée personnelle allumé
      - Vérification de la syntaxe : `node -c <fichier>`.
      - Tests unitaires : `npm test`.
 5. **Phase 5 : Clôture & Mini-Rapport (PAS D'AUTO-COMMIT)** :
-   * `git diff` audité sans console.log résiduels ou fichiers parasites.
+   * `git diff` audité sans console.log résiduels ou fichiers parasites, et **`docs/EDGE_CASES.md` synchronisé**.
    * Interdiction formelle d'exécuter `git commit` automatiquement.
    * Mini-rapport en 5 lignes max et commande de commit suggérée.
 
@@ -210,6 +215,11 @@ npm test
   * `[GAME]` : Déplacements, achats, événements de cases, étoiles.
   * `[CRON]` : Exécution des automatismes horaires/journaliers.
   * `[ADMIN]` : Commandes exécutées par le MJ.
+
+### 5. Registre Vivant des Cas Limites (`docs/EDGE_CASES.md`)
+* Toute modification de code impactant des règles de bordure, des transitions d'états (inactifs, fantômes, fin de saison), des transactions économiques ou des résiliences Discord DOIT maintenir [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) rigoureusement synchronisé.
+* **Obligation d'ajout** : Nouveau cas limite ou correctif = nouvelle entrée avec identifiant clair, comportement attendu et test unitaire associé.
+* **Obligation de purge** : Règle dépréciée, supprimée ou modifiée = suppression ou mise à jour immédiate des entrées obsolètes pour éliminer toute dette documentaire.
 
 ---
 

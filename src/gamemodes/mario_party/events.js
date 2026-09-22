@@ -115,6 +115,9 @@ async function handleLancerDe(interaction) {
         if (!joueur || !joueur.a_le_droit_de_jouer) {
             return interaction.editReply({ content: 'Tu n\'as pas le droit de jouer.' });
         }
+        if (joueur.est_fantome) {
+            return interaction.editReply({ content: '👻 Tu es en mode fantôme, tu ne peux pas lancer les dés !' });
+        }
 
         // Créer un snapshot avant le tour
         const plateau = await Plateau.findByPk(1);

@@ -81,6 +81,7 @@ Le reviewer peut être sollicité selon 3 modes :
 * **Découplage Discord** : La logique métier de déplacement de case, d'achat d'objets et d'effets de plateau doit être extractible et testable indépendamment des objets `Interaction` ou `Message` de Discord.js.
 * **Chasse aux Tests Creux** : Les tests doivent vérifier la mutation effective de l'état (position, pièces, étoiles, inventaire) et non pas seulement la réception d'un événement factice.
 * **Couverture des Cas Limites** : Fin de boucle du plateau (passage de la dernière case à la case 1), solde insuffisant, inventaire plein (3 objets max), joueur fantôme inactif.
+* **Synchronisation du Registre des Cas Limites (`docs/EDGE_CASES.md`)** : Tout cas limite ou invariant introduit, modifié ou résolu par le diff doit être consigné dans `docs/EDGE_CASES.md`. Toute règle supprimée ou devenue obsolète doit être purgée du registre.
 
 ---
 
