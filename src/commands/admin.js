@@ -224,8 +224,14 @@ async execute(interaction) {
 
   } else if (subcommand === 'stop') {
     const { endSeason } = require('../game/endgame');
-    await endSeason(interaction.client);
-    return interaction.editReply("La saison a été arrêtée manuellement. L'annonce finale a été postée sur le canal du plateau.").catch((err) => {
+    const result = await endSeason(interaction.client);
+    let replyMsg = "🏁 La saison a été arrêtée manuellement. L'annonce finale a été postée sur le canal du plateau.";
+    if (result && result.alreadyEnded) {
+      replyMsg = "ℹ️ Aucune saison n'est actuellement en cours (la saison était déjà terminée ou clôturée).";
+    } else if (result && result.playerCount === 0) {
+      replyMsg = "🏁 La saison a été clôturée manuellement. Aucun joueur n'a participé, le plateau est désormais verrouillé.";
+    }
+    return interaction.editReply(replyMsg).catch((err) => {
       console.error(`[ADMIN] editReply failed for stop:`, err);
       if (err.code === 10062) {
         console.log(`[ADMIN] Interaction expired for stop command`);

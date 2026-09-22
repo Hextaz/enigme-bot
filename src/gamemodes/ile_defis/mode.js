@@ -34,6 +34,20 @@ module.exports = {
     // La victoire est gérée en fin de tour quotidien ( events.js / cron.js )
     return async (client) => {
       console.log("[ILE DEFIS] Endgame handler appelé.");
+      const config = require('../../config');
+      let channel = null;
+      if (client && client.channels) {
+        if (typeof client.channels.fetch === 'function') {
+          channel = await client.channels.fetch(config.boardChannelId).catch(() => null);
+        }
+        if (!channel && client.channels.cache && typeof client.channels.cache.get === 'function') {
+          channel = client.channels.cache.get(config.boardChannelId);
+        }
+      }
+      if (channel) {
+        await channel.send("🏁 **FIN DE L'ÎLE AUX DÉFIS !** La saison a été clôturée par le Maître du Jeu. Le plateau est désormais verrouillé.");
+      }
+      return { mode: 'ile_defis' };
     };
   },
 

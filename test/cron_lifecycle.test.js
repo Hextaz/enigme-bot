@@ -6,6 +6,7 @@ const { Plateau, Joueur, sequelize } = require('../src/db/models');
 test('Lifecycle & Crons Suite', async (t) => {
   // Sync in-memory or test DB
   await sequelize.sync({ force: true });
+  await Plateau.create({ id: 1, tour: 0, enigme_status: 'finished' });
 
   await t.test('isSeasonActive: returns false if plateau is null or undefined', () => {
     assert.equal(isSeasonActive(null), false);
@@ -201,6 +202,10 @@ test('Lifecycle & Crons Suite', async (t) => {
 
     const plateau = await Plateau.findByPk(1);
     await plateau.update({ tour: 5, enigme_status: 'finished', enigme_text: null });
+    let p = await Joueur.findByPk('player_active_1');
+    if (!p) {
+      await Joueur.create({ discord_id: 'player_active_1', a_le_droit_de_jouer: true });
+    }
 
     await handle17hTransition(mockClient);
 

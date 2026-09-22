@@ -191,9 +191,14 @@ async function handle17hTransition(client) {
     console.log(`[ENIGME] Énigme du Tour ${plateau.tour} publiée à 17h.`);
   } else {
     // Aucune énigme programmée pendant une saison en cours (tour >= 1)
+    const tousLesJoueurs = await Joueur.findAll();
+    if (tousLesJoueurs.length === 0) {
+      console.warn('[ENIGME] ⚠️ Aucune énigme programmée et 0 joueur actif. Aucun ping envoyé et tour inchangé.');
+      return;
+    }
+
     console.warn('[ENIGME] ⚠️ Aucune énigme programmée pour aujourd\'hui ! Le plateau reste ouvert.');
 
-    const tousLesJoueurs = await Joueur.findAll();
     await applyGhostRules(tousLesJoueurs, client);
     for (const j of tousLesJoueurs) {
       j.guess_du_jour = 0;
@@ -208,7 +213,16 @@ async function handle17hTransition(client) {
     plateau.enigme_status = 'finished';
     await plateau.save();
 
-    const channel = client && client.channels && client.channels.cache ? client.channels.cache.get(config.boardChannelId) : null;
+    let channel = null;
+    if (client && client.channels) {
+      if (typeof client.channels.fetch === 'function') {
+        channel = await client.channels.fetch(config.boardChannelId).catch(() => null);
+      }
+      if (!channel && client.channels.cache && typeof client.channels.cache.get === 'function') {
+        channel = client.channels.cache.get(config.boardChannelId);
+      }
+    }
+
     if (channel) {
       const roleMention = config.roleEnigmeId ? `<@&${config.roleEnigmeId}> ` : '';
       await channel.send(`${roleMention}⚠️ **Aucune énigme n'a été programmée aujourd'hui !** Le plateau reste ouvert. N'oubliez pas d'utiliser \`/admin programmer_enigme\` demain.`);
