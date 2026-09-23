@@ -74,7 +74,7 @@ Le reviewer peut être sollicité selon 3 modes :
 ### 5. 💎 Clean Code, Anti-Symptômes & Robustesse (Note /20)
 * **Chasse aux Band-Aids** : Traquer les `?.` sauvages, les `try/catch` vides qui masquent des exceptions réelles, et les fallbacks magiques.
 * **Tell, Don't Ask** : Encapsuler les règles de jeu au plus près des entités métier.
-* **Journalisation Structurée** : Remplacer les `console.log()` anarchiques par les préfixes de log cohérents du projet (`[ERROR]`, `[TIMEOUT]`, `[LOCK]`, `[GAME]`, `[CRON]`, `[ADMIN]`).
+* **Journalisation Structurée & Observabilité** : Remplacer les `console.log()` anarchiques par les préfixes normalisés (`[ERROR]`, `[WARN]`, `[TIMEOUT]`, `[LOCK]`, `[GAME]`, `[CRON]`, `[ADMIN]`, `[HEALTH]`). Respecter la séparation `stdout` / `stderr` (`console.log` vs `console.error` en passant l'objet `Error` en 2nd argument pour préserver la stack trace relayée par le bus Discord). Zéro horodatage manuel concaténé (PM2 gère l'horodatage `YYYY-MM-DD HH:mm:ss` via `time: true`).
 * **Code mort & dépréciation** : Zéro code commenté abandonné, zéro variable ou fonction inutilisée.
 
 ### 6. 🧪 Testabilité & Découplage de la Logique Métier (Note /20)
