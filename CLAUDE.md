@@ -33,27 +33,21 @@ Le bot est actuellement hébergé sur une **machine dédiée personnelle allumé
 
 ### Inventaire des Services Disponibles
 
-| Catégorie | Service | URL / Destination | Description & Opportunités pour Enigme Bot |
+| Catégorie | Service | URL / Destination | Description & Rôle pour Enigme Bot |
 | :--- | :--- | :--- | :--- |
-| **CI/CD & Déploiement** | **Webhook Receiver (CD)** | `https://deploy.hextaz.dev` | Récepteur de webhooks GitHub sur Lordi. Déploie automatiquement le bot (`git pull`, `npm install`, redémarrage) à chaque push sur `main`. |
-| **Monitoring & Infra** | **Uptime Kuma** | `https://status.hextaz.dev` | Statut 24/7 des bots & sites. ➜ *Opportunité : Endpoint `/health` ou heartbeat périodique pour alerter immédiatement en cas de crash du bot ou de SQLite.* |
-| | **Tournament Bot API** | `https://bot.hextaz.dev` | API Express du bot tournoi hébergé sur la même machine. ➜ *Opportunité : synergie d'hébergement, partage de patterns Express ou webhooks.* |
-| **Productivité** | **MicroBin** | `https://bin.hextaz.dev` | Partage de code/texte éphémère (avec QR Code). ➜ *Opportunité : export de logs de crash, dumps de partie ou rapports MJ sans polluer Discord.* |
-| | **Memos** | `https://notes.hextaz.dev` | Notes, TODOs, journal de bord & micro-blog. ➜ *Opportunité : API REST pour stocker le backlog des énigmes ou noter les idées de gameplay.* |
-| **Projets Web** | **Portfolio** | `https://hextaz.dev` | Site personnel (GitHub Pages). |
-| | **TournamentHub** | `https://tournament.hextaz.dev` | Plateforme de tournois Splatoon (Vercel). |
-| | **Team Hotbodies** | `https://stock.teamhotbodies.com` | Boutique / plateforme Team Hotbodies. |
-| **Dev & Cloud** | **Cloudflare Zero Trust**| `https://one.dash.cloudflare.com` | Gestion du tunnel et sécurité. ➜ *Opportunité : exposer un dashboard web léger du plateau en direct sans ouvrir de port public.* |
-| | **Supabase** | `https://supabase.com` | Console base de données de production. |
-| | **GitHub** | `https://github.com/Hextaz` | Profil et dépôts de code (`Hextaz/enigme-bot`). |
-| | **Vercel** | `https://vercel.com` | Déploiements frontend Vercel. |
+| **CI/CD & GitOps** | **Webhook Receiver (CD)** | `https://deploy.hextaz.dev` | Récepteur de webhooks GitHub sur Lordi. Déploie automatiquement le bot (`git pull`, `npm install`, redémarrage) à chaque push sur `main`. |
+| **Console de Logs** | **Lordi Logs Gateway** | `https://deploy.hextaz.dev/logs` | Console web unifiée chronologique & API brute pour inspecter les logs récents d'Enigme Bot en direct avec le token secret. |
+| **Monitoring & Infra** | **Uptime Kuma** | `https://status.hextaz.dev` | Statut 24/7 des bots & sites. ➜ Surveillance de santé ou heartbeat pour alerter immédiatement en cas de crash du bot ou de SQLite. |
+| **Productivité & Debug** | **MicroBin** | `https://bin.hextaz.dev` | Partage de code/texte éphémère (avec QR Code). ➜ Export de logs de crash, dumps de partie ou rapports MJ sans polluer Discord. |
+| | **Memos** | `https://notes.hextaz.dev` | Notes, TODOs, journal de bord & micro-blog. ➜ API REST pour stocker le backlog des énigmes ou noter les idées de gameplay. |
+| **Dépôt & Code** | **GitHub** | `https://github.com/Hextaz/enigme-bot` | Dépôt officiel du code source et gestion des issues. |
 
-### 🚀 Synergies & Cas d'Usage Potentiels pour Enigme Bot
-1. **CI/CD Automatisé via `deploy.hextaz.dev`** : Tout commit pushé sur la branche `main` déclenche le webhook GitHub vers `https://deploy.hextaz.dev`, qui exécute le pull et le redémarrage du bot sur Lordi en toute autonomie.
-2. **Healthcheck 24/7 & Uptime Kuma** : Implémenter un mini-serveur HTTP interne (ou endpoint léger) vérifiant la connexion WebSocket Discord et la santé de SQLite (`sequelize.authenticate()`), permettant à Uptime Kuma de surveiller le bot H24.
-3. **Export de Logs & Debug vers MicroBin** : Pour les commandes d'administration (ex: `/admin logs` ou en cas d'erreur non interceptée), pousser la stacktrace ou l'historique vers `bin.hextaz.dev` et renvoyer un lien propre en message éphémère au MJ.
-4. **Banque d'Énigmes via Memos** : Exploiter l'API de `notes.hextaz.dev` pour alimenter automatiquement les énigmes quotidiennes ou sauvegarder les propositions des joueurs.
-5. **Dashboard du Plateau via Cloudflare Tunnel** : Exposer une page web légère affichant le plateau de jeu Canvas et le classement en direct sous `https://enigme.hextaz.dev` via un tunnel Cloudflare sécurisé.
+### 🚀 Synergies & Cas d'Usage pour Enigme Bot
+1. **CI/CD Automatisé via `deploy.hextaz.dev`** : Tout commit pushé sur la branche `main` déclenche le webhook GitHub vers `https://deploy.hextaz.dev`, qui exécute le pull, le npm install et le redémarrage du bot sur Lordi en toute autonomie.
+2. **Console de Logs & Diagnostic IA** : Consultation en direct sur `https://deploy.hextaz.dev/logs?app=enigme-bot&token=SECRET` pour débugger les parties et alertes automatiques Discord avec stack trace en cas d'exception non interceptée.
+3. **Healthcheck 24/7 & Uptime Kuma** : Surveillance de la connexion WebSocket Discord et de la santé de SQLite (`sequelize.authenticate()`), permettant à Uptime Kuma de surveiller le bot H24.
+4. **Export de Logs & Debug vers MicroBin** : Pour les commandes d'administration (ex: `/admin logs` ou en cas d'erreur non interceptée), pousser la stacktrace ou l'historique vers `bin.hextaz.dev` et renvoyer un lien propre en message éphémère au MJ.
+5. **Banque d'Énigmes via Memos** : Exploiter l'API de `notes.hextaz.dev` pour alimenter automatiquement les énigmes quotidiennes ou sauvegarder les propositions des joueurs.
 
 ---
 
@@ -207,14 +201,29 @@ npm test
 * Les modifications liées entre plusieurs joueurs ou entre inventaire et pièces doivent utiliser `await sequelize.transaction(...)`.
 * Pour les champs `DataTypes.JSON` (`inventaire`, `pieges_actifs`, `mode_data`), toujours appeler `joueur.changed('inventaire', true)` si la référence de l'objet est modifiée sur place.
 
-### 4. Journalisation Structurée
-* Remplacer les `console.log()` vagues par les préfixes de log normalisés du projet :
-  * `[ERROR]` : Erreurs d'exécution et exceptions.
-  * `[TIMEOUT]` : Interactions Discord ayant expiré (10062).
-  * `[LOCK]` : Acquisition, refus et libération de verrous.
-  * `[GAME]` : Déplacements, achats, événements de cases, étoiles.
-  * `[CRON]` : Exécution des automatismes horaires/journaliers.
-  * `[ADMIN]` : Commandes exécutées par le MJ.
+### 4. Journalisation Structurée & Observabilité
+* **Horodatage Standardisé PM2 (`time: true`)** :
+  * PM2 préfixe automatiquement chaque ligne avec `YYYY-MM-DD HH:mm:ss: ` (configuré via `time: true` dans `ecosystem.config.cjs` ou `--time`).
+  * **Interdiction formelle** de concaténer des horodatages manuels (ex: `new Date().toISOString()`) dans les messages de log afin d'éviter les doublons et préserver le tri chronologique.
+* **Ségrégation Stderr vs Stdout** :
+  * `stdout` (`console.log`) : Flux standard de l'application (`[INTERACTION]`, `[LOCK]`, `[GAME]`, `[CRON]`, `[HEALTH]`, `[REGISTRY]`).
+  * `stderr` (`console.error`, `console.warn`) : Avertissements légers (`[WARN]`), timeouts d'interactions Discord (`[TIMEOUT]`), et exceptions (`[ERROR]`).
+  * Permet la consultation isolée (`&filter=out`, `&filter=err`) ou unifiée (`&filter=all`) sur la console `https://deploy.hextaz.dev/logs`.
+* **Préfixes Normalisés** :
+  * `[INTERACTION]` : Déclenchement d'une interaction utilisateur (`[INTERACTION] <userId> - <customId/commandName>`).
+  * `[LOCK]` : Acquisition, refus ou libération de verrous transactionnels (`[LOCK] Acquis pour <userId>`).
+  * `[GAME]` : Événements métier (déplacements, passage de cases, achat d'objets, étoiles).
+  * `[CRON]` : Exécution des automatismes horaires/journaliers (11h distribution, clôture énigme 21h).
+  * `[ADMIN]` : Actions exécutées par le MJ ou commandes privilégiées.
+  * `[HEALTH]` : Envois de battements de cœur vers Uptime Kuma (`status.hextaz.dev`).
+  * `[WARN]` / `[TIMEOUT]` : Alertes non critiques (ex: interaction Discord 10062 expirée).
+  * `[ERROR]` : Erreurs d'exécution et exceptions critiques.
+* **Capture des Crashs & Stack Traces (Bus PM2)** :
+  * Toujours passer l'objet `Error` en second argument : `console.error('[ERROR] Échec lors de la transaction:', error)` au lieu de le caster en chaîne pour préserver la stack trace complète sur `stderr`.
+  * Le bus d'événements PM2 (`pm2.launchBus`) sur Lordi écoute `process:exception` et relaie instantanément les plantages avec stack trace complète sous forme d'embed d'alerte rouge sur Discord.
+* **Dumps Volumineux & MicroBin** :
+  * Ne jamais dumper de gros objets JSON ou de buffers Canvas dans la console.
+  * Pour exporter un diagnostic d'erreur complexe ou un état de plateau étendu, générer un paste sur `https://bin.hextaz.dev` et logger uniquement l'URL retournée.
 
 ### 5. Registre Vivant des Cas Limites (`docs/EDGE_CASES.md`)
 * Toute modification de code impactant des règles de bordure, des transitions d'états (inactifs, fantômes, fin de saison), des transactions économiques ou des résiliences Discord DOIT maintenir [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) rigoureusement synchronisé.
