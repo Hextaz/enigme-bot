@@ -127,6 +127,9 @@ Ce document consigne l'ensemble des **cas limites**, **invariants de sécurité*
 | **ADM-02** | `/admin set_position` | Case inexistante sur la map active. | Refus ; un choix en attente est annulé. | `test/admin_services.test.js` |
 | **ADM-03** | `/admin annuler_tour` | Annulation du dernier tour. | Restauration atomique joueur, plateau et autres joueurs ; snapshot consommé. | `test/admin_services.test.js` |
 | **ADM-04** | `/admin give` objet | Objet hors catalogue ou inventaire plein. | Refus (`ITEM`, `FULL`). | `test/admin_services.test.js` |
+| **DEV-01** | `/dev` (#20) | Bot de production (`DEV_MODE` absent), ou utilisateur autre que `MJ_USER_ID`. | Commande ni enregistrée (`deploy-commands`) ni chargée ; exécutée quand même → `DEV_ONLY` ; `setDevClock` lève une erreur ; non-MJ refusé à la frontière. | `test/dev_tools.test.js` |
+| **DEV-02** | Horloge virtuelle (`src/utils/clock.ts`) | `/dev horloge <jour> <heure>`. | Toutes les règles lisent `gameNow()` : samedi sans dé, dimanche Marché Noir, tranche de récompense (`toGameTime(message.createdAt)`), cooldown de `/deviner`, `fin_enigme_timestamp`. Décalage **en mémoire uniquement**, perdu au redémarrage. Limites assumées (dev) : les crons réels gardent l'heure réelle ; le rattrapage au redémarrage compare à l'heure réelle ; un `last_deviner_time` enregistré dans le futur peut prolonger le cooldown après `horloge_reset` (`/admin reset_cooldown`). | `test/dev_tools.test.js` |
+| **DEV-03** | `/dev etape <étape>` | Déclenchement manuel d'une étape planifiée, éventuellement répété. | Même handler que le cron, exécuté sous le verrou de l'interaction (réentrant) ; idempotence héritée des handlers ; étape inconnue → `STEP` sans écriture. | `test/dev_tools.test.js` |
 
 ---
 

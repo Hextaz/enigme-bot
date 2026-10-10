@@ -4,7 +4,7 @@ import { Client, Collection, Events, GatewayIntentBits, Options, Partials } from
 import { Plateau, sequelize } from './db/models';
 import { migrate } from './db/migrations';
 import { handleInteraction } from './discord/interaction';
-import { Command, CommandRegistry, createDispatcher } from './discord/router';
+import { Command, CommandRegistry, commandEnabled, createDispatcher } from './discord/router';
 import { clearAllPendingTimers } from './discord/pending-timers';
 import { initCronJobs, publishHint, stopCronJobs } from './game/cron';
 import { triggerEnigmaEnd } from './game/enigma';
@@ -39,6 +39,7 @@ const commandsPath = path.join(__dirname, 'commands');
 for (const file of fs.readdirSync(commandsPath).filter(name => name.endsWith('.js'))) {
   const command: Partial<Command> = require(path.join(commandsPath, file));
   if (!command.data || !command.execute) throw new Error(`Commande invalide : ${file}`);
+  if (!commandEnabled(command)) continue;
   client.commands.set(command.data.name, command as Command);
 }
 

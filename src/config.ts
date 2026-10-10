@@ -25,6 +25,8 @@ const config = {
     kumaPushUrl: process.env.KUMA_PUSH_URL || null,
     kumaPushIntervalSec: parseInt(process.env.KUMA_PUSH_INTERVAL_SEC || '60', 10),
     kumaMaxFailures: parseInt(process.env.KUMA_MAX_FAILURES || '3', 10),
+    // Dev bot only: registers /dev (cron steps, virtual clock). Never set in production.
+    devMode: process.env.DEV_MODE === '1',
 };
 
 function validateConfig(): void {

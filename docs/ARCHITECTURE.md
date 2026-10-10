@@ -23,7 +23,7 @@ flowchart TD
 
 | Couche | Fichiers | Rôle | Interdits |
 |---|---|---|---|
-| Frontière Discord | `discord/interaction.ts` | MJ uniquement pour `admin_*`, `reponse_*`, `modal_programmer_enigme` ; propriétaire du composant ; accusé de réception avant tout traitement ; verrou global ; `GameRuleError` → message éphémère sans `[ERROR]` ; 10062/40060 → `[TIMEOUT]`. | Logique métier. |
+| Frontière Discord | `discord/interaction.ts` | MJ uniquement pour `admin_*`, `reponse_*`, `modal_programmer_enigme` et la commande `/dev` ; propriétaire du composant ; accusé de réception avant tout traitement ; verrou global ; `GameRuleError` → message éphémère sans `[ERROR]` ; 10062/40060 → `[TIMEOUT]`. | Logique métier. |
 | Routage / présentation | `discord/router.ts`, `commands/*.ts`, `gamemodes/*/discord.ts`, `discord/admin-interactions.ts` | Lire l'interaction, appeler un service, construire messages et composants, publier **après** validation SQL. | Écrire en base directement. |
 | Services transactionnels | `gamemodes/*/turn.ts`, `services/*.ts`, `game/endgame.ts` | Relire l'état, valider (`GameRuleError`), écrire dans **une** transaction sous `withGameLock`. | Appeler Discord. |
 | Règles pures | `gamemodes/mario_party/rules.ts`, `ile_defis/turn.ts#walk`, `landing.ts`, `shop.ts` | Dés, marche case par case, effets, boutique. Aléatoire injecté (`Random`). | Accès réseau. |
@@ -53,6 +53,10 @@ Un mode est un dossier `gamemodes/<id>/` avec `mode.ts`, `maps/<map>/board.ts` +
 - graphes de cases sans arête pendante et images présentes.
 
 Une map ou variante inconnue lève une erreur (pas de repli silencieux). `test/contracts.test.js` vérifie chaque mode.
+
+## Horloge de jeu (`utils/clock.ts`)
+
+Les règles qui dépendent de l'heure ou du jour (samedi sans dé, Marché Noir, tranches de récompense, délai de `/deviner`, transition de 17h) lisent `gameNow()`, ou un `now` injecté dans les tests. Elles n'appellent jamais `new Date()` directement. Sur le bot de dev (`DEV_MODE=1`), `/dev horloge` applique un décalage en mémoire à cette horloge, et `/dev etape` appelle les handlers des crons à la demande (voir `docs/SETUP_DEV.md` §5). En production, le décalage est toujours nul et `/dev` n'existe pas.
 
 ## Crons (`game/cron.ts`, Europe/Paris)
 

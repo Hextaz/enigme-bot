@@ -16,14 +16,17 @@ export function opensModal(interaction: Interaction): boolean {
   if (interaction.isChatInputCommand()) return interaction.commandName === 'admin' && interaction.options.getSubcommand() === 'programmer_enigme';
   return interaction.isButton() && interaction.customId.startsWith('pari_');
 }
-function isPrivileged(customId: string): boolean {
+// Slash commands reserved to the MJ, whatever the Discord permissions (/admin: see #21).
+const MJ_COMMANDS = ['dev'];
+function isPrivileged(interaction: Interaction, customId: string): boolean {
+  if (interaction.isChatInputCommand() && MJ_COMMANDS.includes(interaction.commandName)) return true;
   return customId.startsWith('admin_') || customId.startsWith('reponse_') || customId.startsWith('modal_programmer_enigme');
 }
 
 export async function handleInteraction(interaction: Interaction, dispatch: (value: Interaction) => Promise<unknown>): Promise<void> {
   if (!interaction.isRepliable()) return;
   const id = 'customId' in interaction ? interaction.customId : '';
-  const privileged = isPrivileged(id);
+  const privileged = isPrivileged(interaction, id);
   try {
   if (privileged && interaction.user.id !== config.mjUserId) {
     await interaction.reply({ content: 'Cette action est réservée au Maître du Jeu.', flags: MessageFlags.Ephemeral });

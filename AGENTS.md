@@ -6,7 +6,7 @@
 
 ### Architecture du Projet
 Tout le code applicatif est en **TypeScript strict** (`src/**/*.ts`, compilé dans `dist/`) ; les tests restent en JavaScript. Détails : `docs/ARCHITECTURE.md`.
-* **`src/commands/`** : Commandes slash (`/jouer`, `/stats`, `/plateau`, `/deviner`, `/documentation`, `/settings`, `/admin`) — présentation uniquement.
+* **`src/commands/`** : Commandes slash (`/jouer`, `/stats`, `/plateau`, `/deviner`, `/documentation`, `/settings`, `/admin`, et `/dev` réservée au bot de dev) — présentation uniquement.
 * **`src/discord/`** : `interaction.ts` (frontière : permissions MJ, propriétaire du composant, accusé de réception, verrou, `GameRuleError` → message éphémère), `router.ts` (routage des `customId`), `admin-interactions.ts`, `channels.ts` (salons, annonces avec image), `pending-timers.ts` (expiration des choix).
 * **`src/gamemodes/`** : un dossier par mode (`mario_party/`, `ile_defis/`) avec `mode.ts`, `maps/<map>/board.ts`, `variants/`, et :
   * `rules.ts` (Mario) / `turn.ts#walk` (île) : règles pures (dés, marche case par case) ;
@@ -17,7 +17,7 @@ Tout le code applicatif est en **TypeScript strict** (`src/**/*.ts`, compilé da
 * **`src/game/`** : `transaction.ts` (verrou global `withGameLock` / `withScheduledLock`), `cron.ts` (planification et annonces), `endgame.ts`, `enigma.ts` (annonce de 21h).
 * **`src/db/`** : `database.ts`, `models.ts` (`Joueur`, `Plateau`, `TourSnapshot`), `migrations.ts` (versionnées, **jamais** de `sync({ alter: true })`), `backup.ts`.
 * **`src/domain/types.ts`** : types partagés, `GameRuleError`, `PendingAction`, aléatoire injectable (`Random`).
-* **`src/utils/`** : `canvas.ts` (rendu du plateau), `time.ts` (heure de Paris), `health.ts` (Uptime Kuma).
+* **`src/utils/`** : `canvas.ts` (rendu du plateau), `clock.ts` (horloge de jeu `gameNow()`, simulable en dev), `time.ts` (heure de Paris), `health.ts` (Uptime Kuma).
 * **`docs/`** : `ARCHITECTURE.md`, `DATABASE.md`, `GAMEPLAY.md`, `OPERATIONS.md`, `TESTING.md`, et **`EDGE_CASES.md`** (registre vivant des cas limites).
 * **`deploy-commands.ts`** : enregistrement des commandes slash (`npm run deploy`).
 
@@ -166,6 +166,17 @@ npm run db:migrate                      # applique les migrations
 npm run db:backup -- /chemin/backup.sqlite
 ```
 Voir `docs/OPERATIONS.md` avant toute migration de la base de production.
+
+### 5. Test e2e sur le bot de dev (`/dev`)
+```bash
+# DEV_MODE=1 dans .env.local (bot de dev uniquement, jamais en prod)
+npm run deploy
+DATABASE_STORAGE=/tmp/enigme-e2e.sqlite npm start
+```
+* `/dev etape <publication_17h|indice_1..3|cloture_21h|ouverture_paris|resultat_paris|marche_noir|…>` exécute une étape planifiée tout de suite.
+* `/dev horloge <jour> <heure> [minute]` / `/dev horloge_reset` simulent l'heure du jeu ; `/dev etat` résume l'état.
+* Référence : `docs/SETUP_DEV.md` §5 ; scénario et résultats attendus : `docs/TESTING.md`.
+* Toute nouvelle règle qui dépend de l'heure lit `gameNow()` (`src/utils/clock.ts`) ou un `now` injecté, **jamais** `new Date()` directement : sinon elle échappe à l'horloge simulée.
 
 ---
 
