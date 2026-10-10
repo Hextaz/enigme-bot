@@ -8,6 +8,7 @@ import { Joueur, Plateau, sequelize } from '../../db/models';
 import { BoardCase, GameRuleError, Item, MarioPending, Random, isTrap, newToken, pick, randomInt } from '../../domain/types';
 import { withGameLock, withScheduledLock } from '../../game/transaction';
 import { getActiveBoardCases } from '../registry';
+import { gameNow } from '../../utils/clock';
 import { parisClock } from '../../utils/time';
 import { applyLanding } from './landing';
 import { ITEMS } from './items';
@@ -74,7 +75,7 @@ async function move(state: State, actor: Actor, resume: MarioStop | null, transa
 }
 
 function withDefaults(options: Options): Required<Options> {
-  return { random: options.random ?? Math.random, now: options.now ?? new Date() };
+  return { random: options.random ?? Math.random, now: options.now ?? gameNow() };
 }
 
 export async function startTurn(actor: Actor, options: Options = {}): Promise<{ de: number; move: MoveOutcome }> {

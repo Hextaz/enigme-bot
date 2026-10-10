@@ -12,11 +12,17 @@ import { BOARD_IMAGE_EXTENSION, generateBoardImage } from '../utils/canvas';
 import { enigmaChannel } from './channels';
 import * as admin from './admin-interactions';
 import { showZone } from '../commands/plateau';
+import { gameNow, toGameTime } from '../utils/clock';
+import config = require('../config');
 
 export interface Command {
   data: { name: string; toJSON(): unknown };
   execute(interaction: ChatInputCommandInteraction): Promise<void>;
+  /** Dev bot tool: neither registered nor loaded without DEV_MODE=1. */
+  devOnly?: boolean;
 }
+
+export function commandEnabled(command: Partial<Command>): boolean { return !command.devOnly || config.devMode; }
 export type CommandRegistry = Collection<string, Command>;
 
 async function showBoard(i: ButtonInteraction): Promise<void> {
@@ -55,7 +61,7 @@ async function judgeProposal(i: ButtonInteraction): Promise<void> {
     return;
   }
   if (action !== 'good') throw new GameRuleError('ACTION', 'Action inconnue.');
-  const result = await validateAnswer(userId, i.message.createdAt);
+  const result = await validateAnswer(userId, toGameTime(i.message.createdAt));
   const reward = result.ileDice ? diceLabel(result.tranche) : `+${result.pieces} pièces`;
   await afterGameAction(async () => {
     const channel = await enigmaChannel(i.client);
@@ -70,7 +76,7 @@ async function judgeProposal(i: ButtonInteraction): Promise<void> {
 
 async function remindGuess(i: ButtonInteraction): Promise<void> {
   const joueur = await Joueur.findByPk(i.user.id);
-  const remaining = guessCooldownRemaining(joueur?.last_deviner_time ?? null, new Date());
+  const remaining = guessCooldownRemaining(joueur?.last_deviner_time ?? null, gameNow());
   if (remaining <= 0) {
     await afterGameAction(() => i.followUp({ content: 'Ton cooldown est déjà terminé, tu peux jouer !', flags: MessageFlags.Ephemeral }));
     return;

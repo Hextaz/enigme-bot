@@ -4,6 +4,7 @@ import { Joueur, Plateau, TourSnapshot, sequelize } from '../db/models';
 import { GameRuleError, Random, pick } from '../domain/types';
 import { withGameLock } from '../game/transaction';
 import { getActiveMode } from '../gamemodes/registry';
+import { gameNow } from '../utils/clock';
 import { parisTodayAt } from '../utils/time';
 
 export const MAX_TOURS = 30;
@@ -47,7 +48,7 @@ export type Transition =
   | { kind: 'no_enigma'; tour: number; ghosts: string[]; seasonOver: boolean };
 
 /** 17h on weekdays: publish the programmed enigma and lock the board, or keep it open for another turn. */
-export async function dailyTransition(now: Date = new Date()): Promise<Transition> {
+export async function dailyTransition(now: Date = gameNow()): Promise<Transition> {
   return run(async transaction => {
     const plateau = await Plateau.findByPk(1, { transaction });
     if (!plateau || plateau.enigme_status === 'season_ended') return { kind: 'skip' };
@@ -181,6 +182,6 @@ export async function markHintPublished(index: 1 | 2 | 3): Promise<void> {
   });
 }
 
-export async function purgeOldSnapshots(now: Date = new Date()): Promise<number> {
+export async function purgeOldSnapshots(now: Date = gameNow()): Promise<number> {
   return TourSnapshot.destroy({ where: { timestamp: { [Op.lt]: new Date(now.getTime() - 7 * 86_400_000) } } });
 }

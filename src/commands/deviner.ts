@@ -4,6 +4,7 @@ import { ids } from '../discord/custom-ids';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import { Joueur, Plateau } from '../db/models';
 import { recordGuess } from '../services/enigma';
+import { gameNow } from '../utils/clock';
 import config = require('../config');
 
 const COOLDOWN_MS = 30 * 60_000;
@@ -16,7 +17,7 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const mot = interaction.options.getString('mot', true);
   const userId = interaction.user.id;
-  const guess = await recordGuess(userId, new Date());
+  const guess = await recordGuess(userId, gameNow());
   if (guess.remainingMinutes > 0) {
     const joueur = await Joueur.findByPk(userId);
     if (joueur?.auto_remind_guess) {
