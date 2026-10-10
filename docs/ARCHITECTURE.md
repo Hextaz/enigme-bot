@@ -72,7 +72,7 @@ Une map ou variante inconnue lève une erreur (pas de repli silencieux). `test/c
 
 ## Rendu Canvas
 
-`utils/canvas.ts` lit les cases depuis le registre (plateau actif). Fonds en cache mémoire (vidé par `invalidateBoardCache` à chaque nouvelle saison) ; avatars en cache borné (200 entrées, 5 min) avec délai réseau de 3 s ; un avatar indisponible est remplacé par des initiales (journalisé en `[WARN]`). Le rendu reste sur l'event loop.
+`utils/canvas.ts` lit les cases depuis le registre (plateau actif). Fonds en cache mémoire (vidé par `invalidateBoardCache` à chaque nouvelle saison) ; avatars en cache borné (200 entrées, 5 min) avec délai réseau de 3 s ; un avatar indisponible est remplacé par des initiales (journalisé en `[WARN]`). Le dessin reste sur l'event loop ; l'encodage, natif et asynchrone, produit un JPEG qualité 90 (`BOARD_IMAGE_EXTENSION`) : environ 10 ms et 450 Ko, contre 200 ms et 2,2 Mo en PNG pour un plateau de 12 joueurs, sans différence visible.
 
 ## Limites connues
 

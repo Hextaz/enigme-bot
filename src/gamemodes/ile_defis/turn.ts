@@ -1,10 +1,10 @@
 import { saveTurnSnapshot } from '../../game/snapshot';
 import { at } from '../../domain/types';
 import { islandPending, parseIslandBoardData } from '../../domain/persisted';
-import { Transaction } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import { Joueur, Plateau, sequelize } from '../../db/models';
 import { BoardCase, GameRuleError, JsonObject, IlePending, Random, newToken, randomInt } from '../../domain/types';
-import { withGameLock } from '../../game/transaction';
+import { withGameLock, withScheduledLock } from '../../game/transaction';
 import { BOARD_CASES } from './maps/board_game_island/board';
 
 export type IleStop = 'intersection' | 'portail' | 'liane' | 'cascade' | 'dragon';
@@ -272,6 +272,40 @@ export async function expirePending(actor: Actor, token: string, options: Option
     await joueur.save({ transaction });
     return { type, roll: 0, move: null };
   });
+}
+
+/** Obstacle a case asks for when a player stands on it with steps left. */
+function legacyStop(position: number, data: IleBoardData): { stop: IleStop; target?: number } | null {
+  const here = findCase(position);
+  if (here.type === 'Intersection') return { stop: 'intersection' };
+  if (here.type === 'Liane') return { stop: 'liane' };
+  if (here.type === 'Cascade' && !data.cascade_desactivee) return { stop: 'cascade' };
+  const ahead = here.next[0];
+  if (ahead !== undefined && findCase(ahead).type === 'Portail' && !data.portails_ouverts.includes(ahead)) return { stop: 'portail', target: ahead };
+  return null;
+}
+
+/**
+ * Versions before migration 003 kept pending obstacles in memory: a restart left the player on the
+ * obstacle with steps left. Restore it once, at startup; without an obstacle the move ends, as
+ * the island has no "continue" action. Returns the players.
+ */
+export async function recoverLegacyPending(options: Options = {}): Promise<string[]> {
+  const random = options.random ?? Math.random;
+  return withScheduledLock('restart', () => sequelize.transaction(async transaction => {
+    const plateau = await Plateau.findByPk(1, { transaction });
+    if (!plateau || plateau.enigme_status === 'season_ended') return [];
+    const data = boardData(plateau);
+    const recovered: string[] = [];
+    for (const joueur of await Joueur.findAll({ where: { action_en_attente: null, cases_restantes: { [Op.gt]: 0 } }, transaction })) {
+      const found = legacyStop(joueur.position, data);
+      if (found) joueur.action_en_attente = { type: found.stop, case: joueur.position, token: newToken(random), ...(found.target ? { target: found.target } : {}) };
+      else joueur.cases_restantes = 0;
+      await joueur.save({ transaction });
+      recovered.push(joueur.discord_id);
+    }
+    return recovered;
+  }));
 }
 
 export async function unblockGhost(userId: string): Promise<boolean> {

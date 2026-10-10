@@ -1,6 +1,6 @@
 import { AttachmentBuilder, MessageCreateOptions } from 'discord.js';
 import { Joueur, Plateau } from '../db/models';
-import { BoardPlayer, generateBoardImage } from '../utils/canvas';
+import { BOARD_IMAGE_EXTENSION, BoardPlayer, generateBoardImage } from '../utils/canvas';
 import config = require('../config');
 import { afterGameAction } from '../game/transaction';
 
@@ -49,6 +49,6 @@ export async function announceWithBoard(client: ChannelHost & { users: unknown }
     const channel = await boardChannel(client);
     if (!channel) { console.warn('[WARN] Salon du plateau indisponible pour une annonce.'); return; }
     const buffer = await generateBoardImage(players, state, client as Parameters<typeof generateBoardImage>[2], zone);
-    await channel.send({ content, files: [new AttachmentBuilder(buffer, { name: 'board.png' })] });
+    await channel.send({ content, files: [new AttachmentBuilder(buffer, { name: `board.${BOARD_IMAGE_EXTENSION}` })] });
   });
 }

@@ -20,12 +20,17 @@
 | Migrations et sauvegarde | `migrations`, `backup` |
 | Contrats de modes, graphes, cache d'avatars | `contracts` |
 | Point d'entrée compilé, commandes chargées, images | `runtime` |
+| Rendu Canvas : JPEG pleine taille, zones de l'île, vue zoomée, taille maximale | `canvas` |
+| **Équivalence avec l'ancien JS** (oracles figés de `main`, voir EDGE_CASES §8) : dés, étoile, effets d'atterrissage, déplacements Mario et île, boutique, étoiles bonus | `legacy_parity`, `legacy_landing_parity`, `legacy_walk_parity`, `legacy_island_parity`, `legacy_shop_parity`, `legacy_endgame_parity` |
+| Reprise des joueurs arrêtés par l'ancienne version (choix non persistés) | `legacy_restart` |
 | Santé SQLite/Discord/Kuma | `health` |
 | Persistance de la direction | `direction` |
 
 Ces tests ne démontrent pas une couverture à 100 %. Les textes et composants Discord ne sont vérifiés que sur les parcours principaux (`discord_flow`), avec un faux client. Un test sur un serveur Discord de test reste nécessaire avant chaque livraison importante.
 
 ## Discipline
+
+Les fichiers `test/fixtures/legacy-*.js` sont des extraits **copiés tels quels** du code JavaScript de `main` (`a7405ca`), seules leurs dépendances étant injectées. Ils servent d'oracle : ne jamais les modifier pour faire passer un test. Une différence est soit corrigée dans `src/`, soit consignée comme exception dans `docs/EDGE_CASES.md` (§8). Un test d'équivalence doit prouver qu'il sait échouer : altérer temporairement une règle et constater l'échec.
 
 Pour une correction métier : écrire un scénario reproduisant l’état incorrect, constater l’échec, corriger, relancer le scénario puis la suite. Préférer la vraie base SQLite en mémoire aux mocks de modèles ; injecter une erreur (hook `beforeUpdate`) pour prouver le rollback. Les services acceptent `{ random, now }` : injecter l’aléatoire et la date pour vérifier une branche exacte (un test ne doit pas dépendre du jour réel — samedi, dimanche).
 

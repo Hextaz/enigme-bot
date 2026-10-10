@@ -1,7 +1,7 @@
 import { marioVariant } from './variant';
 import { Client } from 'discord.js';
 import { Joueur } from '../../db/models';
-import { Random, at } from '../../domain/types';
+import { Random } from '../../domain/types';
 import { announce } from '../../discord/channels';
 import { SeasonEnd } from '../mode-interface';
 import config = require('../../config');
@@ -47,9 +47,8 @@ export const endgame: SeasonEnd<Summary> = {
     };
   },
   async close(players, plateau, transaction, random: Random): Promise<Summary> {
-    const pool = [...BONUS_STARS];
-    const picked: BonusStar[] = [];
-    while (picked.length < marioVariant(plateau.game_variant).settings.bonusStarsCount) picked.push(at(pool.splice(Math.floor(random() * pool.length), 1), 0));
+    // Historical draw, kept as is: a comparator shuffle (not uniform) then the first categories.
+    const picked = [...BONUS_STARS].sort(() => 0.5 - random()).slice(0, marioVariant(plateau.game_variant).settings.bonusStarsCount);
     const bonus: Summary['bonus'] = [];
     for (const star of picked) {
       const winners = bonusWinners(players, star);

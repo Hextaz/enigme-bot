@@ -5,7 +5,7 @@ import { Joueur, Plateau } from '../db/models';
 import { GameRuleError } from '../domain/types';
 import { getActiveMode } from '../gamemodes/registry';
 import { PromptRow } from '../gamemodes/mode-interface';
-import { generateZoomedBoardImage } from '../utils/canvas';
+import { BOARD_IMAGE_EXTENSION, generateZoomedBoardImage } from '../utils/canvas';
 import { parisClock } from '../utils/time';
 
 export const data = new SlashCommandBuilder()
@@ -27,7 +27,7 @@ export async function execute(interaction: ChatInputCommandInteraction | ButtonI
   const boardSnapshot = structuredClone(plateau.get({ plain: true }));
   const playerSnapshots = players.map(p => structuredClone(p.get({ plain: true })));
   const render = (view: GameView) => afterGameAction(async () => {
-    const image = new AttachmentBuilder(await generateZoomedBoardImage(playerSnapshot, playerSnapshots, boardSnapshot, interaction.client), { name: 'zoomed_board.png' });
+    const image = new AttachmentBuilder(await generateZoomedBoardImage(playerSnapshot, playerSnapshots, boardSnapshot, interaction.client), { name: `zoomed_board.${BOARD_IMAGE_EXTENSION}` });
     await editGameReply(interaction, { ...view, files: [image] });
   });
   const viewRow = () => new ActionRowBuilder<ButtonBuilder>().addComponents(button('voir_plateau', '🗺️ Voir le plateau', ButtonStyle.Success));

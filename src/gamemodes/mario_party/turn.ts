@@ -3,10 +3,10 @@ import { LandingEvent } from './events';
 import { saveTurnSnapshot } from '../../game/snapshot';
 import { at } from '../../domain/types';
 import { marioPending } from '../../domain/persisted';
-import { Transaction } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import { Joueur, Plateau, sequelize } from '../../db/models';
 import { BoardCase, GameRuleError, Item, MarioPending, Random, isTrap, newToken, pick, randomInt } from '../../domain/types';
-import { withGameLock } from '../../game/transaction';
+import { withGameLock, withScheduledLock } from '../../game/transaction';
 import { getActiveBoardCases } from '../registry';
 import { parisClock } from '../../utils/time';
 import { applyLanding } from './landing';
@@ -99,7 +99,40 @@ export async function startTurn(actor: Actor, options: Options = {}): Promise<{ 
   });
 }
 
-/** Resume a movement interrupted without a pending choice (closed shop, restart of an older version). */
+/** Choice a case asks for when a player stands on it with steps left; crossroads are asked again by walk(). */
+function legacyStop({ joueur, plateau, cases }: State): MarioStop | null {
+  const here = findCase(cases, joueur.position);
+  if (here.next.length > 1) return null;
+  if (here.id === plateau.position_etoile) return 'etoile';
+  if (here.type === 'Boutique' && plateau.tour < 30) return 'boutique';
+  if (here.type === 'Boo') return 'boo';
+  return null;
+}
+
+/**
+ * Versions before migration 003 kept pending choices in memory: a restart left the player on the
+ * case that asked for it, with steps left. Restore that choice once, at startup. Returns the players.
+ */
+export async function recoverLegacyPending(options: Options = {}): Promise<string[]> {
+  const opts = withDefaults(options);
+  return withScheduledLock('restart', () => sequelize.transaction(async transaction => {
+    const plateau = await Plateau.findByPk(1, { transaction });
+    if (!plateau || plateau.enigme_status === 'season_ended') return [];
+    const cases = getActiveBoardCases(plateau);
+    const recovered: string[] = [];
+    for (const joueur of await Joueur.findAll({ where: { action_en_attente: null, cases_restantes: { [Op.gt]: 0 } }, transaction })) {
+      const stop = legacyStop({ joueur, plateau, cases });
+      if (!stop) continue;
+      joueur.action_en_attente = { type: stop, case: joueur.position, token: newToken(opts.random) };
+      if (stop === 'boutique') await prepareShop(joueur, transaction, opts.random, parisClock(opts.now).weekday === 0);
+      await joueur.save({ transaction });
+      recovered.push(joueur.discord_id);
+    }
+    return recovered;
+  }));
+}
+
+/** Resume a movement interrupted without a pending choice (closed shop on the last turn). */
 export async function continueTurn(actor: Actor, options: Options = {}): Promise<MoveOutcome> {
   const opts = withDefaults(options);
   return run(actor.id, async transaction => {

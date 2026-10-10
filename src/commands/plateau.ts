@@ -3,7 +3,7 @@ import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, ChatIn
 import { Joueur, Plateau } from '../db/models';
 import { GameRuleError } from '../domain/types';
 import { getActiveBoardCases } from '../gamemodes/registry';
-import { generateBoardImage, BoardPlayer, BoardState } from '../utils/canvas';
+import { BOARD_IMAGE_EXTENSION, generateBoardImage, BoardPlayer, BoardState } from '../utils/canvas';
 
 const ZONES: Record<string, string> = {
   plage: '🏝️ Zone 1 : Plage & Jungle (Cases 1 - 30)',
@@ -22,8 +22,8 @@ export async function zonePayload(user: User, zone: string, client: Client, snap
   if (!plateau) throw new GameRuleError('CLOSED', 'Aucune partie en cours.');
   if (!ZONES[zone]) throw new GameRuleError('ZONE', 'Zone inconnue.');
   const players = (snapshot?.players ?? await Joueur.findAll()).sort((a, b) => Number(a.discord_id === user.id) - Number(b.discord_id === user.id));
-  const image = new AttachmentBuilder(await generateBoardImage(players, plateau, client, zone), { name: 'board_zone.png' });
-  const embed = new EmbedBuilder().setTitle("🗺️ L'Île aux Défis - Carte Interactive").setColor('#3498db').setImage('attachment://board_zone.png').setTimestamp()
+  const image = new AttachmentBuilder(await generateBoardImage(players, plateau, client, zone), { name: `board_zone.${BOARD_IMAGE_EXTENSION}` });
+  const embed = new EmbedBuilder().setTitle("🗺️ L'Île aux Défis - Carte Interactive").setColor('#3498db').setImage(`attachment://board_zone.${BOARD_IMAGE_EXTENSION}`).setTimestamp()
     .setDescription(`Vous regardez actuellement :\n**${ZONES[zone]}**\n\n*Utilisez les boutons ci-dessous pour naviguer d'une zone à l'autre.*`)
     .setFooter({ text: `Tour ${plateau.tour}/30 | Demandé par ${user.username}` });
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(Object.entries(ZONE_BUTTONS).map(([id, label]) =>
@@ -46,7 +46,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     const state = structuredClone(plateau.get({ plain: true }));
     const players = (await Joueur.findAll()).map(p => structuredClone(p.get({ plain: true })));
     await afterGameAction(async () => {
-      const image = new AttachmentBuilder(await generateBoardImage(players, state, interaction.client), { name: 'board.png' });
+      const image = new AttachmentBuilder(await generateBoardImage(players, state, interaction.client), { name: `board.${BOARD_IMAGE_EXTENSION}` });
       await interaction.editReply({ content: `🗺️ **Voici la carte complète du plateau actuel (${state.game_map}) :**`, files: [image] });
     });
     return;

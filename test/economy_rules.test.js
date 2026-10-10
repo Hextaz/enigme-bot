@@ -30,7 +30,8 @@ test('INV-01: a full inventory asks for a replacement, then accepts the purchase
   assert.equal(purchase.droppedItem, 'B');
   const player = await Joueur.findByPk('buyer');
   assert.equal(player.pieces, 15);
-  assert.equal(player.inventaire.length, 3);
+  // As in the legacy flow, the purchase takes the dropped item's slot.
+  assert.deepEqual(player.inventaire, ['A', '🍄 Champignon', 'C']);
   assert.deepEqual(player.boutique_du_jour, []);
 });
 

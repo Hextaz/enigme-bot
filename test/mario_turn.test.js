@@ -158,4 +158,14 @@ test('the mirror swaps positions atomically with a non-ghost player', async () =
   assert.equal((await reload('ghost')).position, 40);
 });
 
+test('PARITY-03: on the last turn, stopping exactly on the closed shop resolves the case (legacy skipped hidden blocks and traps)', async () => {
+  await setup({ player: { position: 20, type_de: 'pipe', de_pipe_valeur: 3, pieces: 0 }, board: { tour: 30, blocs_caches: { pieces_20: 23 } } });
+  const { move } = await turn.startTurn(actor, opts([]));
+  assert.equal(move.kind, 'landed');
+  const p1 = await reload('p1');
+  assert.equal(p1.position, 23);
+  assert.equal(p1.pieces, 20);
+  assert.equal(p1.action_en_attente, null);
+});
+
 test.after(() => sequelize.close());

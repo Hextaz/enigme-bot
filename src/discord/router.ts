@@ -8,7 +8,7 @@ import { GameRuleError } from '../domain/types';
 import { handleModalPari, handlePari } from '../game/cron';
 import { getActiveInteractions } from '../gamemodes/registry';
 import { guessCooldownRemaining, penalizeProposal, validateAnswer, diceLabel } from '../services/enigma';
-import { generateBoardImage } from '../utils/canvas';
+import { BOARD_IMAGE_EXTENSION, generateBoardImage } from '../utils/canvas';
 import { enigmaChannel } from './channels';
 import * as admin from './admin-interactions';
 import { showZone } from '../commands/plateau';
@@ -26,7 +26,7 @@ async function showBoard(i: ButtonInteraction): Promise<void> {
   const players = (await Joueur.findAll()).map(p => structuredClone(p.get({ plain: true })));
   await afterGameAction(async () => {
     const buffer = await generateBoardImage(players, state, i.client);
-    await editGameReply(i, { content: '🗺️ Le plateau', files: [new AttachmentBuilder(buffer, { name: 'board.png' })] });
+    await editGameReply(i, { content: '🗺️ Le plateau', files: [new AttachmentBuilder(buffer, { name: `board.${BOARD_IMAGE_EXTENSION}` })] });
   });
 }
 async function showInventory(i: ButtonInteraction): Promise<void> {

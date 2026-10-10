@@ -129,6 +129,9 @@ export const interactions: ModeInteractions = {
       const actor = { id: joueur.discord_id, username: joueur.discord_id };
       await armPendingTimer(actor.id, () => expire(client, actor, pending.token, null));
     }
+    // After the timers on purpose: a choice lost by an older version waits for the player's next /jouer.
+    const recovered = await turn.recoverLegacyPending();
+    if (recovered.length) console.log(`[GAME] Choix en attente restaurés après mise à jour : ${recovered.join(', ')}`);
   },
 };
 

@@ -15,24 +15,26 @@ export function itemById(id: string): Item | undefined {
   return Object.values(ITEMS).find(item => item.id === id);
 }
 
+function tierFor(roll: number, tier1: number, tier2: number): 1 | 2 | 3 {
+  // Same floating-point sums as the historical thresholds (0.6 + 0.3 is not exactly 0.9).
+  return roll < tier1 ? 1 : roll < tier1 + tier2 ? 2 : 3;
+}
+
 /** Today's offer is drawn once per player and kept until the 17h reset. Saved by the caller. */
 export async function prepareShop(joueur: Joueur, transaction: Transaction, random: Random, isSunday: boolean): Promise<Item[]> {
   if (joueur.boutique_du_jour.length) return joueur.boutique_du_jour.map(id => itemById(id)).filter((item): item is Item => !!item);
   const ranking = await Joueur.findAll({ order: [['etoiles', 'DESC'], ['pieces', 'DESC']], transaction });
   const lowerHalf = ranking.findIndex(j => j.discord_id === joueur.discord_id) >= Math.floor(ranking.length / 2);
   // Players in the lower half of the ranking see rare items more often.
-  const [tier1, tier2] = lowerHalf ? [0.45, 0.75] : [0.60, 0.90];
+  const [tier1, tier2] = lowerHalf ? [0.45, 0.30] : [0.60, 0.30];
   const offer: Item[] = [];
   for (let slot = 0; slot < 3; slot++) {
+    // The tier is drawn once per slot; a duplicate only redraws the item inside that tier.
+    const pool = isSunday ? SUNDAY_ITEMS : TIERS[tierFor(random(), tier1, tier2)];
     let item: Item;
     let attempts = 0;
     do {
-      if (isSunday) item = itemByKey(pick(random, SUNDAY_ITEMS));
-      else {
-        const roll = random();
-        const tier = roll < tier1 ? 1 : roll < tier2 ? 2 : 3;
-        item = itemByKey(pick(random, TIERS[tier]));
-      }
+      item = itemByKey(pick(random, pool));
       attempts++;
     } while (offer.some(o => o.id === item.id) && attempts < 5);
     offer.push(item);
@@ -54,14 +56,14 @@ export function applyPurchase(joueur: Joueur, itemId: string, replaceIndex?: num
   let droppedItem: string | undefined;
   if (replaceIndex !== undefined) {
     if (item.isPack || !Number.isInteger(replaceIndex) || replaceIndex < 0 || replaceIndex >= inventory.length) throw new GameRuleError('SLOT', "L'objet à remplacer n'existe plus.");
-    droppedItem = inventory.splice(replaceIndex, 1)[0];
-  }
-  if (inventory.length + additions.length > INVENTORY_LIMIT) {
-    if (!item.isPack && replaceIndex === undefined) return { kind: 'needs_replacement', item };
+    // The purchase takes the dropped item's slot: slot order matters for random item losses.
+    droppedItem = inventory.splice(replaceIndex, 1, item.name)[0];
+  } else if (inventory.length + additions.length > INVENTORY_LIMIT) {
+    if (!item.isPack) return { kind: 'needs_replacement', item };
     throw new GameRuleError('FULL', `Ton inventaire est trop plein (il te faut ${additions.length} place(s) libre(s)).`);
-  }
+  } else inventory.push(...additions);
   joueur.pieces -= item.price;
-  joueur.inventaire = [...inventory, ...additions];
+  joueur.inventaire = inventory;
   joueur.boutique_du_jour = joueur.boutique_du_jour.filter(id => id !== itemId);
   return { kind: 'bought', item, droppedItem };
 }

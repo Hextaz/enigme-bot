@@ -23,8 +23,8 @@ Ce document consigne l'ensemble des **cas limites**, **invariants de sécurité*
 | **CRON-08** | `applyGhostRules` | Troisième tour consécutif sans jouer. | Le joueur devient fantôme et est annoncé ; les oublieurs du jour sont listés. | `test/season_services.test.js` |
 | **CRON-09** | `handle15hReminder` | Rappel de 15h hors saison active. | Aucun MP. | `test/cron_lifecycle.test.js` |
 | **CRON-10** | Paris / Marché Noir | Samedi/dimanche en mode sans boutique (`ile_defis`) ou saison terminée. | Rien ne s'ouvre. | `test/cron_lifecycle.test.js` |
-| **CRON-11** | `endSeason` | Fin de saison Mario Party. | Étoiles bonus, statut `season_ended`, joueurs bloqués et choix en attente effacés **dans une transaction**, puis annonce. | `test/season_services.test.js` |
-| **CRON-12** | `dailyTransition` | Un joueur a vaincu le Dragon sur l'île. | La saison se clôture au 17h suivant (annonce des vainqueurs). | `test/season_services.test.js` |
+| **CRON-11** | `endSeason` | Fin de saison Mario Party. | Étoiles bonus (catégories tirées comme avant, voir PARITY-06), statut `season_ended`, joueurs bloqués et choix en attente effacés **dans une transaction**, puis annonce. | `test/season_services.test.js`, `test/legacy_endgame_parity.test.js` |
+| **CRON-12** | `dailyTransition` | Un joueur a vaincu le Dragon sur l'île. | La saison se clôture au 17h suivant (annonce des vainqueurs). ⚠️ Nouveau : l'ancien code enregistrait la victoire sans jamais clore la saison (voir PARITY-07). | `test/season_services.test.js` |
 | **CRON-13** | Marché Noir | Ouverture du dimanche. | Seuls les non-fantômes regagnent le droit de jouer. | `test/season_services.test.js` |
 | **BET-01** | Paris du samedi | Redémarrage entre 10h et 21h, double règlement, double pari. | L'ouverture est persistée (`plateau.mode_data.paris_ouverts`) ; un seul pari par joueur ; le règlement est transactionnel et ne paie qu'une fois. | `test/season_services.test.js` |
 
@@ -78,6 +78,8 @@ Ce document consigne l'ensemble des **cas limites**, **invariants de sécurité*
 | **PEND-06** | Expiration | Timer d'un choix déjà résolu ou remplacé. | Ignoré (jeton différent). | `test/mario_turn.test.js`, `test/ile_turn.test.js` |
 | **PEND-07** | Redémarrage | Choix en attente au moment d'un redémarrage. | Timers réarmés ; `/jouer` réaffiche le choix. | `test/discord_flow.test.js` |
 | **PEND-08** | Boo | Fin du choix Boo (vol, passage, expiration). | Le déplacement reprend automatiquement (il restait bloqué auparavant). | `test/mario_turn.test.js` |
+| **RESTART-01** | Mise à jour depuis l'ancien code (Mario) | Joueur arrêté sur l'Étoile, une Boutique ouverte ou Boo, avec des pas restants mais sans choix persisté (l'ancien code le gardait en mémoire). | Au démarrage, le choix est reconstitué une fois, sans minuteur : il attend le prochain `/jouer`. Intersection : redemandée par « Continuer ». Boutique fermée (tour 30) : rien. | `test/legacy_restart.test.js` |
+| **RESTART-02** | Mise à jour depuis l'ancien code (île) | Joueur arrêté sur une Intersection, une Liane, la Cascade active ou devant un Portail fermé, sans choix persisté. | Obstacle reconstitué (cible du portail comprise) ; sans obstacle identifiable, le déplacement se termine au lieu de bloquer le joueur (l'île n'a pas d'action « Continuer »). | `test/legacy_restart.test.js` |
 
 ---
 
@@ -89,7 +91,7 @@ Ce document consigne l'ensemble des **cas limites**, **invariants de sécurité*
 | **ECO-02** | Étoile | Moins de 20 pièces, pas de choix d'étoile en attente, saison fermée. | `FUNDS`, `STALE`, `CLOSED`. | `test/economy_rules.test.js` |
 | **ECO-03** | Boutique | Objet plus proposé. | `STALE_SHOP`. | `test/shop_rules.test.js` |
 | **ECO-04** | Cases rouges / bleues | Solde faible ; tours 26-30. | Jamais négatif ; gains/pertes doublés. | `test/landing.test.js`, `test/mario_turn.test.js` |
-| **INV-01** | Inventaire | Achat avec inventaire plein (3 max). | Demande d'un objet à jeter ; un pack sans place suffisante est refusé (`FULL`). | `test/economy_rules.test.js` |
+| **INV-01** | Inventaire | Achat avec inventaire plein (3 max). | Demande d'un objet à jeter ; l'achat prend l'emplacement de l'objet jeté (comme avant) ; un pack sans place suffisante est refusé (`FULL`). | `test/economy_rules.test.js` |
 | **INV-02** | Remplacement | Index hors inventaire. | `SLOT`. | `test/shop_rules.test.js` |
 | **INV-03** | Clé | Utilisation manuelle d'une Clé. | Refusée (`PASSIVE`) : elle est consommée automatiquement aux zones bonus. | `test/mario_turn.test.js` |
 | **BOARD-01** | Déplacement | Intersections, passage devant Étoile/Boutique/Boo, boutique fermée au dernier tour. | Arrêt avant l'intersection ; arrêt sur l'étoile avec les pas restants ; boutique ignorée si `tour >= 30`. | `test/mario_rules.test.js` |
@@ -125,3 +127,22 @@ Ce document consigne l'ensemble des **cas limites**, **invariants de sécurité*
 | **ADM-02** | `/admin set_position` | Case inexistante sur la map active. | Refus ; un choix en attente est annulé. | `test/admin_services.test.js` |
 | **ADM-03** | `/admin annuler_tour` | Annulation du dernier tour. | Restauration atomique joueur, plateau et autres joueurs ; snapshot consommé. | `test/admin_services.test.js` |
 | **ADM-04** | `/admin give` objet | Objet hors catalogue ou inventaire plein. | Refus (`ITEM`, `FULL`). | `test/admin_services.test.js` |
+
+---
+
+## 8. ⚖️ Équivalence avec l'ancien code JavaScript (`test/legacy_*_parity.test.js`)
+
+Critère de la migration TypeScript : **à état initial et tirages identiques, mêmes conséquences de jeu**. Des extraits de `main` (`a7405ca`) sont figés, copiés tels quels, dans `test/fixtures/legacy-*.js` ; seules leurs dépendances (modèles, aléatoire, horloge) sont injectées. **Ne jamais modifier ces oracles pour suivre le nouveau code.** Toute différence est soit corrigée, soit listée ici comme exception.
+
+| Identifiant | Domaine | Comparaison / Exception | Comportement retenu | Test |
+| :--- | :--- | :--- | :--- | :--- |
+| **PARITY-00** | Règles comparées | Dés, étoile, tuyau ; effets d'atterrissage Mario (2 500 scénarios, chaque branche atteinte) ; déplacement Mario et île (toutes cases, longueurs, reprises) ; boutique du jour ; étoiles bonus. | Identiques à l'ancien code. | `test/legacy_parity.test.js`, `test/legacy_landing_parity.test.js`, `test/legacy_walk_parity.test.js`, `test/legacy_island_parity.test.js`, `test/legacy_shop_parity.test.js`, `test/legacy_endgame_parity.test.js` |
+| **PARITY-01** | Piège | Exception : un joueur tombe sur **son propre** piège. L'ancien code relisait une copie du joueur et perdait les 10 pièces ou l'Étoile. | Neutre : le poseur se « vole » lui-même. | `test/legacy_landing_parity.test.js` |
+| **PARITY-02** | Révolution Bowser, Loterie | Exception : pièces gagnées plus tôt sur la même case (bloc caché, piège) puis effet sur tous les joueurs. L'ancien code partageait le solde enregistré puis réécrivait l'ancien solde du joueur. | Le partage compte les pièces réellement détenues. | `test/legacy_landing_parity.test.js`, `test/landing.test.js` |
+| **PARITY-03** | Boutique fermée (tour 30) | Exception : arrêt exact sur la boutique fermée. L'ancien code terminait le tour sans résoudre la case (bloc caché et piège ignorés). | La case est résolue normalement. | `test/mario_turn.test.js` |
+| **PARITY-04** | Boutique du jour | Écart corrigé : le palier de rareté doit être tiré **une fois** par emplacement ; un doublon ne retire que l'objet dans ce palier. | Tirage historique restauré. | `test/legacy_shop_parity.test.js` |
+| **PARITY-05** | Remplacement d'objet | Écart corrigé : l'objet acheté prend l'emplacement de l'objet jeté (l'ordre compte pour la perte aléatoire Malchance). | Comportement historique restauré. | `test/economy_rules.test.js` |
+| **PARITY-06** | Étoiles bonus | Écart corrigé : catégories tirées par `sort(() => 0.5 - random())` (mélange non uniforme, conservé tel quel). | Tirage historique restauré. | `test/legacy_endgame_parity.test.js` |
+| **PARITY-07** | Dragon (île) | Changement de règle assumé : l'ancien code annonçait la fin « gérée en fin de tour » sans l'implémenter, la saison continuait jusqu'au tour 30. | Clôture au 17h suivant la première victoire (CRON-12). Validé (10/10/2026). | `test/season_services.test.js` |
+
+Les autres corrections volontaires sont signalées dans leurs sections par « auparavant » : SEC-01, PEND-01 à PEND-08, ILE-01 à ILE-03, ILE-05, INV-03, ENIG-02, CRON-13, BOARD-02.
