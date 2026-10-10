@@ -83,6 +83,7 @@ npm start
 | `/documentation` | Ouvre le livret de règles interactif directement dans Discord. |
 | `/settings` | Active ou désactive les rappels automatiques en MP (énigme, fin de tour). |
 | `/admin` | Outils du Maître du Jeu (don de pièces, avancement de tour, arrêt de saison). |
+| `/dev` | **Bot de dev uniquement** (`DEV_MODE=1`) : déclencher les étapes planifiées, simuler l'heure, voir l'état. Voir [SETUP_DEV §5](docs/SETUP_DEV.md#-5-tester-en-conditions-réelles-sur-le-bot-de-dev-dev). |
 
 ---
 

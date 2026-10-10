@@ -13,6 +13,8 @@ pm2 startOrReload ecosystem.config.cjs --update-env
 
 PM2 doit exécuter `dist/src/index.js` et une seule instance. Le récepteur `deploy.hextaz.dev` doit donc lancer `npm ci --include=dev && npm run build` avant `pm2 reload` : sans compilation, le bot démarre l'ancien `dist/` ou ne démarre pas. Utiliser Node 24 (image Docker et CI) ; les outils exigent au minimum Node 22.13. Le chargement des commandes slash ne change que lors d’une modification de leurs définitions : `npm run deploy` (nécessaire après la refonte TypeScript : options de `/admin set_position` et `/admin tour`, description de `/plateau`). Cette commande contacte réellement Discord ; elle ne fait pas partie des tests.
 
+**`DEV_MODE` ne doit jamais être défini en production.** Sans lui, `npm run deploy` n'enregistre pas `/dev` et le bot ne la charge pas. Si `/dev` apparaît sur le serveur de production (déploiement fait par erreur avec `DEV_MODE=1`), retirer la variable puis relancer `npm run deploy`, qui remplace la liste complète des commandes.
+
 Dans Docker : construire avec `docker build -t enigme-bot .`, fournir les secrets à l’exécution et monter un volume inscriptible par l’utilisateur `node` dans `/app/data`. Les `.env*`, bases et fichiers Git sont exclus du contexte de l’image. L’image finale contient le code compilé et les dépendances de production.
 
 ## Sauvegarder
