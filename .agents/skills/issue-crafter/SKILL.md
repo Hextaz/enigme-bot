@@ -70,17 +70,17 @@ Poser des questions pertinentes pour cerner le périmètre :
 
 Avant de formaliser la spec, Claude inspecte le code réel pour ancrer le ticket dans la réalité technique d'Enigme Bot :
 
-1. **Base de données Sequelize (`src/db/models.js`)** :
+1. **Base de données Sequelize (`src/db/models.ts`)** :
    - Faut-il ajouter un champ dans `Joueur` (ex: nouvel effet actif, statistiques), `Plateau` (nouvel état de jeu) ou `TourSnapshot` ?
    - Quel type de données Sequelize (`DataTypes.INTEGER`, `DataTypes.BOOLEAN`, `DataTypes.JSON`) ?
 2. **Modes de Jeu (`src/gamemodes/`)** :
-   - La mécanique est-elle spécifique au mode `mario_party` (`src/gamemodes/mario_party/`) ou générique via l'interface (`src/gamemodes/mode-interface.js`) ?
+   - La mécanique est-elle spécifique au mode `mario_party` (`src/gamemodes/mario_party/`) ou générique via l'interface (`src/gamemodes/mode-interface.ts`) ?
 3. **Moteur de Jeu (`src/game/`)** :
-   - Quel module portera la logique : `events.js` (cases et déplacements), `items.js` (objets), `shop.js` (boutique), `cron.js` (automatismes 11h/week-end), `transaction.js` (verrous) ?
-4. **Commandes & Interactions Discord (`src/commands/`, `src/index.js`)** :
+   - Quel module portera la logique : `gamemodes/<mode>/rules.ts` (règles pures, dés, déplacements), `gamemodes/<mode>/turn.ts` (services du tour, objets, choix en attente), `gamemodes/mario_party/shop.ts` (boutique), `services/season.ts` + `game/cron.ts` (automatismes), `services/enigma.ts` / `services/admin.ts`, `game/transaction.ts` (verrou) ?
+4. **Commandes & Interactions Discord (`src/commands/`, `src/discord/router.ts`)** :
    - Nouvelle commande slash ou sous-commande `/admin` ?
    - Nouveaux boutons avec customId (`boutique_buy_*`, `use_item_*`, etc.) ?
-5. **Rendu Visuel Canvas (`src/utils/canvas.js`)** :
+5. **Rendu Visuel Canvas (`src/utils/canvas.ts`)** :
    - Un affichage sur le plateau ou une carte visuelle est-elle requise ?
    - Quelles dimensions, assets et animations d'icônes sont nécessaires ?
 6. **Synergies Homelab & Services 24/7 (`*.hextaz.dev`)** :
@@ -105,21 +105,21 @@ Description claire du besoin de gameplay, du problème constaté ou de la dette 
 - **Parcours joueur / Déroulement** : Description pas à pas du flux d'interaction (boutons, messages éphémères, annonces publiques).
 
 ## 🛠️ Spécifications Techniques
-- **Base de Données (src/db/models.js)** : Colonnes à ajouter ou modifier sur Joueur / Plateau / TourSnapshot.
+- **Base de Données (src/db/models.ts)** : Colonnes à ajouter ou modifier sur Joueur / Plateau / TourSnapshot.
 - **Logique Métier (src/game/ ou src/gamemodes/)** : Algorithme, gestion des états, coût, probabilités.
-- **Interactions Discord (src/commands/ ou src/index.js)** : Commandes slash, boutons, modales, `ephemeral: true`.
-- **Rendu Visuel (src/utils/canvas.js)** : Dessin de nouvelles cases, icônes d'objets, intégration des avatars.
+- **Interactions Discord (src/commands/, src/discord/ ou src/gamemodes/*/discord.ts)** : Commandes slash, boutons, modales, `ephemeral: true`.
+- **Rendu Visuel (src/utils/canvas.ts)** : Dessin de nouvelles cases, icônes d'objets, intégration des avatars.
 
 ## 📂 Fichiers Cibles Identifiés
-- `src/db/models.js`
+- `src/db/models.ts`
 - `src/game/...`
 - `src/gamemodes/...`
 - `src/commands/...`
-- `src/utils/canvas.js`
+- `src/utils/canvas.ts`
 
 ## ⚠️ Cas Limites, Concurrence & Sécurité
 - **Délai Discord 3s** : `deferReply()` ou `deferUpdate()` nécessaire ?
-- **Verrous & Concurrence** : Protection par `lockUser()` / `unlockUser()` requise ?
+- **Verrous & Concurrence** : Écriture hors interaction (cron, timer) nécessitant `withScheduledLock` ? Écritures liées nécessitant `sequelize.transaction` ?
 - **Cas limites de gameplay** : Solde insuffisant, inventaire plein (3 objets max), joueur inactif/fantôme, passages répétés sur la case.
 - **Sécurité** : Si commande d'administration, vérification stricte du `MJ_USER_ID` et permissions Discord.
 

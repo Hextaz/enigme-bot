@@ -1,190 +1,83 @@
-# 🏗️ Architecture Logicielle & Guide Technique — Enigme Bot
+# Architecture d’Enigme Bot
 
-Ce document détaille l'architecture globale d'**Enigme Bot**, les choix de conception, les flux de données et les règles d'or d'ingénierie que chaque développeur doit respecter.
+Le bot héberge **une partie active** dans **un seul processus** Node.js (PM2, une instance). Tout le code applicatif est en TypeScript strict (`src/**/*.ts`) ; seuls les tests restent en JavaScript.
 
----
-
-## 🧭 1. Vue d'Ensemble & Stack Technique
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                          Discord Gateway & API                         │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │ Interactions (Slash / Boutons / Modales)
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│  src/index.js (Routeur d'Interactions & Gestionnaire d'Erreurs 10062)   │
-└─────────┬─────────────────────────┬──────────────────────────┬─────────┘
-          │                         │                          │
-          ▼                         ▼                          ▼
-┌──────────────────┐      ┌──────────────────┐       ┌──────────────────┐
-│  src/commands/   │      │   src/game/      │       │ src/gamemodes/   │
-│  (Slash Discord) │      │ (Moteur Métier)  │       │ (Modes enfichables)
-└─────────┬────────┘      └─────────┬────────┘       └─────────┬────────┘
-          │                         │                          │
-          └─────────────────────────┼──────────────────────────┘
-                                    ▼
-┌───────────────────────────────────┴────────────────────────────────────┐
-│      Couche Persistance : SQLite via Sequelize (src/db/models.js)       │
-│           + Générateur Visuel Canvas (src/utils/canvas.js)             │
-└────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+  Discord[Commandes, boutons, menus, modales] --> Boundary[discord/interaction.ts<br/>permissions, propriétaire, accusé de réception, verrou, erreurs]
+  Boundary --> Router[discord/router.ts]
+  Router --> Commands[commands/*.ts]
+  Router --> Admin[discord/admin-interactions.ts]
+  Router --> ModeUI[gamemodes/&lt;mode&gt;/discord.ts]
+  ModeUI --> Turn[gamemodes/&lt;mode&gt;/turn.ts<br/>tour, choix en attente, objets]
+  Turn --> Rules[gamemodes/&lt;mode&gt;/rules.ts<br/>fonctions pures]
+  Commands --> Services[services/enigma.ts, season.ts, admin.ts]
+  Cron[game/cron.ts] --> Services
+  Turn --> DB[(db/models.ts — SQLite)]
+  Services --> DB
+  ModeUI --> Channels[discord/channels.ts + utils/canvas.ts]
+  Cron --> Channels
 ```
 
-### Technologies Clés
-* **Discord.js (v14)** : Client WebSocket et manipulation de l'API Discord.
-* **Sequelize & SQLite3** : ORM pour la persistance locale (`database.sqlite`).
-* **Node-Canvas** : Rendu graphique 2D du plateau de jeu et superposition des avatars joueurs.
-* **Node-Cron** : Planificateur de tâches temporelles (crons journaliers, rappels, clôtures d'énigmes).
-* **P-Queue** : File d'attente pour séquencer les opérations lourdes de Canvas et limiter la charge CPU.
+## Couches et responsabilités
 
----
+| Couche | Fichiers | Rôle | Interdits |
+|---|---|---|---|
+| Frontière Discord | `discord/interaction.ts` | MJ uniquement pour `admin_*`, `reponse_*`, `modal_programmer_enigme` ; propriétaire du composant ; accusé de réception avant tout traitement ; verrou global ; `GameRuleError` → message éphémère sans `[ERROR]` ; 10062/40060 → `[TIMEOUT]`. | Logique métier. |
+| Routage / présentation | `discord/router.ts`, `commands/*.ts`, `gamemodes/*/discord.ts`, `discord/admin-interactions.ts` | Lire l'interaction, appeler un service, construire messages et composants, publier **après** validation SQL. | Écrire en base directement. |
+| Services transactionnels | `gamemodes/*/turn.ts`, `services/*.ts`, `game/endgame.ts` | Relire l'état, valider (`GameRuleError`), écrire dans **une** transaction sous `withGameLock`. | Appeler Discord. |
+| Règles pures | `gamemodes/mario_party/rules.ts`, `ile_defis/turn.ts#walk`, `landing.ts`, `shop.ts` | Dés, marche case par case, effets, boutique. Aléatoire injecté (`Random`). | Accès réseau. |
+| Persistance | `db/models.ts`, `db/migrations.ts` | Modèles Sequelize, migrations versionnées. | `sync({ alter })`. |
 
-## 📂 2. Arborescence Détaillée
+## Choix en attente (`action_en_attente`)
 
-```
-src/
-├── commands/            # Commandes slash Discord (déclarations + exécution)
-│   ├── admin.js         # Commandes MJ (gestion des pièces, lancement forcé, statut)
-│   ├── deviner.js       # Réponse à l'énigme du jour
-│   ├── documentation.js # Guide interactif des règles in-game
-│   ├── jouer.js         # Lancer le dé, ouvrir l'inventaire, déplacer le pion
-│   ├── plateau.js       # Afficher l'image du plateau en direct
-│   ├── settings.js      # Préférences joueur (avatar, notifications)
-│   └── stats.js         # Classement général (étoiles, pièces)
-│
-├── db/                  # Couche de données Sequelize
-│   ├── database.js      # Connexion SQLite locale ou via DATA_DIR
-│   └── models.js        # Modèles Joueur, Plateau, TourSnapshot
-│
-├── game/                # Moteur de règles du jeu
-│   ├── board.js         # Structure des cases du plateau et coordonnées Canvas
-│   ├── cron.js          # Automatismes (17h énigme, 21h déverrouillage, 15h rappel)
-│   ├── endgame.js       # Calcul des podiums et clôture de saison
-│   ├── enigma.js        # Cycle de vie des énigmes quotidiennes
-│   ├── events.js        # Résolution des effets de cases (Bleue, Rouge, Chance...)
-│   ├── health.js        # Auto-healing & battement de cœur Uptime Kuma
-│   ├── items.js         # Catalogue et effets des objets (Champignon, Dé Pipé...)
-│   ├── shop.js          # Logique d'achat dans la boutique
-│   └── transaction.js   # Verrouillage atomique par utilisateur (anti-spam / anti-race)
-│
-├── gamemodes/           # Architecture extensible multi-modes
-│   ├── mode-interface.js# Contrat d'interface abstrait (Lifecycle, Events, Shop, UI)
-│   ├── registry.js      # Découverte et registre dynamique des modes
-│   ├── mario_party/     # Mode Mario Party standard (étoiles, pièces, boutique)
-│   └── ile_defis/       # Mode alternatif défi
-│
-├── utils/               # Utilitaires & Moteur graphique
-│   └── canvas.js        # Génération d'images du plateau avec avatars et effets
-│
-├── config.js            # Chargement et validation des variables d'environnement
-└── index.js             # Point d'entrée de l'application & initialisation Discord
-```
+Quand un déplacement s'arrête sur une décision (Étoile, Boutique, Boo, intersection, Portail, Cascade, Liane, Dragon), le service enregistre `{ type, case, token }` sur le joueur dans la même transaction.
 
----
+- Toute résolution exige un choix du **même type sur la même case** : un vieux bouton ou menu (Boo, boutique, étoile, Dragon…) est refusé avec `STALE`.
+- L'expiration (60 s, `discord/pending-timers.ts`) n'agit que si le `token` est inchangé.
+- Après un redémarrage, `rearmTimers` réarme les expirations et `/jouer` réaffiche le choix (`renderPending`).
+- Les objets s'utilisent par emplacement (`use_<CLÉ>_<index>`) : l'emplacement doit encore contenir cet objet.
 
-## 🛡️ 3. Concurrence & Verrous Transactionnels (`src/game/transaction.js`)
+## Concurrence
 
-Sur Discord, les joueurs peuvent cliquer frénétiquement sur un bouton ou déclencher simultanément plusieurs commandes. Sans protection, cela causerait des doubles lancers de dés, des doubles déductions de pièces ou des corruptions d'inventaire.
+Le plateau est partagé : `withGameLock` autorise **une seule opération de jeu à la fois** dans le processus (joueurs, crons, MJ). Les interactions échouent immédiatement si le verrou est pris (`GameBusyError`) ; crons et timers attendent (`withScheduledLock`, qui détache le contexte de l'opération créatrice). L'imbrication dans une même opération est reconnue par `AsyncLocalStorage`. Une opération de plus de 50 s est signalée (`[WARN]`) mais jamais déverrouillée tant qu'elle peut écrire. Cette protection ne couvre pas plusieurs processus.
 
-### Règle d'or de verrouillage :
-Tout flux modifiant l'état d'un joueur DOIT être protégé par `lockUser` et **impérativement relâché dans un bloc `finally`** :
+## Contrat des modes (`gamemodes/mode-interface.ts`)
 
-```javascript
-const { lockUser, unlockUser } = require('../game/transaction');
+Un mode est un dossier `gamemodes/<id>/` avec `mode.ts`, `maps/<map>/board.ts` + `plateau.png`, `variants/<variante>.ts`. Le registre valide au démarrage :
 
-if (!lockUser(interaction.user.id)) {
-    return interaction.reply({ 
-        content: "⏳ Une action est déjà en cours pour toi. Patiente un instant !", 
-        ephemeral: true 
-    });
-}
+- métadonnées (`name`, `emoji`, `description`, `maxTours`, `hasStars`, `hasShop`, `hasBoo`, `isLinear`) ;
+- `getInteractions()` → `{ handle, renderPending, rearmTimers }` ;
+- `getEndgame()` → `{ close (dans la transaction de fin de saison), announce (après validation) }` ;
+- `getItems`, `getBoardCases`, `getBoardImagePath`, `getVariantConfig`, `getInitialPlayerData` ;
+- graphes de cases sans arête pendante et images présentes.
 
-try {
-    // Logique de jeu (déplacement, achat, transaction DB)
-    await processPlayerTurn(interaction);
-} catch (error) {
-    console.error('[ERROR] Échec lors du tour:', error);
-} finally {
-    // La libération est GARANTIE quoi qu'il arrive
-    unlockUser(interaction.user.id);
-}
-```
+Une map ou variante inconnue lève une erreur (pas de repli silencieux). `test/contracts.test.js` vérifie chaque mode.
 
-*Note : un timeout de sécurité automatique de 120s est prévu dans `transaction.js` au cas où un verrou resterait bloqué par une exception imprévue.*
+## Crons (`game/cron.ts`, Europe/Paris)
 
----
+| Heure | Service | Annonce |
+|---|---|---|
+| 15h lun-ven / 8h sam | rappel MP (`auto_remind_turn`) | — |
+| 17h lun-ven | `season.dailyTransition` : énigme programmée → plateau verrouillé ; sinon tour sans énigme ; tour 30 ou victoire au Dragon → `endSeason` | fantômes, énigme, oublis |
+| 18h/19h/20h | `publishHint` (marqué après envoi réussi) | indice |
+| 21h lun-ven | `finishEnigma` puis annonce | réponse et gagnants |
+| 10h sam / 21h sam | `openBets` / `settleBets` (état `plateau.mode_data.paris_ouverts`, survit aux redémarrages) | course de Yoshis |
+| 11h dim | `openBlackMarket` | Marché Noir |
+| minuit | purge des snapshots de plus de 7 jours | — |
 
-## ⏱️ 4. La Règle des 3 Secondes Discord (Timeouts 10062)
+## Démarrage
 
-L'API Discord exige un accusé de réception dans un délai strict de **3 000 millisecondes**. Toute opération lourde (génération d'image Canvas, transaction SQLite ou fetch distant) dépassera souvent cette limite.
+`npm start` compile (`scripts/build.cjs` : `tsc` + copie des images) puis lance `dist/src/index.js` : migrations → connexion Discord → création du plateau si absent → crons → heartbeat Kuma → reprise (clôture d'énigme en retard, indices manqués, réarmement des choix en attente).
 
-### Bonnes pratiques :
-1. **Accuser réception immédiatement** :
-   * Pour une nouvelle commande : `await interaction.deferReply({ ephemeral: true });`
-   * Pour un clic de bouton ou un menu : `await interaction.deferUpdate();`
-2. **Utiliser ensuite `editReply()` ou `followUp()`** :
-   ```javascript
-   await interaction.deferReply({ ephemeral: true });
-   const imageBuffer = await genererImagePlateau();
-   await interaction.editReply({ files: [imageAttachment] });
-   ```
-3. **Interception du code 10062** :
-   Si l'utilisateur a cliqué sur un bouton après une longue période d'inactivité, Discord renvoie l'erreur `10062 Unknown interaction`. Cette erreur est gérée avec élégance dans `src/index.js` sous le tag `[Timeout]` pour ne pas faire crasher le bot.
+## Rendu Canvas
 
----
+`utils/canvas.ts` lit les cases depuis le registre (plateau actif). Fonds en cache mémoire (vidé par `invalidateBoardCache` à chaque nouvelle saison) ; avatars en cache borné (200 entrées, 5 min) avec délai réseau de 3 s ; un avatar indisponible est remplacé par des initiales (journalisé en `[WARN]`). Le rendu reste sur l'event loop.
 
-## 🗄️ 5. Persistance & Sequelize (`src/db/models.js`)
+## Limites connues
 
-Le schéma de données s'articule autour de 3 modèles principaux :
+- Un seul processus et une seule partie : pas de table Saison ni de clé de serveur.
+- Les rappels MP de `/deviner` sont en mémoire (perdus au redémarrage, sans effet sur le jeu).
+- Les flux Discord sont testés avec de faux objets Discord (`test/discord_flow.test.js`) ; un test manuel sur un serveur de test reste nécessaire avant livraison.
 
-1. **`Joueur`** :
-   - `userId` (String, clé primaire)
-   - `pieces` (Integer, solde)
-   - `etoiles` (Integer, total d'étoiles)
-   - `position` (Integer, index de case actuel sur le plateau)
-   - `inventaire` (JSON, tableau d'objets possédés, max 3)
-   - `pieges_actifs` (JSON, pièges posés sur les cases)
-   - `a_le_droit_de_jouer` (Boolean, réinitialisé chaque jour)
-   - `jours_inactifs` (Integer, compteur d'inactivité)
-   - `est_fantome` (Boolean, joueur inactif pénalisé)
-   - `mode_data` (JSON, données spécifiques au mode de jeu actif)
-
-2. **`Plateau`** :
-   - `id` (Integer, singleton id=1)
-   - `tour` (Integer, numéro du tour courant de la saison)
-   - `enigme_status` (String : `waiting_enigme`, `enigme_active`, `season_ended`)
-   - `etoile_position` (Integer, case où se trouve l'étoile active)
-   - `mode_actif` (String : `mario_party` ou `ile_defis`)
-
-3. **`TourSnapshot`** :
-   - Historique tour par tour permettant au MJ de consulter l'évolution de la partie ou d'annuler une action.
-
-> [!IMPORTANT]
-> **Piège Sequelize sur les champs JSON** :
-> Si vous modifiez un tableau ou un objet contenu dans `joueur.inventaire` sans réassigner la variable, Sequelize ne détecte pas le changement lors de `joueur.save()`. Vous devez appeler explicitement :
-> `joueur.changed('inventaire', true);` avant `await joueur.save();`.
-
----
-
-## 🧩 6. Architecture des Gamemodes (`src/gamemodes/`)
-
-Le bot supporte plusieurs modes de jeu interchangeables grâce au contrat d'interface `ModeInterface` :
-* **`mario_party`** : Jeu standard (étoiles, boutique, pièces, Boo, Bowser, paris, marché noir).
-* **`ile_defis`** : Mode de défis alternatif avec progression linéaire.
-
-Pour ajouter un mode ou modifier un comportement :
-1. Consulter `src/gamemodes/mode-interface.js` pour voir les méthodes requises (`onTurnStart`, `onPassOverCase`, `onLandOnCase`, `getShopCatalog`, `renderBoard`).
-2. Implémenter le mode dans `src/gamemodes/<nom_du_mode>/`.
-3. Le registre dynamique (`src/gamemodes/registry.js`) détecte automatiquement le nouveau mode au démarrage.
-
----
-
-## 🎨 7. Rendu Visuel Canvas (`src/utils/canvas.js`)
-
-Le plateau est généré dynamiquement à partir d'un fichier de fond (`assets/plateau.png`) sur lequel le moteur :
-1. Charge les avatars des joueurs via leurs URLs Discord.
-2. Dessine les pions, badges de pièces/étoiles et positionnements.
-3. Superpose l'étoile active et les icônes de pièges.
-4. Exportes le résultat sous forme de buffer PNG envoyé comme pièce jointe Discord.
-
-*Pour préserver la mémoire et éviter les fuites, les opérations Canvas sont séquencées par une `p-queue`.*
+Voir aussi : [DATABASE.md](DATABASE.md), [OPERATIONS.md](OPERATIONS.md), [TESTING.md](TESTING.md), [EDGE_CASES.md](EDGE_CASES.md), [GAMEPLAY.md](GAMEPLAY.md).

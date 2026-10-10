@@ -15,7 +15,7 @@ Ce guide s'adresse aux développeurs rejoignant le projet **Enigme Bot**. Suivez
 
 ## 📋 1. Prérequis Système
 
-* **Node.js** : version 18.x ou 20.x LTS recommandée (`node -v`).
+* **Node.js** : 22.13 minimum, 24 recommandé (comme la CI et Docker) (`node -v`).
 * **npm** : version 9+ (`npm -v`).
 * **Git** (`git --version`) configuré avec votre compte GitHub.
 * **GitHub CLI** (`gh`) authentifié (`gh auth status`).
@@ -91,7 +91,7 @@ Vous devriez voir les logs de démarrage :
 
 ## 🧪 5. Exécution des Tests Automatisés
 
-Le projet dispose d'une suite de tests complète (Node.js Test Runner natif) :
+Suite de tests (Node.js Test Runner natif, SQLite en mémoire). `npm run check` lance typage, lint et tests comme la CI ; voir `docs/TESTING.md` :
 ```bash
 npm test
 ```

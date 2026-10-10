@@ -1,31 +1,25 @@
-FROM node:20-bullseye-slim
-
-# Installer les dépendances système requises par node-canvas
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libcairo2-dev \
-    libpango1.0-dev \
-    libjpeg-dev \
-    libgif-dev \
-    librsvg2-dev \
+FROM node:24-bookworm-slim AS build
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
     && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
-
-# Copier les fichiers de dépendances
 COPY package*.json ./
+RUN npm ci --include=dev
+COPY tsconfig.json deploy-commands.ts ./
+COPY scripts ./scripts
+COPY src ./src
+COPY assets ./assets
+RUN npm run build && npm prune --omit=dev
 
-# Installer les dépendances Node.js
-RUN npm install
-
-# Copier le reste du code
-COPY . .
-
-# Créer le dossier pour la base de données
-RUN mkdir -p /app/data
-
-# Configurer le dossier de données par défaut pour le conteneur
-ENV DATA_DIR="/app/data"
-
-# Démarrer directement node pour ne pas gaspiller la mémoire avec l'interpréteur npm
-CMD ["node", "src/index.js"]
+FROM node:24-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libjpeg62-turbo libgif7 librsvg2-2 \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+RUN mkdir -p /app/data && chown node:node /app/data
+ENV NODE_ENV=production DATA_DIR=/app/data
+USER node
+CMD ["node", "--enable-source-maps", "dist/src/index.js"]

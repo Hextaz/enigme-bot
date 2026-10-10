@@ -35,3 +35,9 @@ Thumbs.db
 # Fichiers temporaires & dumps
 scratch/
 *.dump
+
+# Generated build and coverage
+dist/
+coverage/
+*.sqlite-wal
+*.sqlite-shm

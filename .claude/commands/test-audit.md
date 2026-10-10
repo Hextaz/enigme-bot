@@ -8,14 +8,14 @@ Exécute un audit rigoureux de la suite de tests et de la testabilité du moteur
 
 1. **Identification du Périmètre** :
    * Si `$ARGUMENTS` est vide ou `--all`, analyse l'ensemble des modules du moteur de jeu (`src/game/`, `src/gamemodes/`).
-   * Si un module est ciblé (ex: `src/game/events.js` ou `src/game/shop.js`), évalue la complétude des tests associés.
+   * Si un module est ciblé (ex: `src/gamemodes/mario_party/turn.ts` ou `src/gamemodes/mario_party/shop.ts`), évalue la complétude des tests associés.
    * Si un fichier de test est fourni (ex: `tests/movement.test.js`), audite la qualité des assertions, des mocks et de l'isolation.
 
 2. **Évaluation selon les 5 Piliers** :
    * **Couverture Moteur de Jeu (/20)** : présence de tests sur le calcul de déplacement, arrêts obligatoires Étoile/Boutique, effets d'objets, Boo, Bowser, paris.
    * **Chasse aux Tests Creux (/20)** : traquer les tests qui ne font que tester des mocks Discord au lieu de vérifier l'état en base de données.
    * **Cas Limites & Économie (/20)** : tester les soldes insuffisants (19 pièces vs 20), inventaire plein, boucle du plateau, joueurs inactifs/fantômes.
-   * **Déterminisme & Concurrence (/20)** : isolation SQLite en mémoire, tests des verrous `transaction.js`, simulation déterministe des crons quotidiens.
+   * **Déterminisme & Concurrence (/20)** : isolation SQLite en mémoire, tests des verrous `transaction.ts`, simulation déterministe des crons quotidiens.
    * **Structure AAA (/20)** : Arrange-Act-Assert, nommage descriptif, pas de logique complexe dans le test.
 
 3. **Restitution du Rapport** :

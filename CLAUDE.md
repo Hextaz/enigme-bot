@@ -5,25 +5,21 @@
 **Enigme Bot** est un bot Discord interactif combinant des énigmes quotidiennes avec un jeu de plateau style Mario Party. Les joueurs gagnent des pièces en répondant aux énigmes, puis lancent des dés pour se déplacer sur un plateau généré dynamiquement en image (Canvas), acheter des objets, déclencher des événements et récolter des Étoiles.
 
 ### Architecture du Projet
-* **`src/commands/`** : Commandes slash Discord.js v14 (`/jouer`, `/stats`, `/plateau`, `/deviner`, `/documentation`, `/settings`, `/admin`).
-* **`src/game/`** : Cœur du moteur de jeu :
-  * `board.js` : Définition des cases, boucles et coordonnées du plateau.
-  * `events.js` : Gestion des événements de cases, pauses "Passer devant" et choix de direction.
-  * `items.js` & `shop.js` : Catalogue des objets, boutique quotidienne et inventaire.
-  * `cron.js` : Automatismes planifiés (11h00 réinitialisation des lancers, paris du samedi, marché noir du dimanche).
-  * `transaction.js` : Système de verrouillage atomique (`lockUser`, `unlockUser`) pour éviter les conflits et la triche concurrente.
-  * `enigma.js` : Gestion du cycle de vie des énigmes quotidiennes et distribution des récompenses.
-* **`src/gamemodes/`** : Architecture extensible de modes de jeu :
-  * `mode-interface.js` : Contrat d'interface abstrait pour tout mode de jeu.
-  * `registry.js` : Registre central des modes de jeu disponibles.
-  * `mario_party/` : Mode de jeu standard Mario Party (cartes, variantes, boutique, événements).
-  * `ile_defis/` : Mode alternatif défi.
-* **`src/db/`** : Couche de persistance SQLite via Sequelize :
-  * `database.js` : Connexion SQLite (local ou via `DATA_DIR`).
-  * `models.js` : Modèles `Joueur`, `Plateau`, `TourSnapshot`.
-* **`src/utils/canvas.js`** : Moteur de rendu graphique Canvas (génération d'image du plateau, placement des cases et avatars).
-* **`docs/EDGE_CASES.md`** : Registre vivant des cas limites, invariants de gameplay et règles de résilience réseau/concurrence.
-* **`deploy-commands.js`** : Script d'enregistrement des commandes slash auprès de l'API Discord.
+Tout le code applicatif est en **TypeScript strict** (`src/**/*.ts`, compilé dans `dist/`) ; les tests restent en JavaScript. Détails : `docs/ARCHITECTURE.md`.
+* **`src/commands/`** : Commandes slash (`/jouer`, `/stats`, `/plateau`, `/deviner`, `/documentation`, `/settings`, `/admin`) — présentation uniquement.
+* **`src/discord/`** : `interaction.ts` (frontière : permissions MJ, propriétaire du composant, accusé de réception, verrou, `GameRuleError` → message éphémère), `router.ts` (routage des `customId`), `admin-interactions.ts`, `channels.ts` (salons, annonces avec image), `pending-timers.ts` (expiration des choix).
+* **`src/gamemodes/`** : un dossier par mode (`mario_party/`, `ile_defis/`) avec `mode.ts`, `maps/<map>/board.ts`, `variants/`, et :
+  * `rules.ts` (Mario) / `turn.ts#walk` (île) : règles pures (dés, marche case par case) ;
+  * `turn.ts` : services transactionnels du tour (lancer, choix en attente, objets, expiration) ;
+  * `discord.ts` : boutons, invites et annonces du mode ; `endgame.ts` : fin de saison.
+  * `mode-interface.ts` (contrat validé au démarrage) et `registry.ts`.
+* **`src/services/`** : `enigma.ts` (programmation, validation, `/deviner`, clôture), `season.ts` (17h, fantômes, paris, Marché Noir), `admin.ts` (start, annuler_tour, ressources).
+* **`src/game/`** : `transaction.ts` (verrou global `withGameLock` / `withScheduledLock`), `cron.ts` (planification et annonces), `endgame.ts`, `enigma.ts` (annonce de 21h).
+* **`src/db/`** : `database.ts`, `models.ts` (`Joueur`, `Plateau`, `TourSnapshot`), `migrations.ts` (versionnées, **jamais** de `sync({ alter: true })`), `backup.ts`.
+* **`src/domain/types.ts`** : types partagés, `GameRuleError`, `PendingAction`, aléatoire injectable (`Random`).
+* **`src/utils/`** : `canvas.ts` (rendu du plateau), `time.ts` (heure de Paris), `health.ts` (Uptime Kuma).
+* **`docs/`** : `ARCHITECTURE.md`, `DATABASE.md`, `GAMEPLAY.md`, `OPERATIONS.md`, `TESTING.md`, et **`EDGE_CASES.md`** (registre vivant des cas limites).
+* **`deploy-commands.ts`** : enregistrement des commandes slash (`npm run deploy`).
 
 ---
 
@@ -61,26 +57,25 @@ Le bot est actuellement hébergé sur une **machine dédiée personnelle allumé
 ### Le Cycle en 5 Phases Systématiques :
 1. **Phase 1 : Cadrage & Contexte Git (`gh issue view <NUMERO>`)** :
    * Vérifier la branche active (`git branch --show-current`), les commits de la branche (`git log main..HEAD --oneline`) et les modifs locales en cours (`git status --short`). Alerter si sur `main`.
-   * Lire le ticket complet, cartographier les fichiers cibles et inspecter les modèles réels (`src/db/models.js`).
+   * Lire le ticket complet, cartographier les fichiers cibles et inspecter les modèles réels (`src/db/models.ts`) et `docs/DATABASE.md`.
    * Consulter systématiquement **`docs/EDGE_CASES.md`** pour vérifier les cas limites existants liés au domaine.
 2. **Phase 2 : 🛑 RÉCAPITULATIF & PLAN D'IMPLÉMENTATION (Point d'arrêt obligatoire)** :
    * Présenter un récapitulatif clair : État Git, Objectif, Fichiers impactés, Évolution DB éventuelle, Cas limites (délai 3s, verrous, inventaire, et impacts sur `docs/EDGE_CASES.md`) et Stratégie de tests.
    * **STOP** : Attendre la validation explicite de l'utilisateur avant d'écrire la moindre ligne de code.
 3. **Phase 3 : Implémentation Rigoureuse & Discipline d'Ingénierie** :
-   * Ordre : `1. DB (models.js)` ➔ `2. Gamemodes & Règles (src/gamemodes/, src/game/)` ➔ `3. Commandes Discord (src/commands/)` ➔ `4. Rendu Canvas (src/utils/canvas.js)` ➔ `5. Tests & Registre Cas Limites`.
+   * Ordre : `1. DB (models.ts + nouvelle migration dans migrations.ts)` ➔ `2. Règles pures & services (src/gamemodes/*/rules.ts, turn.ts, src/services/)` ➔ `3. Couche Discord (src/gamemodes/*/discord.ts, src/commands/, src/discord/)` ➔ `4. Rendu Canvas (src/utils/canvas.ts)` ➔ `5. Tests & Registre Cas Limites`.
    * 🔴 **TDD strict avec Verify RED** : pour tout calcul de règle ou de déplacement, écrire le test d'abord, **constater l'échec terminal pour la raison attendue**, puis implémenter le code minimal pour passer au vert.
    * 🛡️ **Loi d'airain Anti-Symptôme (Anti-Band-Aids)** : interdiction formelle de poser une rustine pour faire taire une exception (`?.` sauvage, `try/catch` vide qui étouffe l'erreur sans rollback). Identifier et corriger la cause racine.
    * 📝 **Gestion du Registre des Cas Limites (`docs/EDGE_CASES.md`)** :
      - **Compléter** : consigner systématiquement tout nouveau cas limite, comportement aux frontières ou correction de bug critique (ex: GAME-01, DISC-01) avec son ID, son comportement attendu et le test de non-régression associé.
      - **Vider / Mettre à jour** : si une règle de jeu change, est refactorée ou devient obsolète (suppression d'une mécanique, refonte de boutique, changement de mode), **purger ou actualiser immédiatement** les entrées obsolètes dans `docs/EDGE_CASES.md` pour éviter toute dette documentaire.
    * ⏱️ **Règles de Fiabilité Discord** :
-     - Règle d'or des 3 secondes : `deferReply()` ou `deferUpdate()` systématique sur tout flux long (Canvas, DB).
-     - Verrouillage obligatoire : `lockUser()` dans `try` et `unlockUser()` garanti dans `finally`.
+     - Règle d'or des 3 secondes : assurée par `src/discord/interaction.ts` (accusé de réception avant le handler) ; ne pas la contourner.
+     - Verrouillage : toute écriture d'état de jeu hors interaction (cron, timer) passe par `withScheduledLock` ; les écritures liées utilisent `sequelize.transaction`.
      - Réponses privées avec `ephemeral: true`.
 4. **Phase 4 : Porte de Vérification (« Evidence Before Claims »)** :
    * Interdiction d'affirmer qu'une tâche est résolue sans **preuve terminale fraîche** :
-     - Vérification de la syntaxe : `node -c <fichier>`.
-     - Tests unitaires : `npm test`.
+     - Typage, lint, build et tests : `npm run check`.
 5. **Phase 5 : Clôture & Mini-Rapport (PAS D'AUTO-COMMIT)** :
    * `git diff` audité sans console.log résiduels ou fichiers parasites, et **`docs/EDGE_CASES.md` synchronisé**.
    * Interdiction formelle d'exécuter `git commit` automatiquement.
@@ -147,55 +142,52 @@ Permet de transformer une idée brute de gameplay ou d'administration en spécif
 
 ### 1. Démarrage du Bot
 ```bash
-# Lancer le bot localement
-node src/index.js
-# Ou via npm
+# Compile (TypeScript -> dist/) puis lance le bot
 npm start
 ```
 
 ### 2. Déploiement des Commandes Slash
 ```bash
 # Enregistrer les commandes auprès de Discord (après ajout/modification dans src/commands/)
-node deploy-commands.js
-# Ou via npm
 npm run deploy
 ```
 
-### 3. Vérification de Syntaxe Rapide (Sans Watch)
+### 3. Vérification
 ```bash
-# Vérifier la syntaxe d'un fichier sans l'exécuter
-node -c src/index.js
-node -c src/db/models.js
-node -c src/game/events.js
+npm run typecheck   # tsc --noEmit
+npm run lint        # eslint
+npm test            # build puis tests (SQLite en mémoire)
+npm run check       # les trois, comme la CI
 ```
 
-### 4. Tests
+### 4. Base de données
 ```bash
-npm test
+npm run db:migrate                      # applique les migrations
+npm run db:backup -- /chemin/backup.sqlite
 ```
+Voir `docs/OPERATIONS.md` avant toute migration de la base de production.
 
 ---
 
 ## 📐 Conventions de Code & Règles Non Négociables
 
-### 1. Concurrence & Transactions (`src/game/transaction.js`)
-* Tout flux initié par un joueur manipulant son état de jeu DOIT acquérir le verrou utilisateur.
-* Le verrou DOIT obligatoirement être relâché dans un bloc `finally` :
-  ```javascript
-  if (!lockUser(userId)) {
-      return interaction.reply({ content: "Une action est déjà en cours pour toi.", ephemeral: true });
-  }
-  try {
-      // Logique de tour
-  } finally {
-      unlockUser(userId);
-  }
+### 1. Concurrence & Transactions (`src/game/transaction.ts`)
+* Le verrou est **global** (plateau partagé) : une seule opération de jeu à la fois dans le processus. Une seule instance PM2.
+* Les interactions Discord sont déjà verrouillées par `src/discord/interaction.ts` ; un handler n'acquiert pas de verrou lui-même.
+* Un service ou un cron utilise `withGameLock` / `withScheduledLock`, qui libèrent le verrou dans leur `finally` :
+  ```typescript
+  return withGameLock(userId, () => sequelize.transaction(async transaction => {
+      // relire, valider (GameRuleError), écrire avec { transaction }
+  }));
   ```
+* Toute décision qui bloque un déplacement est persistée dans `joueurs.action_en_attente` ; un bouton ne doit agir que si le choix en attente correspond (sinon `GameRuleError('STALE')`).
+* Une règle refusée lève `GameRuleError(code, message)` : la frontière l'affiche en éphémère sans log `[ERROR]`.
+* Les envois Discord se font **après** la validation de la transaction SQL.
 
 ### 2. Délai d'Interaction Discord (Règle des 3 secondes)
 * L'API Discord exige une réponse ou un accusé de réception sous 3000 ms.
-* Appeler systématiquement `await interaction.deferReply({ ephemeral: true })` ou `await interaction.deferUpdate()` dès qu'une tâche asynchrone (génération d'image Canvas, transaction SQLite) est entreprise.
-* Protéger les blocs de réponse contre l'erreur `10062 Unknown interaction`.
+* `src/discord/interaction.ts` accuse réception (`deferUpdate` / `deferReply` éphémère) avant tout handler et gère les erreurs `10062` / `40060`.
+* Exception : une interaction qui ouvre une modale doit être déclarée dans `opensModal` (`showModal` est sa réponse initiale).
 
 ### 3. Base de Données Sequelize & SQLite
 * Les modifications liées entre plusieurs joueurs ou entre inventaire et pièces doivent utiliser `await sequelize.transaction(...)`.

@@ -6,20 +6,20 @@ Déclenche un audit approfondi et intransigeant sur le code : `$ARGUMENTS`.
 
 1. **Détection du Périmètre** :
    * Si `$ARGUMENTS` vaut `--full` : réalise un audit architectural global du bot (Commandes, Game Engine, Gamemodes, DB, Canvas).
-   * Si `$ARGUMENTS` est un chemin de fichier (ex: `src/game/events.js` ou `src/commands/jouer.js`) : audite spécifiquement ce fichier et ses dépendances directes.
+   * Si `$ARGUMENTS` est un chemin de fichier (ex: `src/gamemodes/mario_party/turn.ts` ou `src/commands/jouer.ts`) : audite spécifiquement ce fichier et ses dépendances directes.
    * Si `$ARGUMENTS` est vide ou vaut `--diff` : audite les modifications courantes (`git diff` ou comparaison avec la branche principale).
 
 2. **Diagnostic Automatisé Préalable** :
-   * Vérifie la syntaxe JavaScript des fichiers modifiés avec `node -c <fichier>`.
+   * Exécute `npm run check` (typage, lint, tests).
    * Scanne les anti-patterns connus :
      - Oubli de `deferReply()` / `deferUpdate()` sur les interactions Discord lentes.
-     - Utilisation de `lockUser()` sans `unlockUser()` garanti dans un bloc `finally`.
+     - Écriture d'état de jeu hors verrou (`withGameLock` / `withScheduledLock`) ou `lockUser()` manuel sans `finally`.
      - `try/catch` vides masquant les erreurs de base de données ou d'interaction.
      - `console.log()` de debug résiduels non structurés.
 
 3. **Évaluation selon les 6 Piliers (/20 par pilier)** :
    * 🏛️ Architecture & Modularité Gamemodes
-   * 🔒 Fiabilité Discord, Concurrence & Verrous (`transaction.js`)
+   * 🔒 Fiabilité Discord, Concurrence & Verrous (`transaction.ts`)
    * ⚡ Performance, Gestion Mémoire & Rendu Canvas
    * 🗄️ Intégrité des Données SQLite & Sequelize
    * 💎 Clean Code, Anti-Symptômes & Robustesse

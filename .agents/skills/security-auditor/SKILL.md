@@ -27,7 +27,7 @@ L'auditeur de sécurité considère comme **`🔴 CRITIQUE` (Bloquant immédiat 
 Invocable via `/security-audit` :
 1. **Audit de Sécurité Complet (`/security-audit --full`)** : Analyse l'ensemble du projet (commandes admin, transactions de jeu, customIds, secrets, gestion des exceptions).
 2. **Audit des Commandes & Contrôle d'Accès (`/security-audit src/commands/`)** : Vérifie la protection des commandes `/admin` et la validation des entrées.
-3. **Audit d'Intégrité & Concurrence (`/security-audit src/game/`)** : Analyse les verrous (`transaction.js`), les achats en boutique et le lancer de dé quotidien.
+3. **Audit d'Intégrité & Concurrence (`/security-audit src/game/`)** : Analyse les verrous (`transaction.ts`), les achats en boutique et le lancer de dé quotidien.
 
 ---
 
@@ -42,9 +42,9 @@ Invocable via `/security-audit` :
 * **Boutons de Confirmation Admin** : Les interactions de confirmation liées à des actions MJ vérifient-elles que seul le MJ à l'origine de l'action peut cliquer ?
 
 ### 2. 🎲 Anti-Triche, Concurrence & Intégrité des Transactions (Note /20)
-* **Verrouillage Systématique (`src/game/transaction.js`)** :
-  * Chaque début d'action joueur (lancer de dé, achat boutique, utilisation d'objet) appelle-t-il `lockUser(userId)` ?
-  * Le verrou est-il garanti d'être libéré par `unlockUser(userId)` dans un bloc `finally` ?
+* **Verrouillage Systématique (`src/game/transaction.ts`)** :
+  * Chaque début d'action joueur (lancer de dé, achat boutique, utilisation d'objet) s'exécute-t-elle sous le verrou global (`src/discord/interaction.ts` ou `withGameLock`) ?
+  * Le verrou est-il garanti d'être libéré même en cas d'exception (pas de `lockUser` manuel sans `finally`) ?
 * **Prévention du Double Lancer** :
   * La condition `a_joue_ce_tour === true` est-elle vérifiée et persistée de manière atomique avant de délivrer le résultat du dé ?
 * **Transactions Atomiques Multi-Entités** :
@@ -113,10 +113,10 @@ Invocable via `/security-audit` :
 
 | ID | Sévérité | Cible & Lignes | Type de Faille | Vecteur d'Attaque & Risque Exploitable |
 |:---:|:---:|:---:|---|---|
-| `SEC-01` | 🔴 CRITIQUE | `src/commands/admin.js:25` | Bypass Permissions MJ | Vérification partielle de l'utilisateur permettant d'attribuer des étoiles |
-| `RACE-01` | 🔴 CRITIQUE | `src/game/shop.js:45` | Double-Spending Pièces | Deux clics simultanés achètent deux objets avec le solde d'un seul |
-| `ID-01` | 🟠 IMPORTANT | `src/game/events.js:112` | Usurpation CustomId | N'importe quel membre du salon peut cliquer sur le choix de bifurcation |
-| `INFO-01` | 🟡 MOYEN | `src/commands/deviner.js:68` | Fuite de Solution | Log affichant la solution en clair lors d'une tentative |
+| `SEC-01` | 🔴 CRITIQUE | `src/commands/admin.ts:25` | Bypass Permissions MJ | Vérification partielle de l'utilisateur permettant d'attribuer des étoiles |
+| `RACE-01` | 🔴 CRITIQUE | `src/gamemodes/mario_party/shop.ts:45` | Double-Spending Pièces | Deux clics simultanés achètent deux objets avec le solde d'un seul |
+| `ID-01` | 🟠 IMPORTANT | `src/gamemodes/mario_party/discord.ts:112` | Usurpation CustomId | N'importe quel membre du salon peut cliquer sur le choix de bifurcation |
+| `INFO-01` | 🟡 MOYEN | `src/commands/deviner.ts:68` | Fuite de Solution | Log affichant la solution en clair lors d'une tentative |
 
 ---
 
@@ -132,8 +132,8 @@ Invocable via `/security-audit` :
 ### 📝 Prompt : Résolution de la Faille de Double-Spend et Verrouillage
 ```markdown
 Corrige la vulnérabilité RACE-01 dans Enigme Bot :
-- Fichier : src/game/shop.js
-- Problème : Empêcher le double-spending lors de l'achat d'objets en intégrant lockUser() et une transaction atomique Sequelize.
+- Fichier : src/gamemodes/mario_party/shop.ts
+- Problème : Empêcher le double-spending lors de l'achat d'objets en passant par withGameLock et une transaction atomique Sequelize (cf. src/services/economy.ts).
 - Assure-toi que les pièces ne peuvent jamais passer sous 0 et que le verrou est toujours libéré dans un bloc finally.
 ```
 ```

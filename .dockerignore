@@ -13,3 +13,13 @@ database.sqlite-journal
 # Fichiers OS
 .DS_Store
 Thumbs.db
+
+.env*
+!.env.example
+.git/
+dist/
+coverage/
+*.sqlite*
+*.db
+docs/
+test/

@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'enigme-bot',
-      script: 'src/index.js',
+      script: 'dist/src/index.js',
       // Horodatage automatique des logs au format standard (YYYY-MM-DD HH:mm:ss)
       time: true,
       // Redémarrage automatique en cas de crash ou process.exit(1) (Auto-Healing)
