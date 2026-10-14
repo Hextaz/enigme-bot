@@ -1,6 +1,6 @@
 ---
 name: issue-ritual
-description: Rituel d'exécution obligatoire pour Claude Code et Antigravity lors de la résolution de toute issue sur Enigme Bot. Comprend le cadrage Git initial, la présentation d'un plan d'implémentation à valider avant de coder, le TDD strict avec Verify RED, la loi d'airain anti-bandaids, les règles de fiabilité Discord (timeouts 3s, verrous transaction.js, messages éphémères), la porte de vérification Evidence Before Claims, et un bilan final sans commit automatique.
+description: Rituel d'exécution obligatoire pour Claude Code et Antigravity lors de la résolution de toute issue sur Enigme Bot. Comprend le cadrage Git initial, la présentation d'un plan d'implémentation à valider avant de coder, le TDD strict avec Verify RED, la loi d'airain anti-bandaids, les règles de fiabilité Discord (timeouts 3s, verrous transaction.ts, messages éphémères), la porte de vérification Evidence Before Claims, et un bilan final sans commit automatique.
 ---
 
 # 🥋 Rituel de Résolution d'Issue - Enigme Bot
@@ -25,7 +25,7 @@ Ce rituel structure le travail de l'agent en **5 phases rigoureuses**. Il impose
 └────────────────────┬────────────────────┘
                      ▼
 ┌─────────────────────────────────────────┐
-│ PHASE 4 : 🧪 Porte de Vérification      │ ➜ Evidence Before Claims : syntaxe node -c, tests, intégrité
+│ PHASE 4 : 🧪 Porte de Vérification      │ ➜ Evidence Before Claims : npm run check (typage, lint, tests)
 └────────────────────┬────────────────────┘
                      ▼
 ┌─────────────────────────────────────────┐
@@ -67,12 +67,12 @@ gh issue view <NUMERO> --json number,title,body,labels
    ```bash
    rg "nomDuSymboleOuFonction" src/
    ```
-2. **Vérité Base de Données Sequelize (`src/db/models.js`)** :
+2. **Vérité Base de Données Sequelize (`src/db/models.ts`)** :
    * Inspecter les modèles `Joueur`, `Plateau`, `TourSnapshot`.
    * Identifier les colonnes existantes, les types de données et les valeurs par défaut.
 3. **Vérité Logique de Jeu (`src/game/` et `src/gamemodes/`)** :
    * Vérifier comment les déplacements, achats et événements interagissent avec le plateau.
-   * Vérifier les verrous dans `src/game/transaction.js`.
+   * Vérifier les verrous dans `src/game/transaction.ts`.
 4. **Registre des Cas Limites (`docs/EDGE_CASES.md`)** :
    * Consulter systématiquement `docs/EDGE_CASES.md` pour vérifier les invariants et cas limites existants relatifs au domaine touché.
 
@@ -87,10 +87,10 @@ L'agent doit produire un bilan clair structuré comme suit :
 1. **🌿 Contexte Git** : Branche active, commits déjà existants pris en compte, statut des modifications locales en cours.
 2. **🎯 Objectif & Périmètre** : Résumé en 2-3 phrases de ce que le ticket accomplit.
 3. **📂 Fichiers impactés** : Liste ordonnée des fichiers à modifier ou créer.
-4. **🗄️ Impact Base de Données** : Nouvelles colonnes Sequelize nécessaires (`src/db/models.js`).
+4. **🗄️ Impact Base de Données** : Nouvelles colonnes Sequelize nécessaires (`src/db/models.ts`).
 5. **⚠️ Cas limites, Concurrence & Fiabilité Discord** :
    - Gestion du timeout de 3 secondes (`deferReply` / `deferUpdate`).
-   - Verrouillage via `lockUser` et libération dans un bloc `finally`.
+   - Verrouillage via `withGameLock` / `withScheduledLock` (déjà assuré pour les interactions par `src/discord/interaction.ts`).
    - Cas limites de gameplay (soldes négatifs impossibles, inventaire plein, joueur fantôme, égalités).
    - Impact sur `docs/EDGE_CASES.md` (nouveaux cas à consigner ou cas obsolètes à vider/ajuster).
 6. **🧪 Stratégie de tests & validation** : Tests unitaires de règles métier et vérifications syntaxiques.
@@ -104,11 +104,11 @@ L'agent doit produire un bilan clair structuré comme suit :
 Appliquer les modifications dans l'ordre strict des dépendances du projet :
 
 ```
-1. src/db/models.js          ➜ Évolution du schéma Joueur / Plateau / TourSnapshot
-2. src/gamemodes/            ➜ Règles du mode (ex: mario_party/events.js, items.js)
-3. src/game/                 ➜ Moteur de règles générique (events.js, shop.js, cron.js)
-4. src/commands/ / index.js  ➜ Commandes Discord et écouteurs d'interaction (boutons/menus)
-5. src/utils/canvas.js       ➜ Rendu visuel et génération d'images du plateau
+1. src/db/models.ts          ➜ Évolution du schéma Joueur / Plateau / TourSnapshot
+2. src/gamemodes/            ➜ Règles pures (rules.ts), services du tour (turn.ts), UI Discord du mode (discord.ts)
+3. src/services/ & src/game/ ➜ Énigme, saison, admin (services) ; verrou, crons, fin de saison (game)
+4. src/commands/, src/discord/ ➜ Commandes Discord et écouteurs d'interaction (boutons/menus)
+5. src/utils/canvas.ts       ➜ Rendu visuel et génération d'images du plateau
 6. Tests                     ➜ Tests de règles et logique métier
 7. docs/EDGE_CASES.md        ➜ Synchronisation du registre des cas limites (ajout ou purge)
 ```
@@ -139,16 +139,13 @@ Appliquer les modifications dans l'ordre strict des dépendances du projet :
   - Dès qu'une action implique du Canvas, une transaction DB ou une attente, appeler immédiatement :
     `await interaction.deferReply({ ephemeral: true });` ou `await interaction.deferUpdate();`.
   - Toujours encapsuler dans une gestion d'erreur robuste interceptant le code `10062` (interaction expirée).
-- **Règle absolue des Verrous (`src/game/transaction.js`)** :
-  ```javascript
-  if (!lockUser(userId)) {
-      return interaction.reply({ content: "Une action est déjà en cours...", ephemeral: true });
-  }
-  try {
-      // Exécution de l'action de jeu
-  } finally {
-      unlockUser(userId); // Libération GARANTIE même en cas d'exception
-  }
+- **Règle absolue des Verrous (`src/game/transaction.ts`)** :
+  - Les interactions sont verrouillées par `src/discord/interaction.ts` (verrou **global**) : un handler n'acquiert pas de verrou lui-même.
+  - Un service ou un cron utilise `withGameLock` / `withScheduledLock` (libération garantie dans leur `finally`) :
+  ```typescript
+  return withGameLock(userId, () => sequelize.transaction(async transaction => {
+      // relire, valider (GameRuleError), écrire avec { transaction }
+  }));
   ```
 - **Atomisme des Mutations Multi-Entités** :
   - Utiliser `await sequelize.transaction(async (t) => { ... })` pour toute opération impliquant plusieurs modifications critiques (déduction pièces + ajout objet, vol d'étoile entre 2 joueurs).
@@ -165,13 +162,8 @@ Appliquer les modifications dans l'ordre strict des dépendances du projet :
 Exécuter et afficher les résultats des vérifications :
 
 ```bash
-# 1. Vérification de la syntaxe de tous les fichiers modifiés (0 erreur tolérée)
-node -c src/db/models.js
-node -c src/game/...
-node -c src/commands/...
-
-# 2. Exécution des tests unitaires si configurés
-npm test
+# Typage, lint, build et tests (0 erreur tolérée)
+npm run check
 ```
 
 Si une commande échoue, corriger immédiatement à la racine avant de continuer.
@@ -194,9 +186,9 @@ git diff
 ### 5.2 Mini-Rapport de Clôture (5 lignes max)
 Terminer systématiquement par un rapport dense et percutant :
 1. **Fichiers modifiés** : Liste synthétique des fichiers code, schémas et documentation touchés (`docs/EDGE_CASES.md`).
-2. **Preuves terminales validées** : Syntaxe `node -c` (Succès), tests unitaires (Succès).
+2. **Preuves terminales validées** : `npm run check` (typage, lint, tests : Succès).
 3. **Cas limites vérifiés** : Verrous libérés en `finally`, soldes insuffisants gérés, timeouts 3s sécurisés, registre `docs/EDGE_CASES.md` à jour.
-4. **Test local & Déploiement Homelab** : Instructions pour démarrer le bot (`node src/index.js` ou `npm start`), surveillance du statut sur Uptime Kuma (`https://status.hextaz.dev`).
+4. **Test local & Déploiement Homelab** : Instructions pour démarrer le bot (`npm start`, qui compile puis lance `dist/src/index.js`), surveillance du statut sur Uptime Kuma (`https://status.hextaz.dev`).
 5. **Commande de commit suggérée** :
    ```bash
    git add <fichiers concernés>

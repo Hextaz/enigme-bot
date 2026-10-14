@@ -1,11 +1,19 @@
 {
   "name": "enigme-bot",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "deploy": "node deploy-commands.js",
-    "test": "NODE_ENV=test node --test --test-concurrency=1"
+    "start": "node --enable-source-maps dist/src/index.js",
+    "deploy": "node dist/deploy-commands.js",
+    "test": "npm run build && node scripts/test.cjs",
+    "build": "node scripts/build.cjs",
+    "prestart": "npm run build",
+    "predeploy": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "lint": "eslint .",
+    "db:migrate": "npm run build && node dist/src/db/cli.js",
+    "db:backup": "npm run build && node dist/src/db/backup-cli.js"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +26,22 @@
     "node-cron": "^4.2.1",
     "p-queue": "^6.6.2",
     "sequelize": "^6.37.7",
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^6.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.1"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "overrides": {
+    "sequelize": {
+      "uuid": "^11.1.1"
+    }
   }
 }

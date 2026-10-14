@@ -26,7 +26,7 @@ L'auditeur a horreur de :
 
 Invocable via `/test-audit` avec les options suivantes :
 1. **Audit Global de la Testabilité (`/test-audit --all`)** : Analyse l'ensemble des modules du moteur de jeu (`src/game/`, `src/gamemodes/`) et identifie le déficit de couverture.
-2. **Audit Ciblé d'un Module de Jeu (`/test-audit src/game/events.js`)** : Évalue la complétude des tests associés au fichier ou mécanisme.
+2. **Audit Ciblé d'un Module de Jeu (`/test-audit src/gamemodes/mario_party/turn.ts`)** : Évalue la complétude des tests associés au fichier ou mécanisme.
 3. **Audit de Fichier de Test Spécifique (`/test-audit tests/...`)** : Analyse la qualité intrinsèque des assertions, de l'isolation et du pattern AAA.
 
 ---
@@ -67,9 +67,9 @@ Invocable via `/test-audit` avec les options suivantes :
 ### 4. ⏱️ Déterminisme, Concurrence & Fake Timers (Note /20)
 * **Arrange-Act-Assert (AAA)** : Séparation limpide de la préparation des données, de l'action de jeu et des vérifications.
 * **Isolation SQLite** : Utilisation d'une base de données SQLite en mémoire (`storage: ':memory:'`) réinitialisée avant chaque suite (`beforeEach`).
-* **Test des Verrous Concurrentiels (`transaction.js`)** :
-  * Prouver qu'un deuxième appel à `lockUser(userId)` échoue pendant qu'une action est en cours.
-  * Prouver que le verrou est bien libéré dès l'appel à `unlockUser(userId)`.
+* **Test des Verrous Concurrentiels (`transaction.ts`)** :
+  * Prouver qu'une deuxième opération `withGameLock` échoue (`GameBusyError`) pendant qu'une action est en cours.
+  * Prouver que le verrou est libéré après une exception et qu'un cron (`withScheduledLock`) attend la fin de l'action.
 * **Automatismes & Crons** :
   * Tests des déclenchements de crons (11h00, samedi, dimanche) via des exécutions déterministes sans attente réelle.
 
@@ -109,9 +109,9 @@ Invocable via `/test-audit` avec les options suivantes :
 
 | ID | Sévérité | Fichier Cible | Problème Détecté | Risque en Production |
 |:---:|:---:|:---:|---|---|
-| `TST-01` | 🔴 CRITIQUE | `src/game/events.js` | Aucune suite de test pour la mécanique "Passer devant" l'Étoile | Régression bloquant la progression des joueurs |
-| `TST-02` | 🟠 IMPORTANT | `src/game/shop.js` | Absence de test pour l'inventaire plein (limite 3 objets) | Dépassement d'inventaire ou perte silencieuse de pièces |
-| `TST-03` | 🟡 MOYEN | `src/game/transaction.js` | Absence de test vérifiant le timeout de 120s du verrou | Joueur potentiellement verrouillé indéfiniment |
+| `TST-01` | 🔴 CRITIQUE | `src/gamemodes/mario_party/turn.ts` | Aucune suite de test pour la mécanique "Passer devant" l'Étoile | Régression bloquant la progression des joueurs |
+| `TST-02` | 🟠 IMPORTANT | `src/gamemodes/mario_party/shop.ts` | Absence de test pour l'inventaire plein (limite 3 objets) | Dépassement d'inventaire ou perte silencieuse de pièces |
+| `TST-03` | 🟡 MOYEN | `src/game/transaction.ts` | Absence de test vérifiant le watchdog de 50s du verrou (avertissement sans libération) | Joueur potentiellement verrouillé indéfiniment |
 
 ---
 

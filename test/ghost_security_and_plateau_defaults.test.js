@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Plateau, Joueur, sequelize } = require('../src/db/models');
 const { triggerEnigmaEnd } = require('../src/game/enigma');
-const { handleLancerDe } = require('../src/gamemodes/mario_party/events');
+const { startTurn } = require('../src/gamemodes/mario_party/turn');
 const config = require('../src/config');
 
 test('Ghost Security (SEC-01) & Plateau Defaults (DATA-01) Suite', async (t) => {
@@ -62,7 +62,7 @@ test('Ghost Security (SEC-01) & Plateau Defaults (DATA-01) Suite', async (t) => 
     assert.equal(refreshedGhost.a_le_droit_de_jouer, false, 'Ghost player must remain locked (est_fantome: true)');
   });
 
-  await t.test('SEC-01: handleLancerDe blocks ghost players even if a_le_droit_de_jouer is true', async () => {
+  await t.test('SEC-01: rolling blocks ghost players even if a_le_droit_de_jouer is true', async () => {
     await Joueur.destroy({ where: {} });
     await Plateau.destroy({ where: {} });
 
@@ -82,23 +82,8 @@ test('Ghost Security (SEC-01) & Plateau Defaults (DATA-01) Suite', async (t) => 
       a_joue_ce_tour: false
     });
 
-    let deferred = false;
-    let replyPayload = null;
-
-    const mockInteraction = {
-      user: { id: ghostPlayer.discord_id },
-      deferReply: async (opts) => { deferred = true; },
-      editReply: async (payload) => { replyPayload = payload; }
-    };
-
-    await handleLancerDe(mockInteraction);
-
-    assert.equal(deferred, true, 'Interaction must defer reply');
-    assert.ok(replyPayload, 'handleLancerDe must reply to the ghost player');
-    assert.ok(
-      typeof replyPayload.content === 'string' && replyPayload.content.toLowerCase().includes('fantôme'),
-      `Reply message must mention ghost mode: got "${replyPayload?.content}"`
-    );
+    await assert.rejects(startTurn({ id: ghostPlayer.discord_id, username: 'ghost' }), error =>
+      error.code === 'GHOST' && error.message.toLowerCase().includes('fantôme'));
 
     const refreshedGhost = await Joueur.findByPk(ghostPlayer.discord_id);
     assert.equal(refreshedGhost.a_joue_ce_tour, false, 'Ghost player must not have played');

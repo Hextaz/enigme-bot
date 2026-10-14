@@ -1,0 +1,289 @@
+{
+  "joueurs": {
+    "discord_id": {
+      "type": "STRING",
+      "primaryKey": true
+    },
+    "etoiles": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "pieces": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "position": {
+      "type": "INTEGER",
+      "defaultValue": 1
+    },
+    "inventaire": {
+      "type": "JSON",
+      "defaultValue": []
+    },
+    "guess_du_jour": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "a_le_droit_de_jouer": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "bonus_prochain_lancer": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "de_limite": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "type_de": {
+      "type": "STRING",
+      "defaultValue": "normal"
+    },
+    "de_pipe_valeur": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "auto_remind_guess": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "auto_remind_turn": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "boutique_du_jour": {
+      "type": "JSON",
+      "defaultValue": []
+    },
+    "jours_inactifs": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "est_fantome": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "fantome_unblock_used": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "a_joue_ce_tour": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "cases_restantes": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "last_deviner_time": {
+      "type": "DATE",
+      "allowNull": true
+    },
+    "pari_coureurId": {
+      "type": "INTEGER",
+      "allowNull": true,
+      "defaultValue": null
+    },
+    "pari_montant": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "a_trouve_enigme": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "stat_cases_chance": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "stat_cases_malchance": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "stat_cases_avancees": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "stat_enigmes_trouvees": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "stat_objets_utilises": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "mode_data": {
+      "type": "JSON",
+      "defaultValue": {}
+    }
+  },
+  "plateau": {
+    "id": {
+      "type": "INTEGER",
+      "primaryKey": true,
+      "autoIncrement": true
+    },
+    "position_etoile": {
+      "type": "INTEGER",
+      "defaultValue": 1
+    },
+    "pieges_actifs": {
+      "type": "JSON",
+      "defaultValue": []
+    },
+    "tour": {
+      "type": "INTEGER",
+      "defaultValue": 0
+    },
+    "enigme_resolue": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "enigme_status": {
+      "type": "STRING",
+      "defaultValue": "season_ended"
+    },
+    "enigme_reponse": {
+      "type": "STRING",
+      "allowNull": true
+    },
+    "enigme_text": {
+      "type": "TEXT",
+      "allowNull": true
+    },
+    "enigme_indice1": {
+      "type": "STRING",
+      "allowNull": true
+    },
+    "enigme_indice2": {
+      "type": "STRING",
+      "allowNull": true
+    },
+    "enigme_indice3": {
+      "type": "STRING",
+      "allowNull": true
+    },
+    "enigme_publiee": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "indice1_publie": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "indice2_publie": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "indice3_publie": {
+      "type": "BOOLEAN",
+      "defaultValue": false
+    },
+    "enigme_gagnants": {
+      "type": "JSON",
+      "defaultValue": []
+    },
+    "enigme_channel_id": {
+      "type": "STRING",
+      "allowNull": true
+    },
+    "fin_enigme_timestamp": {
+      "type": "BIGINT",
+      "allowNull": true
+    },
+    "blocs_caches": {
+      "type": "JSON",
+      "defaultValue": {}
+    },
+    "game_mode": {
+      "type": "STRING",
+      "defaultValue": "mario_party"
+    },
+    "game_variant": {
+      "type": "STRING",
+      "defaultValue": "standard"
+    },
+    "game_map": {
+      "type": "STRING",
+      "defaultValue": "night_sky"
+    },
+    "mode_data": {
+      "type": "JSON",
+      "defaultValue": {}
+    }
+  },
+  "tour_snapshots": {
+    "id": {
+      "type": "INTEGER",
+      "primaryKey": true,
+      "autoIncrement": true
+    },
+    "discord_id": {
+      "type": "STRING",
+      "allowNull": false
+    },
+    "tour": {
+      "type": "INTEGER",
+      "allowNull": false
+    },
+    "timestamp": {
+      "type": "DATE",
+      "defaultNow": true
+    },
+    "position": {
+      "type": "INTEGER"
+    },
+    "pieces": {
+      "type": "INTEGER"
+    },
+    "etoiles": {
+      "type": "INTEGER"
+    },
+    "inventaire": {
+      "type": "JSON"
+    },
+    "a_le_droit_de_jouer": {
+      "type": "BOOLEAN"
+    },
+    "a_joue_ce_tour": {
+      "type": "BOOLEAN"
+    },
+    "cases_restantes": {
+      "type": "INTEGER"
+    },
+    "jours_inactifs": {
+      "type": "INTEGER"
+    },
+    "est_fantome": {
+      "type": "BOOLEAN"
+    },
+    "fantome_unblock_used": {
+      "type": "BOOLEAN"
+    },
+    "bonus_prochain_lancer": {
+      "type": "INTEGER"
+    },
+    "de_limite": {
+      "type": "BOOLEAN"
+    },
+    "type_de": {
+      "type": "STRING"
+    },
+    "de_pipe_valeur": {
+      "type": "INTEGER"
+    },
+    "plateau_position_etoile": {
+      "type": "INTEGER"
+    },
+    "plateau_pieges_actifs": {
+      "type": "JSON"
+    },
+    "plateau_blocs_caches": {
+      "type": "JSON"
+    },
+    "autres_joueurs_snapshot": {
+      "type": "JSON"
+    }
+  }
+}

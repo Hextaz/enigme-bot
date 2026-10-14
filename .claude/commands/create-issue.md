@@ -14,9 +14,9 @@ Lance un atelier de cadrage interactif pour concevoir, spécifier et publier une
      - Pose 2 ou 3 questions ciblées si le besoin nécessite des clarifications (périmètre MVP vs Nice-to-have, équilibre économique pièces/étoiles, cas limites).
 
 2. **Phase 2 : Grounding Technique dans le Codebase** :
-   * Inspecte les modèles Sequelize dans `src/db/models.js`.
+   * Inspecte les modèles Sequelize dans `src/db/models.ts`.
    * Vérifie la structure des modes de jeu dans `src/gamemodes/` et les règles dans `src/game/`.
-   * Identifie les commandes d'impact dans `src/commands/` et le rendu dans `src/utils/canvas.js`.
+   * Identifie les commandes d'impact dans `src/commands/` et le rendu dans `src/utils/canvas.ts`.
 
 3. **Phase 3 : Rédaction Haute Définition ("Agent-Ready")** :
    * Rédige la spécification complète (Contexte & Problème, Spécifications Fonctionnelles, Spécifications Techniques, Fichiers Cibles, Sécurité & Concurrence, Critères d'Acceptation cochables).
