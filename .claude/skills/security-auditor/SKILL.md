@@ -78,10 +78,10 @@ Invocable via `/security-audit` :
   * Les chargements d'avatars distants (`loadImage(avatarUrl)`) disposent-ils d'un timeout et d'un fallback sur image locale par défaut pour éviter de bloquer l'Event Loop en cas de ralentissement du CDN Discord ?
 * **Gestion des Exceptions Non Gérées** :
   * Les gestionnaires `process.on('unhandledRejection')` et `process.on('uncaughtException')` sont-ils configurés pour logger l'erreur avec pile d'exécution sans quitter violemment le processus lors d'un tour de jeu ?
-* **Sécurité de l'Hébergement Homelab & Tunnels Cloudflare** :
-  - Tout endpoint HTTP exposé via Cloudflare Tunnel (`*.hextaz.dev`) pour un dashboard ou monitoring doit être strictement cloisonné (read-only, rate-limited, protégé par authentification ou Cloudflare Access si actions d'administration).
-  - Les clés d'API des services homelab (Memos, MicroBin) doivent résider exclusivement dans `.env`.
-  - Le webhook receiver de déploiement (`https://deploy.hextaz.dev`) doit impérativement valider le secret HMAC SHA-256 de GitHub (`X-Hub-Signature-256`) pour empêcher tout déploiement non autorisé.
+* **Sécurité de l'hébergement et des endpoints exposés** :
+  - Tout endpoint HTTP de dashboard ou monitoring doit être cloisonné : lecture seule si possible, limitation de débit et authentification pour l'administration, quel que soit le reverse proxy ou tunnel utilisé.
+  - Les clés d'API des intégrations restent dans l'environnement privé de l'instance ; aucun secret dans le dépôt, les logs ou les URL.
+  - Un éventuel récepteur de déploiement doit vérifier la signature HMAC SHA-256 de GitHub (`X-Hub-Signature-256`) et le dépôt/la branche autorisés. Ne pas transmettre de diagnostics sans expurgation et destination autorisée.
 
 ---
 

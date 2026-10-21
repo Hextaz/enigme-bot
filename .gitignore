@@ -41,3 +41,7 @@ dist/
 coverage/
 *.sqlite-wal
 *.sqlite-shm
+
+# Configuration IA propre à une machine
+.claude/settings.local.json
+.antigravitycli/

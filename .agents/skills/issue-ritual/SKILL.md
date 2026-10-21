@@ -188,10 +188,10 @@ Terminer systématiquement par un rapport dense et percutant :
 1. **Fichiers modifiés** : Liste synthétique des fichiers code, schémas et documentation touchés (`docs/EDGE_CASES.md`).
 2. **Preuves terminales validées** : `npm run check` (typage, lint, tests : Succès).
 3. **Cas limites vérifiés** : Verrous libérés en `finally`, soldes insuffisants gérés, timeouts 3s sécurisés, registre `docs/EDGE_CASES.md` à jour.
-4. **Test local & Déploiement Homelab** : Instructions pour démarrer le bot (`npm start`, qui compile puis lance `dist/src/index.js`), surveillance du statut sur Uptime Kuma (`https://status.hextaz.dev`).
+4. **Test local & exploitation** : Instructions de démarrage local (`npm start`, qui compile puis lance `dist/src/index.js`). Le monitoring et les accès de production ne sont utilisés que pour une tâche explicitement autorisée.
 5. **Commande de commit suggérée** :
    ```bash
    git add <fichiers concernés>
    git commit -m "<type>(<scope>): <description claire> (#<NUMERO>)"
-   git push origin main # Déclenche automatiquement le déploiement sur Lordi via deploy.hextaz.dev
+   git push origin HEAD # Branche de travail : ouvrir une PR, sans déploiement implicite.
    ```

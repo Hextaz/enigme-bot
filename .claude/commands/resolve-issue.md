@@ -38,4 +38,4 @@ Exécute le rituel structuré de résolution pour l'issue spécifiée : `$ARGUME
 6. **Phase 5 : Clôture & Mini-Rapport (PAS D'AUTO-COMMIT)** :
    * Vérifie la propreté du `git diff` (aucun `console.log` de debug résiduel).
    * **N'exécute JAMAIS de `git commit` automatiquement.**
-   * Affiche le mini-rapport en 5 lignes max (fichiers modifiés, preuves terminales, cas limites testés, commande de démarrage local, commande de commit et push déclenchant le déploiement sur Lordi via `deploy.hextaz.dev`).
+   * Affiche le mini-rapport en 5 lignes max (fichiers modifiés, preuves terminales, cas limites testés, commande de démarrage local, commande de commit suggérée et ouverture d'une PR). Toute mise en production nécessite une demande explicite ; ne pas inclure d'accès d'exploitation privés.

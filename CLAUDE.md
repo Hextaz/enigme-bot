@@ -23,27 +23,14 @@ Tout le code applicatif est en **TypeScript strict** (`src/**/*.ts`, compilé da
 
 ---
 
-## 🌐 Environnement d'Hébergement & Services Homelab (24/7)
+## 🌐 Configuration propre à chaque instance
 
-Le bot est actuellement hébergé sur une **machine dédiée personnelle allumée 24h/24** ("Lordi" / homelab), connectée à un écosystème de services auto-hébergés et Cloud accessibles via **Cloudflare Zero Trust** sous le domaine `*.hextaz.dev`.
+Les consignes publiques décrivent l'architecture et les commandes du projet. Les adresses d'administration, inventaires de services, identifiants de projets cloud, chemins locaux et procédures d'exploitation propres au mainteneur restent dans une documentation privée, hors du suivi Git.
 
-### Inventaire des Services Disponibles
-
-| Catégorie | Service | URL / Destination | Description & Rôle pour Enigme Bot |
-| :--- | :--- | :--- | :--- |
-| **CI/CD & GitOps** | **Webhook Receiver (CD)** | `https://deploy.hextaz.dev` | Récepteur de webhooks GitHub sur Lordi. Déploie automatiquement le bot (`git pull`, `npm install`, redémarrage) à chaque push sur `main`. |
-| **Console de Logs** | **Lordi Logs Gateway** | `https://deploy.hextaz.dev/logs` | Console web unifiée chronologique & API brute pour inspecter les logs récents d'Enigme Bot en direct avec le token secret. |
-| **Monitoring & Infra** | **Uptime Kuma** | `https://status.hextaz.dev` | Statut 24/7 des bots & sites. ➜ Surveillance de santé ou heartbeat pour alerter immédiatement en cas de crash du bot ou de SQLite. |
-| **Productivité & Debug** | **MicroBin** | `https://bin.hextaz.dev` | Partage de code/texte éphémère (avec QR Code). ➜ Export de logs de crash, dumps de partie ou rapports MJ sans polluer Discord. |
-| | **Memos** | `https://notes.hextaz.dev` | Notes, TODOs, journal de bord & micro-blog. ➜ API REST pour stocker le backlog des énigmes ou noter les idées de gameplay. |
-| **Dépôt & Code** | **GitHub** | `https://github.com/Hextaz/enigme-bot` | Dépôt officiel du code source et gestion des issues. |
-
-### 🚀 Synergies & Cas d'Usage pour Enigme Bot
-1. **CI/CD Automatisé via `deploy.hextaz.dev`** : Tout commit pushé sur la branche `main` déclenche le webhook GitHub vers `https://deploy.hextaz.dev`, qui exécute le pull, le npm install et le redémarrage du bot sur Lordi en toute autonomie.
-2. **Console de Logs & Diagnostic IA** : Consultation en direct sur `https://deploy.hextaz.dev/logs?app=enigme-bot&token=SECRET` pour débugger les parties et alertes automatiques Discord avec stack trace en cas d'exception non interceptée.
-3. **Healthcheck 24/7 & Uptime Kuma** : Surveillance de la connexion WebSocket Discord et de la santé de SQLite (`sequelize.authenticate()`), permettant à Uptime Kuma de surveiller le bot H24.
-4. **Export de Logs & Debug vers MicroBin** : Pour les commandes d'administration (ex: `/admin logs` ou en cas d'erreur non interceptée), pousser la stacktrace ou l'historique vers `bin.hextaz.dev` et renvoyer un lien propre en message éphémère au MJ.
-5. **Banque d'Énigmes via Memos** : Exploiter l'API de `notes.hextaz.dev` pour alimenter automatiquement les énigmes quotidiennes ou sauvegarder les propositions des joueurs.
+- Utiliser uniquement les environnements et services explicitement autorisés pour la tâche. Une URL citée dans une documentation ne donne pas l'autorisation de contacter le service.
+- Fournir les paramètres et secrets par l'environnement de l'instance. Ne jamais placer de token dans une URL, un exemple versionné, un log ou un message GitHub.
+- Analyser les diagnostics localement par défaut. Avant tout partage de logs, stack traces, dumps ou données de joueurs, retirer les secrets et données personnelles ; ne transmettre que le minimum nécessaire, vers la destination expressément autorisée par l'utilisateur.
+- Ne pas déployer ni contacter la production pour une simple tâche de développement. Toute opération de production doit être demandée et vérifiée séparément.
 
 ---
 
@@ -211,22 +198,22 @@ DATABASE_STORAGE=/tmp/enigme-e2e.sqlite npm start
 * **Ségrégation Stderr vs Stdout** :
   * `stdout` (`console.log`) : Flux standard de l'application (`[INTERACTION]`, `[LOCK]`, `[GAME]`, `[CRON]`, `[HEALTH]`, `[REGISTRY]`).
   * `stderr` (`console.error`, `console.warn`) : Avertissements légers (`[WARN]`), timeouts d'interactions Discord (`[TIMEOUT]`), et exceptions (`[ERROR]`).
-  * Permet la consultation isolée (`&filter=out`, `&filter=err`) ou unifiée (`&filter=all`) sur la console `https://deploy.hextaz.dev/logs`.
+  * Permet la consultation séparée ou regroupée des flux dans l'environnement autorisé, sans publier les adresses d'administration.
 * **Préfixes Normalisés** :
   * `[INTERACTION]` : Déclenchement d'une interaction utilisateur (`[INTERACTION] <userId> - <customId/commandName>`).
   * `[LOCK]` : Acquisition, refus ou libération de verrous transactionnels (`[LOCK] Acquis pour <userId>`).
   * `[GAME]` : Événements métier (déplacements, passage de cases, achat d'objets, étoiles).
   * `[CRON]` : Exécution des automatismes horaires/journaliers (11h distribution, clôture énigme 21h).
   * `[ADMIN]` : Actions exécutées par le MJ ou commandes privilégiées.
-  * `[HEALTH]` : Envois de battements de cœur vers Uptime Kuma (`status.hextaz.dev`).
+  * `[HEALTH]` : État du service ou battements de cœur vers le monitoring configuré pour l'instance.
   * `[WARN]` / `[TIMEOUT]` : Alertes non critiques (ex: interaction Discord 10062 expirée).
   * `[ERROR]` : Erreurs d'exécution et exceptions critiques.
 * **Capture des Crashs & Stack Traces (Bus PM2)** :
   * Toujours passer l'objet `Error` en second argument : `console.error('[ERROR] Échec lors de la transaction:', error)` au lieu de le caster en chaîne pour préserver la stack trace complète sur `stderr`.
-  * Le bus d'événements PM2 (`pm2.launchBus`) sur Lordi écoute `process:exception` et relaie instantanément les plantages avec stack trace complète sous forme d'embed d'alerte rouge sur Discord.
-* **Dumps Volumineux & MicroBin** :
+  * Si un bus PM2 (`pm2.launchBus`) relaie les plantages, vérifier que la destination est autorisée et que les alertes n'exposent ni secrets, ni données de joueurs, ni réponses d'énigmes.
+* **Diagnostics volumineux** :
   * Ne jamais dumper de gros objets JSON ou de buffers Canvas dans la console.
-  * Pour exporter un diagnostic d'erreur complexe ou un état de plateau étendu, générer un paste sur `https://bin.hextaz.dev` et logger uniquement l'URL retournée.
+  * Conserver les diagnostics localement par défaut. Ne transmettre un extrait qu'après suppression des secrets, données personnelles, solutions d'énigmes et informations privées de partie, vers une destination autorisée.
 
 ### 5. Registre Vivant des Cas Limites (`docs/EDGE_CASES.md`)
 * Toute modification de code impactant des règles de bordure, des transitions d'états (inactifs, fantômes, fin de saison), des transactions économiques ou des résiliences Discord DOIT maintenir [`docs/EDGE_CASES.md`](docs/EDGE_CASES.md) rigoureusement synchronisé.

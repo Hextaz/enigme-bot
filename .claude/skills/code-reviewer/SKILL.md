@@ -63,8 +63,8 @@ Le reviewer peut être sollicité selon 3 modes :
 * **Tâches Planifiées (`src/game/cron.ts`)** : Pas de crons qui se chevauchent ou accumulent des listeners non libérés.
 * **Stabilité Processus 24/7 & Homelab** :
   - Le bot tourne H24 sur machine dédiée : zéro fuite mémoire cumulative (buffers Canvas résiduels, collections non purgées).
-  - Intégration Monitoring : compatibilité avec Uptime Kuma (`https://status.hextaz.dev`) via un ping/healthcheck sans bloquer l'Event Loop.
-  - Export de crashs propres vers MicroBin (`https://bin.hextaz.dev`) au lieu d'inonder la console.
+  - Monitoring de l'instance : ping/healthcheck sans bloquer l'Event Loop, sans publier ses adresses d'administration.
+  - Diagnostics analysés localement ; partage externe uniquement après suppression des données sensibles et autorisation de la destination.
 
 ### 4. 🗄️ Intégrité des Données SQLite & Sequelize (Note /20)
 * **Transactions Atomiques** : Les opérations impliquant plusieurs mises à jour liées (ex: achat d'étoile avec déduction de 20 pièces, vol Boo entre deux joueurs, échange Coup du Sort) doivent impérativement s'exécuter dans une transaction Sequelize (`sequelize.transaction()`).
