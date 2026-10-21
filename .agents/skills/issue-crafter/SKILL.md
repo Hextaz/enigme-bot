@@ -83,12 +83,10 @@ Avant de formaliser la spec, Claude inspecte le code réel pour ancrer le ticket
 5. **Rendu Visuel Canvas (`src/utils/canvas.ts`)** :
    - Un affichage sur le plateau ou une carte visuelle est-elle requise ?
    - Quelles dimensions, assets et animations d'icônes sont nécessaires ?
-6. **Synergies Homelab & Services 24/7 (`*.hextaz.dev`)** :
-   - La feature peut-elle s'appuyer sur l'écosystème de la machine hôte 24/7 ?
-     - **Uptime Kuma** (`status.hextaz.dev`) : surveillance de santé ou heartbeat.
-     - **MicroBin** (`bin.hextaz.dev`) : export de logs, rapports d'erreurs ou dumps de tour/partie.
-     - **Memos** (`notes.hextaz.dev`) : alimentation de la banque d'énigmes via API REST.
-     - **Cloudflare Tunnel** (`*.hextaz.dev`) : exposition d'une interface web légère ou de webhooks sécurisés.
+6. **Intégrations et exploitation propres à l'instance** :
+   - Évaluer les besoins de monitoring, de stockage et d'exposition réseau sans dépendre de services privés du mainteneur.
+   - Décrire les intégrations par leur fonction ; les coordonnées et moyens d'accès restent hors du dépôt public.
+   - Aucun export automatique de logs, états de partie ou solutions d'énigmes. Un partage externe demande une destination autorisée et la suppression des informations sensibles.
 
 ---
 
